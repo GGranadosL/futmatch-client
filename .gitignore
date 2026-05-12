@@ -1,0 +1,23 @@
+# Xcode
+.DS_Store
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+DerivedData/
+build/
+.build/
+
+# Swift Package Manager
+.swiftpm/
+*.xcworkspace/
+Package.resolved
+
+# Pods
+Pods/
+*.podlock
+
+# Local
+.env
+*.local
+
+# IDE
+.vscode/
