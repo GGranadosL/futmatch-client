@@ -157,7 +157,8 @@ public enum AuthError: LocalizedError {
     case invalidCredentials
     case tokenExpired
     case networkError
-    
+    case firebaseSignInFailed
+
     public var errorDescription: String? {
         switch self {
         case .deviceIdNotFound:
@@ -168,6 +169,8 @@ public enum AuthError: LocalizedError {
             return "La sesión ha expirado"
         case .networkError:
             return "Error de conexión"
+        case .firebaseSignInFailed:
+            return "No se pudo completar la autenticación. Intenta de nuevo."
         }
     }
 }

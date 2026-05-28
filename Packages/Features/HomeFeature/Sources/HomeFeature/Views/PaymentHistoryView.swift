@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import FMDesignSystem
 
 // MARK: - PaymentHistoryView
@@ -6,6 +7,7 @@ import FMDesignSystem
 struct PaymentHistoryView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel: PaymentHistoryViewModel
+    @State private var showCopiedToast = false
 
     init(viewModel: PaymentHistoryViewModel) {
         _viewModel = StateObject(wrappedValue: viewModel)
@@ -13,41 +15,25 @@ struct PaymentHistoryView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            headerBar
             content
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(FMColors.background)
         .navigationBarBackButtonHidden(true)
-        .navigationBarHidden(true)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                FMBackButton { dismiss() }
+            }
+            ToolbarItem(placement: .principal) {
+                Text(L10n.PaymentHistory.title)
+                    .font(FMTypography.titleMedium)
+                    .foregroundColor(FMColors.onBackground)
+            }
+        }
         .task {
             await viewModel.load()
         }
-    }
-
-    // MARK: - Header Bar
-
-    private var headerBar: some View {
-        ZStack {
-            Text(L10n.PaymentHistory.title)
-                .font(FMTypography.titleMedium)
-                .foregroundColor(FMColors.onBackground)
-
-            HStack {
-                Button {
-                    dismiss()
-                } label: {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.black)
-                        .padding(8)
-                        .background(Circle().fill(.white))
-                }
-                Spacer()
-            }
-        }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 12)
+        .fmToast(L10n.Common.copied, isPresented: $showCopiedToast, style: .success, duration: 1.5)
     }
 
     // MARK: - Content
@@ -95,7 +81,7 @@ struct PaymentHistoryView: View {
         }
     }
 
-    // MARK: - Payment Table
+    // MARK: - Payment List
 
     private var paymentTable: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -106,77 +92,85 @@ struct PaymentHistoryView: View {
                 .padding(.top, 16)
                 .padding(.bottom, 8)
 
-            ScrollView([.horizontal, .vertical], showsIndicators: true) {
-                VStack(spacing: 0) {
-                    tableHeader
-                    Divider()
-                    tableRows
+            ScrollView {
+                LazyVStack(spacing: 12) {
+                    ForEach(viewModel.payments) { payment in
+                        paymentCard(payment)
+                    }
                 }
                 .padding(.horizontal, 16)
+                .padding(.top, 4)
                 .padding(.bottom, 100)
             }
         }
     }
 
-    private var tableHeader: some View {
-        HStack(spacing: 0) {
-            headerCell(L10n.PaymentHistory.columnDate, width: 100)
-            headerCell(L10n.PaymentHistory.columnAmount, width: 100)
-            headerCell(L10n.PaymentHistory.columnStatus, width: 110)
-            headerCell(L10n.PaymentHistory.columnTransactionId, width: 170)
-            headerCell(L10n.PaymentHistory.columnCard, width: 90)
-        }
-        .padding(.vertical, 10)
-    }
+    private func paymentCard(_ payment: PaymentHistoryItem) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            // Amount + status
+            HStack(alignment: .firstTextBaseline) {
+                Text(payment.formattedAmount)
+                    .font(FMTypography.titleMedium)
+                    .foregroundColor(FMColors.onBackground)
+                Spacer()
+                statusPill(payment)
+            }
 
-    private func headerCell(_ text: String, width: CGFloat) -> some View {
-        Text(text)
-            .font(FMTypography.labelSmall)
-            .foregroundColor(FMColors.onSurfaceVariant)
-            .frame(width: width, alignment: .leading)
-    }
+            Divider()
 
-    private var tableRows: some View {
-        ForEach(viewModel.payments) { payment in
-            VStack(spacing: 0) {
-                tableRow(payment)
-                Divider()
+            // Date + card
+            HStack {
+                Label {
+                    Text(payment.formattedShortDate)
+                        .font(FMTypography.bodySmall)
+                        .foregroundColor(FMColors.onSurfaceVariant)
+                } icon: {
+                    Image(systemName: "calendar")
+                        .font(.system(size: 13))
+                        .foregroundColor(FMColors.onSurfaceVariant)
+                }
+
+                Spacer()
+
+                if payment.paymentMethod != nil {
+                    Label {
+                        Text(cardText(payment))
+                            .font(FMTypography.bodySmall)
+                            .foregroundColor(FMColors.onSurface)
+                    } icon: {
+                        Image(systemName: payment.brandIcon)
+                            .font(.system(size: 13))
+                            .foregroundColor(FMColors.onSurfaceVariant)
+                    }
+                }
+            }
+
+            // Transaction id (truncated, tap to copy)
+            HStack(spacing: 6) {
+                Text(payment.id)
+                    .font(FMTypography.labelSmall)
+                    .foregroundColor(FMColors.onSurfaceVariant)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Image(systemName: "doc.on.doc")
+                    .font(.system(size: 11))
+                    .foregroundColor(FMColors.onSurfaceVariant)
+            }
+            .contentShape(Rectangle())
+            .onTapGesture {
+                UIPasteboard.general.string = payment.id
+                showCopiedToast = true
             }
         }
-    }
-
-    private func tableRow(_ payment: PaymentHistoryItem) -> some View {
-        HStack(spacing: 0) {
-            // Fecha
-            Text(payment.formattedShortDate)
-                .font(FMTypography.bodySmall)
-                .foregroundColor(FMColors.onSurface)
-                .frame(width: 100, alignment: .leading)
-
-            // Monto
-            Text(payment.formattedAmount)
-                .font(FMTypography.bodySmall)
-                .foregroundColor(FMColors.onSurface)
-                .frame(width: 100, alignment: .leading)
-
-            // Estatus
-            statusPill(payment)
-                .frame(width: 110, alignment: .leading)
-
-            // Id transacción
-            Text(payment.id)
-                .font(FMTypography.bodySmall)
-                .foregroundColor(FMColors.onSurfaceVariant)
-                .lineLimit(1)
-                .frame(width: 170, alignment: .leading)
-
-            // Tarjeta
-            Text(cardText(payment))
-                .font(FMTypography.bodySmall)
-                .foregroundColor(FMColors.onSurface)
-                .frame(width: 90, alignment: .leading)
-        }
-        .padding(.vertical, 12)
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(FMColors.surfaceContainerLowest)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(FMColors.outlineVariant, lineWidth: 1)
+        )
     }
 
     // MARK: - Status Pill

@@ -10,6 +10,7 @@ public struct OnboardingDraft: Codable {
     public let phoneCountryCode: String
     public let phone: String
     public let country: String
+    public let countryISO: String
     public let currentStep: Int
     public let createdAt: Date
     public let updatedAt: Date
@@ -23,6 +24,7 @@ public struct OnboardingDraft: Codable {
         phoneCountryCode: String = "+52",
         phone: String = "",
         country: String = "",
+        countryISO: String = "",
         currentStep: Int = 1,
         createdAt: Date = Date(),
         updatedAt: Date = Date()
@@ -35,6 +37,7 @@ public struct OnboardingDraft: Codable {
         self.phoneCountryCode = phoneCountryCode
         self.phone = phone
         self.country = country
+        self.countryISO = countryISO
         self.currentStep = currentStep
         self.createdAt = createdAt
         self.updatedAt = updatedAt

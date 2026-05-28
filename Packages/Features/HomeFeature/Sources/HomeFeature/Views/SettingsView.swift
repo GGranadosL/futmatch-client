@@ -34,6 +34,7 @@ struct SettingsView: View {
     @State private var presentCustomerSheet = false
     @State private var showPaymentHistory = false
     @State private var safariURL: URL? = nil
+    @State private var showLogoutAlert = false
 
     init(
         onLogout: (() -> Void)? = nil,
@@ -86,8 +87,6 @@ struct SettingsView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            headerBar
-            
             List {
                 // General section
                 Section {
@@ -99,7 +98,7 @@ struct SettingsView: View {
                 // Account actions section
                 Section {
                     Button {
-                        onLogout?()
+                        showLogoutAlert = true
                     } label: {
                         HStack(spacing: 14) {
                             Image(systemName: "rectangle.portrait.and.arrow.right")
@@ -118,7 +117,17 @@ struct SettingsView: View {
             .listStyle(.insetGrouped)
         }
         .background(FMColors.background)
-        .navigationBarHidden(true)
+        .navigationBarBackButtonHidden(true)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                FMBackButton { dismiss() }
+            }
+            ToolbarItem(placement: .principal) {
+                Text(L10n.Settings.title)
+                    .font(FMTypography.titleMedium)
+                    .foregroundColor(FMColors.onBackground)
+            }
+        }
         .onChange(of: paymentMethodsVM.customerSheet != nil) { ready in
             debugLog("customerSheet ready changed ready=\(ready)")
             if ready {
@@ -158,31 +167,14 @@ struct SettingsView: View {
         .sheet(item: $safariURL) { url in
             SafariBrowserView(url: url)
         }
-    }
-
-    // MARK: - Header Bar
-
-    private var headerBar: some View {
-        ZStack {
-            Text(L10n.Settings.title)
-                .font(FMTypography.titleMedium)
-                .foregroundColor(FMColors.onBackground)
-
-            HStack {
-                Button {
-                    dismiss()
-                } label: {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.black)
-                        .padding(8)
-                        .background(Circle().fill(.white))
-                }
-                Spacer()
+        .alert(L10n.Profile.logoutTitle, isPresented: $showLogoutAlert) {
+            Button(L10n.Profile.logoutConfirm, role: .destructive) {
+                onLogout?()
             }
+            Button(L10n.Common.cancel, role: .cancel) { }
+        } message: {
+            Text(L10n.Profile.logoutMessage)
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 12)
     }
 
     // MARK: - Row View

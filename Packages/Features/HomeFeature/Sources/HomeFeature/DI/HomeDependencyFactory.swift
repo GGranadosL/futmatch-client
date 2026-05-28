@@ -1,11 +1,26 @@
 import Foundation
+import SharedModels
 
 // MARK: - HomeDependencyFactory
 
 public struct HomeDependencyFactory {
-    private static let sharedMatchService: MatchServiceProtocol = MatchService()
+    private static let sharedMatchService      = MatchService(isDemoMode: false)
+    private static let sharedDemoMatchService  = MatchService(isDemoMode: true)
 
-    public init() {}
+    private let isDemoMode: Bool
+    private let countryRepository: CountryRepositoryProtocol
+
+    public init(isDemoMode: Bool = false,
+                countryRepository: CountryRepositoryProtocol = FallbackCountryRepository()) {
+        self.isDemoMode = isDemoMode
+        self.countryRepository = countryRepository
+    }
+
+    // MARK: - Countries
+
+    public func makeFetchCountriesUseCase() -> FetchCountriesUseCaseProtocol {
+        FetchCountriesUseCase(repository: countryRepository)
+    }
 
     // MARK: - Services
 
@@ -21,8 +36,8 @@ public struct HomeDependencyFactory {
 
     // MARK: - Match Services
 
-    func makeMatchService() -> MatchServiceProtocol {
-        Self.sharedMatchService
+    func makeMatchService() -> MatchService {
+        isDemoMode ? Self.sharedDemoMatchService : Self.sharedMatchService
     }
 
     func makeFetchMatchesUseCase() -> FetchMatchesUseCaseProtocol {
@@ -67,5 +82,29 @@ public struct HomeDependencyFactory {
     @MainActor
     func makePaymentHistoryViewModel() -> PaymentHistoryViewModel {
         PaymentHistoryViewModel(paymentService: makePaymentService())
+    }
+
+    // MARK: - Player Profile
+
+    func makeProfileService() -> ProfileServiceProtocol {
+        ProfileService()
+    }
+
+    @MainActor
+    func makePlayerProfileViewModel(userId: String) -> PlayerProfileViewModel {
+        PlayerProfileViewModel(userId: userId, profileService: makeProfileService())
+    }
+
+    // MARK: - Notifications
+
+    @MainActor
+    func makeNotificationsViewModel() -> NotificationsViewModel {
+        let service: NotificationServiceProtocol = isDemoMode
+            ? DemoNotificationService()
+            : NotificationService()
+        return NotificationsViewModel(
+            notificationService: service,
+            fetchMatchDetailUseCase: makeFetchMatchDetailUseCase()
+        )
     }
 }

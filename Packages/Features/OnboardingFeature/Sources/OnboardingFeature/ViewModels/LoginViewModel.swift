@@ -1,5 +1,6 @@
 import Foundation
 import NetworkFramework
+import PersistenceFramework
 
 /// Login ViewModel
 @MainActor
@@ -11,18 +12,25 @@ public class LoginViewModel: ObservableObject {
     @Published var errorTitle = ""
     @Published var errorMessage = ""
     @Published var isLoginSuccessful = false
-    
+
     // MFA State
     @Published var showMFAVerification = false
     @Published var mfaUserId = ""
     @Published var mfaDeviceId = ""
     @Published var resendCodeTimeInSeconds = 60
     @Published var verificationCode = ""
-    
+
     private let loginUseCase: LoginUseCaseProtocol
-    
-    public init(loginUseCase: LoginUseCaseProtocol? = nil) {
+    /// Called after tokens are saved. Receives the Firebase custom token.
+    /// Throw to abort login (e.g. Firebase sign-in failed).
+    private let firebaseSignIn: ((String) async throws -> Void)?
+
+    public init(
+        loginUseCase: LoginUseCaseProtocol? = nil,
+        firebaseSignIn: ((String) async throws -> Void)? = nil
+    ) {
         self.loginUseCase = loginUseCase ?? LoginUseCase(authService: AuthService())
+        self.firebaseSignIn = firebaseSignIn
     }
     
     var isFormValid: Bool {
@@ -34,18 +42,19 @@ public class LoginViewModel: ObservableObject {
         isLoading = true
         isLoginSuccessful = false
         showError = false
-        
+
         do {
             let result = try await loginUseCase.execute(email: email, password: password)
-            isLoading = false
-            
+
             if result.requiresMFA {
-                // Navigate to MFA verification
+                isLoading = false
                 mfaUserId = result.userId
                 mfaDeviceId = result.deviceId
                 resendCodeTimeInSeconds = result.resendCodeTimeInSeconds
                 showMFAVerification = true
             } else {
+                try await performFirebaseSignIn()
+                isLoading = false
                 isLoginSuccessful = true
             }
         } catch {
@@ -53,17 +62,18 @@ public class LoginViewModel: ObservableObject {
             handleError(error)
         }
     }
-    
+
     func verifyMFACode() async {
         isLoading = true
         showError = false
-        
+
         do {
             _ = try await loginUseCase.verifyMFACode(
                 userId: mfaUserId,
                 deviceId: mfaDeviceId,
                 code: verificationCode
             )
+            try await performFirebaseSignIn()
             isLoading = false
             showMFAVerification = false
             isLoginSuccessful = true
@@ -91,7 +101,17 @@ public class LoginViewModel: ObservableObject {
     }
     
     // MARK: - Private Helpers
-    
+
+    /// Reads the Firebase token saved by the use case and calls the injected sign-in closure.
+    /// Throws `AuthError.firebaseSignInFailed` if the token is missing or sign-in fails.
+    private func performFirebaseSignIn() async throws {
+        guard let signIn = firebaseSignIn else { return }
+        guard let token = KeychainManager.shared.firebaseToken, !token.isEmpty else {
+            throw AuthError.firebaseSignInFailed
+        }
+        try await signIn(token)
+    }
+
     private func handleError(_ error: Error) {
         if let apiError = error as? APIError {
             errorTitle = apiError.errorTitle

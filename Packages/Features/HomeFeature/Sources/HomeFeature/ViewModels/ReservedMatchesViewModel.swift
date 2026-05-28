@@ -11,16 +11,20 @@ final class ReservedMatchesViewModel: ObservableObject {
     @Published private(set) var error: String?
 
     private let fetchMyMatchesUseCase: FetchMyMatchesUseCaseProtocol
-    private var cacheRepo: MatchCacheRepositoryProtocol?
+    private let cacheRepo: MatchCacheRepositoryProtocol?
     private var cancellables = Set<AnyCancellable>()
 
-    init(fetchMyMatchesUseCase: FetchMyMatchesUseCaseProtocol) {
+    init(
+        fetchMyMatchesUseCase: FetchMyMatchesUseCaseProtocol,
+        cacheRepo: MatchCacheRepositoryProtocol? = nil
+    ) {
         self.fetchMyMatchesUseCase = fetchMyMatchesUseCase
+        self.cacheRepo = cacheRepo
+        // Pre-load cache synchronously so the first render already has data
+        if let cached = cacheRepo?.loadMatches(), !cached.isEmpty {
+            myMatches = cached
+        }
         observeMembershipChanges()
-    }
-
-    func setCache(_ repo: MatchCacheRepositoryProtocol) {
-        cacheRepo = repo
     }
 
     func load() async {

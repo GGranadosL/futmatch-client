@@ -275,6 +275,19 @@ public enum L10n {
         }
     }
     
+    // MARK: - Registration Success
+    public enum RegistrationSuccess {
+        public static var title: String {
+            NSLocalizedString("registration.success.title", bundle: .module, comment: "")
+        }
+        public static var subtitle: String {
+            NSLocalizedString("registration.success.subtitle", bundle: .module, comment: "")
+        }
+        public static var cta: String {
+            NSLocalizedString("registration.success.cta", bundle: .module, comment: "")
+        }
+    }
+
     // MARK: - Common
     public enum Common {
         public static var ok: String {

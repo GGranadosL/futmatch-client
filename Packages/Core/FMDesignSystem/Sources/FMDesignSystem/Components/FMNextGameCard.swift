@@ -118,52 +118,6 @@ public struct FMNextGameCard: View {
     }
 }
 
-// MARK: - Empty State
-
-/// Empty state variant for when there's no upcoming game
-public struct FMNextGameEmptyCard: View {
-    let emptyMessage: String
-    let actionLabel: String
-    var onActionTap: (() -> Void)?
-    
-    public init(
-        emptyMessage: String,
-        actionLabel: String,
-        onActionTap: (() -> Void)? = nil
-    ) {
-        self.emptyMessage = emptyMessage
-        self.actionLabel = actionLabel
-        self.onActionTap = onActionTap
-    }
-    
-    public var body: some View {
-        VStack(spacing: 8) {
-            Text(emptyMessage)
-                .font(FMTypography.bodyMedium)
-                .foregroundColor(FMColors.onSurfaceVariant)
-            
-            Button {
-                onActionTap?()
-            } label: {
-                Text(actionLabel)
-                    .font(FMTypography.labelLarge)
-                    .foregroundColor(FMColors.primary)
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 24)
-        .padding(.horizontal, 16)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(FMColors.surfaceContainerLowest)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(FMColors.outlineVariant, lineWidth: 1)
-        )
-    }
-}
-
 // MARK: - Previews
 #Preview("With Game") {
     FMNextGameCard(
@@ -172,14 +126,6 @@ public struct FMNextGameEmptyCard: View {
         time: "19:50 PM",
         location: "CDXM Roma Norte",
         detailLabel: "Ver detalle"
-    )
-    .padding()
-}
-
-#Preview("Empty State") {
-    FMNextGameEmptyCard(
-        emptyMessage: "Sin próximo partido",
-        actionLabel: "Unirme a un partido"
     )
     .padding()
 }

@@ -36,7 +36,7 @@ public final class UserProfileCoreDataRepository: UserProfileCacheProtocol {
         object.setValue(user.status.rawValue, forKey: "status")
         object.setValue(user.country, forKey: "country")
         object.setValue(user.birthDate, forKey: "birthDate")
-        object.setValue(user.gender.rawValue, forKey: "gender")
+        object.setValue(user.gender?.rawValue, forKey: "gender")
         object.setValue(user.playerPosition.rawValue, forKey: "playerPosition")
         object.setValue(user.profilePic, forKey: "profilePic")
         object.setValue(user.level.rawValue, forKey: "level")
@@ -55,35 +55,30 @@ public final class UserProfileCoreDataRepository: UserProfileCacheProtocol {
             let id = object.value(forKey: "id") as? String,
             let name = object.value(forKey: "name") as? String,
             let lastName = object.value(forKey: "lastName") as? String,
-            let email = object.value(forKey: "email") as? String,
-            let phone = object.value(forKey: "phone") as? String,
-            let statusRaw = object.value(forKey: "status") as? String,
             let country = object.value(forKey: "country") as? String,
-            let birthDate = object.value(forKey: "birthDate") as? Date,
-            let genderRaw = object.value(forKey: "gender") as? String,
             let positionRaw = object.value(forKey: "playerPosition") as? String,
             let profilePic = object.value(forKey: "profilePic") as? String,
-            let levelRaw = object.value(forKey: "level") as? String,
-            let roleRaw = object.value(forKey: "userRole") as? String
+            let levelRaw = object.value(forKey: "level") as? String
         else { return nil }
 
-        let isEmailVerified = object.value(forKey: "isEmailVerified") as? Bool ?? false
+        let genderRaw = object.value(forKey: "gender") as? String
+        let gender = genderRaw.flatMap { Gender(rawValue: $0) }
 
         return User(
             id: id,
             name: name,
             lastName: lastName,
-            email: email,
-            phone: phone,
-            status: UserStatus(rawValue: statusRaw) ?? .active,
+            email: object.value(forKey: "email") as? String ?? "",
+            phone: object.value(forKey: "phone") as? String ?? "",
+            status: (object.value(forKey: "status") as? String).flatMap { UserStatus(rawValue: $0) } ?? .active,
             country: country,
-            birthDate: birthDate,
-            gender: Gender(rawValue: genderRaw) ?? .other,
+            birthDate: object.value(forKey: "birthDate") as? Date ?? Date(),
+            gender: gender,
             playerPosition: PlayerPosition(rawValue: positionRaw) ?? .midfielder,
             profilePic: profilePic,
             level: PlayerLevel(rawValue: levelRaw) ?? .beginner,
-            userRole: UserRole(rawValue: roleRaw) ?? .player,
-            isEmailVerified: isEmailVerified
+            userRole: (object.value(forKey: "userRole") as? String).flatMap { UserRole(rawValue: $0) } ?? .player,
+            isEmailVerified: object.value(forKey: "isEmailVerified") as? Bool ?? false
         )
     }
 

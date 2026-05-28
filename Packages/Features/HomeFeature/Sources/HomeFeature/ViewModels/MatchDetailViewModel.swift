@@ -34,6 +34,14 @@ final class MatchDetailViewModel: ObservableObject {
 
     /// True when the current user has a JOINED slot (payment confirmed).
     @Published private(set) var isCurrentUserJoined = false
+
+    /// True when the current user is part of the match in any capacity (reserved or joined).
+    /// Used to hide the "join" slot once the user has a spot.
+    var isCurrentUserInMatch: Bool {
+        guard let userId = KeychainManager.shared.userId else { return false }
+        let all = (liveTeamAPlayers ?? []) + (liveTeamBPlayers ?? [])
+        return all.contains { $0.playerId == userId }
+    }
     @Published private(set) var isLeaving = false
     @Published private(set) var leaveError: String?
     /// Becomes true after a successful leave — view should dismiss.

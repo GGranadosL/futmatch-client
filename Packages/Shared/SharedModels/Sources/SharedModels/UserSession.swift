@@ -1,7 +1,64 @@
 import Foundation
 import NetworkFramework
 
-// MARK: - User Profile Response (DTO)
+// MARK: - Profile DTOs (/profiles/me and /profiles/{userId})
+
+struct ProfileMeResponse: Decodable {
+    let data: ProfileMeDTO
+}
+
+struct ProfileMeDTO: Decodable {
+    let id: String
+    let name: String
+    let lastName: String
+    let country: String
+    let playerPosition: PlayerPosition
+    let profilePic: String?
+    let level: PlayerLevel
+    let averageScore: Int
+    let stats: PlayerStatsDTO
+
+    /// Builds the domain `User` from /profiles/me, optionally merging identity
+    /// fields (gender, email, phone, birthDate…) from the legacy /user response.
+    func toDomain(identity: UserDTO? = nil) -> User {
+        User(
+            id: id,
+            name: name,
+            lastName: lastName,
+            email: identity?.email ?? "",
+            phone: identity?.phone ?? "",
+            status: UserStatus(rawValue: identity?.status ?? "") ?? .active,
+            country: country,
+            birthDate: identity.map { Date(timeIntervalSince1970: TimeInterval($0.birthDate) / 1000) } ?? Date(),
+            gender: identity?.gender,
+            playerPosition: playerPosition,
+            profilePic: profilePic ?? "",
+            level: level,
+            userRole: identity?.userRole ?? .player,
+            isEmailVerified: identity?.isEmailVerified ?? false,
+            averageScore: averageScore,
+            stats: stats.toDomain()
+        )
+    }
+}
+
+struct PlayerStatsDTO: Decodable {
+    let matchesPlayed: Int
+    let matchesWon: Int
+    let mvpCount: Int
+    let totalGoals: Int
+
+    func toDomain() -> PlayerStats {
+        PlayerStats(
+            matchesPlayed: matchesPlayed,
+            matchesWon: matchesWon,
+            mvpCount: mvpCount,
+            totalGoals: totalGoals
+        )
+    }
+}
+
+// MARK: - Legacy User DTO (GET /user — kept for edit-profile update endpoints)
 
 struct UserProfileResponse: Decodable {
     let data: UserDTO
@@ -22,48 +79,58 @@ struct UserDTO: Decodable {
     let level: PlayerLevel
     let userRole: UserRole
     let isEmailVerified: Bool?
-    
-    func toDomain() -> User {
-        User(
-            id: id,
-            name: name,
-            lastName: lastName,
-            email: email,
-            phone: phone,
-            status: UserStatus(rawValue: status ?? "") ?? .active,
-            country: country,
-            birthDate: Date(timeIntervalSince1970: TimeInterval(birthDate) / 1000),
-            gender: gender,
-            playerPosition: playerPosition,
-            profilePic: profilePicUrl ?? "",
-            level: level,
-            userRole: userRole,
-            isEmailVerified: isEmailVerified ?? false
-        )
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, lastName, email, phone, status, country, birthDate
+        case gender, playerPosition, level, userRole, isEmailVerified
+        case profilePicUrl = "profilePic"
     }
 }
 
-// MARK: - User Endpoint
+// MARK: - Profile Endpoint
 
-enum UserEndpoint: APIEndpoint {
-    case profile
-    case uploadProfilePic
-    
-    var path: String {
+public enum ProfileEndpoint: APIEndpoint {
+    case me
+    case publicProfile(userId: String)
+
+    public var path: String {
         switch self {
-        case .profile:
-            return "/user"
-        case .uploadProfilePic:
-            return "/user/profile-pic"
+        case .me:                           return "/profiles/me"
+        case .publicProfile(let userId):    return "/profiles/\(userId)"
         }
     }
-    
+
+    public var method: HTTPMethod { .get }
+}
+
+// MARK: - User Endpoint (edit operations)
+
+enum UserEndpoint: APIEndpoint {
+    /// Legacy /user — still used to read identity fields (gender, email, phone)
+    /// that /profiles/me omits.
+    case profile
+    case uploadProfilePic
+    case updateName
+    case updateCountry
+    case updateGender
+    case updatePosition
+
+    var path: String {
+        switch self {
+        case .profile:          return "/user"
+        case .uploadProfilePic: return "/user/profile-pic"
+        case .updateName:       return "/user/profile/name"
+        case .updateCountry:    return "/user/profile/country"
+        case .updateGender:     return "/user/profile/gender"
+        case .updatePosition:   return "/user/profile/position"
+        }
+    }
+
     var method: HTTPMethod {
         switch self {
-        case .profile:
-            return .get
-        case .uploadProfilePic:
-            return .post
+        case .profile:          return .get
+        case .uploadProfilePic: return .post
+        default:                return .patch
         }
     }
 }
@@ -103,8 +170,16 @@ public final class UserSession: ObservableObject {
         error = nil
 
         do {
-            let response: UserProfileResponse = try await apiClient.request(endpoint: UserEndpoint.profile)
-            let user = response.data.toDomain()
+            // /profiles/me carries stats + averageScore; /user carries identity
+            // fields (gender, email, phone) that /profiles/me omits. Fetch both
+            // concurrently and merge. /user is best-effort — if it fails we still
+            // surface the profile data.
+            async let profileTask: ProfileMeResponse = apiClient.request(endpoint: ProfileEndpoint.me)
+            async let identityTask: UserProfileResponse? = try? await apiClient.request(endpoint: UserEndpoint.profile)
+
+            let response = try await profileTask
+            let identity = await identityTask?.data
+            let user = response.data.toDomain(identity: identity)
             currentUser = user
             try? cache?.save(user)
         } catch {
@@ -139,6 +214,73 @@ public final class UserSession: ObservableObject {
             mimeType: "image/jpeg"
         )
         // Clear stale cache so fetchProfile doesn't restore old profilePic
+        try? cache?.clear()
+        await fetchProfile()
+    }
+
+    /// Update user profile fields (name, country, gender, position, etc.)
+    public func updateProfile(
+        firstName: String? = nil,
+        lastName: String? = nil,
+        countryISO: String? = nil,
+        gender: Gender? = nil,
+        playerPosition: PlayerPosition? = nil
+    ) async throws {
+        struct EmptyResponse: Decodable {
+            let data: EmptyData?
+        }
+        struct EmptyData: Decodable {}
+
+        // Update name if provided
+        if let firstName = firstName, let lastName = lastName {
+            struct UpdateNameRequest: Encodable {
+                let name: String
+                let lastName: String
+            }
+            let nameRequest = UpdateNameRequest(name: firstName, lastName: lastName)
+            let _: EmptyResponse = try await apiClient.request(
+                endpoint: UserEndpoint.updateName,
+                body: nameRequest
+            )
+        }
+
+        // Update country if provided
+        if let countryISO = countryISO {
+            struct UpdateCountryRequest: Encodable {
+                let countryCode: String
+            }
+            let countryRequest = UpdateCountryRequest(countryCode: countryISO)
+            let _: EmptyResponse = try await apiClient.request(
+                endpoint: UserEndpoint.updateCountry,
+                body: countryRequest
+            )
+        }
+
+        // Update gender if provided
+        if let gender = gender {
+            struct UpdateGenderRequest: Encodable {
+                let gender: Gender
+            }
+            let genderRequest = UpdateGenderRequest(gender: gender)
+            let _: EmptyResponse = try await apiClient.request(
+                endpoint: UserEndpoint.updateGender,
+                body: genderRequest
+            )
+        }
+
+        // Update position if provided
+        if let playerPosition = playerPosition {
+            struct UpdatePositionRequest: Encodable {
+                let position: PlayerPosition
+            }
+            let positionRequest = UpdatePositionRequest(position: playerPosition)
+            let _: EmptyResponse = try await apiClient.request(
+                endpoint: UserEndpoint.updatePosition,
+                body: positionRequest
+            )
+        }
+
+        // Clear stale cache and refresh
         try? cache?.clear()
         await fetchProfile()
     }

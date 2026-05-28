@@ -2,7 +2,8 @@ import SwiftUI
 import UIKit
 import FMDesignSystem
 import PersistenceFramework
-import StripePaymentSheet
+@_spi(CustomerSessionBetaAccess) import StripePaymentSheet
+import Lottie
 
 // MARK: - Shimmer Effect
 
@@ -77,9 +78,14 @@ struct MatchDetailView: View {
     @StateObject private var viewModel: MatchDetailViewModel
     private var match: MatchItem { viewModel.match }
     private let currentUserId: String? = KeychainManager.shared.userId
+    private let isDemoMode: Bool
 
-    init(match: MatchItem) {
-        let factory = HomeDependencyFactory()
+    /// Player whose public profile is being shown (drives navigation).
+    @State private var selectedPlayerId: String? = nil
+
+    init(match: MatchItem, isDemoMode: Bool = false) {
+        self.isDemoMode = isDemoMode
+        let factory = HomeDependencyFactory(isDemoMode: isDemoMode)
         self._viewModel = StateObject(wrappedValue: MatchDetailViewModel(
             initialMatch: match,
             fetchDetailUseCase: factory.makeFetchMatchDetailUseCase(),
@@ -104,6 +110,10 @@ struct MatchDetailView: View {
     @State private var showLeaveConfirm = false
     @State private var showLeaveNoRefund = false
     @State private var showLeaveSuccess = false
+    /// True after the 5-min reservation expired locally but the backend hasn't
+    /// yet removed the user from the team in Firebase. Hides the join button and
+    /// shows the "reservation expired / processing cancellation" message.
+    @State private var reservationExpired = false
 
     // MARK: - Payment State
 
@@ -248,17 +258,18 @@ struct MatchDetailView: View {
         .navigationBarBackButtonHidden(true)
         .toolbar {
             ToolbarItem(placement: .navigationBarLeading) {
-                Button {
-                    dismiss()
-                } label: {
-                    Image(systemName: "chevron.backward")
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundColor(.white)
-                        .shadow(color: .black.opacity(0.6), radius: 3, x: 0, y: 1)
-                }
+                FMBackButton { dismiss() }
             }
         }
         .modifier(HideTabBarModifier())
+        .navigationDestination(isPresented: Binding(
+            get: { selectedPlayerId != nil },
+            set: { if !$0 { selectedPlayerId = nil } }
+        )) {
+            if let id = selectedPlayerId {
+                PlayerProfileView(userId: id, isDemoMode: isDemoMode)
+            }
+        }
         .task { await viewModel.loadDetail() }
         .task { await viewModel.subscribeToPlayers() }
         .modifier(MatchDetailModifiers(view: self))
@@ -292,6 +303,11 @@ struct MatchDetailView: View {
             .onChange(of: viewModel.matchCancelled) { cancelled in
                 guard cancelled else { return }
                 dismiss()
+            }
+            .onChange(of: viewModel.isCurrentUserInMatch) { inMatch in
+                // Once the backend removes the expired reservation from Firebase,
+                // clear the expired message so the user can join again.
+                if !inMatch { reservationExpired = false }
             }
             .onChange(of: scenePhase) { phase in
                 guard phase == .active, hasJoined, let expiry = countdownExpiry else { return }
@@ -598,16 +614,22 @@ struct MatchDetailView: View {
             
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 12) {
+                    // Join slot always first — hidden for finished/canceled matches or once joined
+                    if !isCompletedMatch && !isCanceledMatch {
+                        joinSlot(for: team)
+                    }
+
                     // Existing players (joined + reserved)
                     ForEach(players) { player in
                         playerSlot(player: player)
                     }
-                    
+
                     // Empty slots to fill remaining capacity
                     ForEach(0..<emptyCount, id: \.self) { _ in
                         emptySlot
                     }
                 }
+                .padding(.vertical, 4)
             }
         }
         .padding(16)
@@ -628,6 +650,8 @@ struct MatchDetailView: View {
         let isReserved = player.status == .reserved
         let otherReserved = !isCurrentUser && isReserved
         let currentUserReserved = isCurrentUser && isReserved
+        // Tappable only for other (non-reserved, identified) players → opens their public profile.
+        let canOpenProfile = !isCurrentUser && !isReserved && !player.playerId.isEmpty
 
         return VStack(spacing: 4) {
             ZStack {
@@ -658,6 +682,11 @@ struct MatchDetailView: View {
                         )
                 }
             }
+            .overlay(alignment: .bottom) {
+                if !isReserved, let flag = player.countryFlag {
+                    flagBadge(flag)
+                }
+            }
 
             Text(isReserved ? L10n.MatchDetail.reserved : player.name)
                 .font(FMTypography.labelSmall)
@@ -665,6 +694,18 @@ struct MatchDetailView: View {
                 .lineLimit(1)
         }
         .frame(width: 56)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            guard canOpenProfile else { return }
+            selectedPlayerId = player.playerId
+        }
+    }
+
+    /// Flag badge anchored to the bottom of a player's avatar.
+    private func flagBadge(_ flag: String) -> some View {
+        Text(flag)
+            .font(.system(size: 16))
+            .offset(y: 6)
     }
 
     private func playerAvatar(url: String?, image: Image?, size: CGFloat) -> some View {
@@ -689,24 +730,24 @@ struct MatchDetailView: View {
     // MARK: - Join Slot
 
     private func joinSlot(for team: JoinTeam) -> some View {
-        // Hide the join slot once the current user holds a JOINED spot
-        guard !viewModel.isCurrentUserJoined else {
+        // Hide the join slot once the current user is in the match (reserved or joined)
+        guard !viewModel.isCurrentUserInMatch else {
             return AnyView(EmptyView())
         }
         return AnyView(
             VStack(spacing: 4) {
                 Circle()
-                    .stroke(FMColors.primary, style: StrokeStyle(lineWidth: 2, dash: [4]))
+                    .stroke(FMColors.onSurface, lineWidth: 1.5)
                     .frame(width: 44, height: 44)
                     .overlay(
-                        Image(systemName: "plus")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(FMColors.primary)
+                        Image(systemName: "person.fill.badge.plus")
+                            .font(.system(size: 18, weight: .medium))
+                            .foregroundColor(FMColors.onSurface)
                     )
 
                 Text(L10n.MatchDetail.joinSlot)
                     .font(FMTypography.labelSmall)
-                    .foregroundColor(FMColors.primary)
+                    .foregroundColor(FMColors.onSurface)
                     .lineLimit(1)
             }
             .frame(width: 56)
@@ -952,6 +993,22 @@ struct MatchDetailView: View {
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 12)
+            } else if reservationExpired && viewModel.isCurrentUserInMatch {
+                // Reservation expired and the backend is still processing the
+                // cancellation — show a message and hide the join button.
+                VStack(spacing: 6) {
+                    Text(L10n.MatchDetail.reservationExpiredTitle)
+                        .font(FMTypography.labelLarge)
+                        .foregroundColor(FMColors.onSurface)
+                        .multilineTextAlignment(.center)
+                    Text(L10n.MatchDetail.reservationExpiredMessage)
+                        .font(FMTypography.bodySmall)
+                        .foregroundColor(FMColors.onSurfaceVariant)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 16)
             } else {
                 // NOT joined: join button
                 Button {
@@ -999,6 +1056,7 @@ struct MatchDetailView: View {
             countdownExpiry = Date().addingTimeInterval(Double(ttlSeconds))
             countdownSeconds = ttlSeconds
             hasJoined = true
+            reservationExpired = false
             withAnimation(.easeInOut(duration: 0.25)) {
                 showJoinOverlay = true
             }
@@ -1023,7 +1081,9 @@ struct MatchDetailView: View {
         }
     }
 
-    /// User tapped "Cancelar" — reset everything (reservation not yet paid).
+    /// Reservation countdown reached 0 without payment — reset the join state and
+    /// show the "reservation expired / processing cancellation" message until the
+    /// backend removes the user from the team in Firebase.
     private func cancelJoin() {
         countdownTimer?.invalidate()
         countdownTimer = nil
@@ -1034,6 +1094,9 @@ struct MatchDetailView: View {
         withAnimation(.easeInOut(duration: 0.25)) {
             showJoinOverlay = false
             hasJoined = false
+            // Only show the expired message if the user is still reserved in
+            // Firebase; otherwise they can simply rejoin.
+            reservationExpired = viewModel.isCurrentUserInMatch
         }
     }
 
@@ -1069,6 +1132,13 @@ struct MatchDetailView: View {
         #endif
         var config = PaymentSheet.Configuration()
         config.merchantDisplayName = "FutMatch"
+        // Attach the customer so saved payment methods are shown in the sheet.
+        // The backend returns a CustomerSession client secret (cuss_…), NOT an
+        // ephemeral key — so it must go through the CustomerSession initializer.
+        config.customer = .init(
+            id: data.customer,
+            customerSessionClientSecret: data.customerSessionClientSecret
+        )
         paymentSheet = PaymentSheet(
             paymentIntentClientSecret: data.clientSecret,
             configuration: config
@@ -1351,6 +1421,11 @@ private struct LeaveSuccessOverlay: View {
 
 private struct PaymentSuccessOverlay: View {
     let onDismiss: () -> Void
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var animationName: String {
+        colorScheme == .dark ? "success_dark" : "success"
+    }
 
     var body: some View {
         ZStack {
@@ -1359,17 +1434,12 @@ private struct PaymentSuccessOverlay: View {
                 .onTapGesture { /* absorb taps behind card */ }
 
             VStack(spacing: 0) {
-                // Checkmark icon
-                ZStack {
-                    Circle()
-                        .fill(Color.green.opacity(0.15))
-                        .frame(width: 72, height: 72)
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 44))
-                        .foregroundColor(.green)
-                }
-                .padding(.top, 28)
-                .padding(.bottom, 16)
+                // Lottie animation
+                LottieView(animation: .named(animationName, bundle: .module))
+                    .playing(loopMode: .playOnce)
+                    .resizable()
+                    .frame(width: 140, height: 140)
+                    .padding(.top, 12)
 
                 // Title
                 Text(L10n.Payment.successTitle)

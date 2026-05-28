@@ -15,11 +15,20 @@ struct PaymentMethodsView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            headerBar
             content
         }
         .background(FMColors.background)
-        .navigationBarHidden(true)
+        .navigationBarBackButtonHidden(true)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                FMBackButton { dismiss() }
+            }
+            ToolbarItem(placement: .principal) {
+                Text(L10n.Settings.paymentMethods)
+                    .font(FMTypography.titleMedium)
+                    .foregroundColor(FMColors.onBackground)
+            }
+        }
         .task {
             debugLog("View task started")
             await viewModel.loadCustomerSheet()
@@ -46,31 +55,6 @@ struct PaymentMethodsView: View {
                 }
             }
         )
-    }
-
-    // MARK: - Header Bar
-
-    private var headerBar: some View {
-        ZStack {
-            Text(L10n.Settings.paymentMethods)
-                .font(FMTypography.titleMedium)
-                .foregroundColor(FMColors.onBackground)
-
-            HStack {
-                Button {
-                    dismiss()
-                } label: {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.black)
-                        .padding(8)
-                        .background(Circle().fill(.white))
-                }
-                Spacer()
-            }
-        }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 12)
     }
 
     // MARK: - Content

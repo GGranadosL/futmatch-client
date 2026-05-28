@@ -30,11 +30,14 @@ public struct FMDropdownField<Option: FMDropdownOption>: View {
     let options: [Option]
     var placeholder: String = ""
     var errorMessage: String? = nil
-    
+    /// When `true` the option list opens above the field instead of below.
+    /// Use this for dropdowns near the bottom of the screen.
+    var opensUpward: Bool = false
+
     private var isExpanded: Bool {
         activeDropdownId == dropdownId
     }
-    
+
     public init(
         label: String,
         dropdownId: String = UUID().uuidString,
@@ -42,7 +45,8 @@ public struct FMDropdownField<Option: FMDropdownOption>: View {
         activeDropdownId: Binding<String?>,
         options: [Option],
         placeholder: String = "",
-        errorMessage: String? = nil
+        errorMessage: String? = nil,
+        opensUpward: Bool = false
     ) {
         self.label = label
         self.dropdownId = dropdownId
@@ -51,6 +55,7 @@ public struct FMDropdownField<Option: FMDropdownOption>: View {
         self.options = options
         self.placeholder = placeholder
         self.errorMessage = errorMessage
+        self.opensUpward = opensUpward
     }
     
     private var hasSelection: Bool {
@@ -153,12 +158,15 @@ public struct FMDropdownField<Option: FMDropdownOption>: View {
             let maxVisibleItems = 5
             let visibleItems = min(options.count, maxVisibleItems)
             let listHeight = CGFloat(visibleItems) * itemHeight
-            
+            // Downward: clear the 56-pt field border + 4-pt gap.
+            // Upward: position the list bottom flush with the field top, minus a 4-pt gap.
+            let yOffset: CGFloat = opensUpward ? -(listHeight + 4) : 60
+
             ScrollView {
                 LazyVStack(spacing: 0) {
                     ForEach(options) { option in
                         optionRow(option, itemHeight: itemHeight)
-                        
+
                         if option.id != options.last?.id {
                             Divider()
                                 .background(FMColors.outline)
@@ -173,8 +181,13 @@ public struct FMDropdownField<Option: FMDropdownOption>: View {
                 RoundedRectangle(cornerRadius: 8)
                     .stroke(FMColors.outline, lineWidth: 1)
             )
-            .shadow(color: Color.black.opacity(0.15), radius: 12, x: 0, y: 4)
-            .offset(y: 60)
+            .shadow(
+                color: Color.black.opacity(0.15),
+                radius: 12,
+                x: 0,
+                y: opensUpward ? -4 : 4
+            )
+            .offset(y: yOffset)
         }
     }
     

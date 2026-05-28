@@ -17,6 +17,7 @@ struct MatchPlayer: Identifiable, Hashable {
     let avatarUrl: String?
     let avatarImage: Image?
     let status: PlayerStatus
+    let country: String?
 
     init(
         id: String = UUID().uuidString,
@@ -24,7 +25,8 @@ struct MatchPlayer: Identifiable, Hashable {
         name: String,
         avatarUrl: String? = nil,
         avatarImage: Image? = nil,
-        status: PlayerStatus = .joined
+        status: PlayerStatus = .joined,
+        country: String? = nil
     ) {
         self.id = id
         self.playerId = playerId
@@ -32,6 +34,16 @@ struct MatchPlayer: Identifiable, Hashable {
         self.avatarUrl = avatarUrl
         self.avatarImage = avatarImage
         self.status = status
+        self.country = country
+    }
+
+    /// Flag emoji derived from ISO-2 country code (e.g. "MX" → "🇲🇽"). Nil when unknown.
+    var countryFlag: String? {
+        guard let iso = country?.uppercased(),
+              iso.count == 2,
+              iso.unicodeScalars.allSatisfy({ $0.value >= 65 && $0.value <= 90 })
+        else { return nil }
+        return iso.unicodeScalars.map { String(Unicode.Scalar($0.value + 127397)!) }.joined()
     }
 
     static func == (lhs: MatchPlayer, rhs: MatchPlayer) -> Bool { lhs.id == rhs.id }
@@ -157,15 +169,16 @@ struct MatchesListView: View {
             matchesContent
         }
         .background(FMColors.background)
+        .task { await matchesViewModel.loadMatches() }
     }
-    
+
     // MARK: - Content by State
-    
+
     @ViewBuilder
     private var matchesContent: some View {
         switch matchesViewModel.state {
         case .idle, .loading:
-            loadingView
+            skeletonView
         case .loaded(let sections):
             if sections.isEmpty {
                 matchesEmptyState
@@ -178,50 +191,76 @@ struct MatchesListView: View {
     }
     
     private var matchesEmptyState: some View {
-        VStack(spacing: 16) {
-            Spacer()
-            Image("emptyStateMatches", bundle: .main)
-                .resizable()
-                .scaledToFit()
-                .frame(width: 80, height: 80)
-                .foregroundColor(FMColors.onSurfaceVariant)
-            Text(L10n.Matches.noMatchesAvailable)
-                .font(FMTypography.titleLarge)
-                .foregroundColor(FMColors.onBackground)
-                .bold()
-                .multilineTextAlignment(.center)
-            Text(L10n.Matches.noMatchesSubtitle)
-                .font(FMTypography.bodySmall)
-                .foregroundColor(FMColors.onSurfaceVariant)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 40)
-            Spacer()
+        ScrollView {
+            VStack(spacing: 16) {
+                Spacer(minLength: 80)
+                Image("emptyStateMatches", bundle: .main)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 80, height: 80)
+                    .foregroundColor(FMColors.onSurfaceVariant)
+                Text(L10n.Matches.noMatchesAvailable)
+                    .font(FMTypography.titleLarge)
+                    .foregroundColor(FMColors.onBackground)
+                    .bold()
+                    .multilineTextAlignment(.center)
+                Text(L10n.Matches.noMatchesSubtitle)
+                    .font(FMTypography.bodySmall)
+                    .foregroundColor(FMColors.onSurfaceVariant)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 40)
+                Spacer(minLength: 80)
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .refreshable {
+            await matchesViewModel.reload()
         }
     }
     
-    private var loadingView: some View {
-        VStack {
-            Spacer()
-            ProgressView()
-                .tint(FMColors.primary)
-            Spacer()
+    private var skeletonView: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 0) {
+                // Section header placeholder
+                FMSkeleton(cornerRadius: 4)
+                    .frame(width: 100, height: 22)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 20)
+                    .padding(.bottom, 12)
+
+                // Card placeholders
+                VStack(spacing: 12) {
+                    ForEach(0..<4, id: \.self) { _ in
+                        FMMatchCardSkeleton()
+                    }
+                }
+                .padding(.horizontal, 16)
+            }
+            .padding(.bottom, 100)
         }
+        .disabled(true)
     }
     
     private func errorView(message: String) -> some View {
-        VStack(spacing: 16) {
-            Spacer()
-            Text(message)
-                .font(FMTypography.bodyMedium)
-                .foregroundColor(FMColors.onSurfaceVariant)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 32)
-            Button(L10n.Common.retry) {
-                Task { await matchesViewModel.reload() }
+        ScrollView {
+            VStack(spacing: 16) {
+                Spacer(minLength: 80)
+                Text(message)
+                    .font(FMTypography.bodyMedium)
+                    .foregroundColor(FMColors.onSurfaceVariant)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 32)
+                Button(L10n.Common.retry) {
+                    Task { await matchesViewModel.reload() }
+                }
+                .font(FMTypography.labelLarge)
+                .foregroundColor(FMColors.primary)
+                Spacer(minLength: 80)
             }
-            .font(FMTypography.labelLarge)
-            .foregroundColor(FMColors.primary)
-            Spacer()
+            .frame(maxWidth: .infinity)
+        }
+        .refreshable {
+            await matchesViewModel.reload()
         }
     }
     

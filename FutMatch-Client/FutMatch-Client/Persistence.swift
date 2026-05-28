@@ -33,6 +33,11 @@ struct PersistenceController {
         } else {
             // Configure persistent store for production
             if let storeDescription = container.persistentStoreDescriptions.first {
+                // Enable lightweight migration so schema changes (e.g. removing unused entities)
+                // are applied automatically without requiring a mapping model.
+                storeDescription.shouldMigrateStoreAutomatically = true
+                storeDescription.shouldInferMappingModelAutomatically = true
+
                 // Enable persistent history tracking
                 storeDescription.setOption(true as NSNumber, forKey: NSPersistentHistoryTrackingKey)
                 storeDescription.setOption(true as NSNumber, forKey: NSPersistentStoreRemoteChangeNotificationPostOptionKey)

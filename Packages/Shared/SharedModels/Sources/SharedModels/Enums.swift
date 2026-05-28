@@ -2,7 +2,7 @@ import Foundation
 
 // MARK: - Gender
 
-public enum Gender: String, Codable, Equatable {
+public enum Gender: String, Codable, Equatable, CaseIterable {
     case male = "MALE"
     case female = "FEMALE"
     case other = "OTHER"
@@ -69,7 +69,7 @@ public enum PlayerLevel: String, Codable, Equatable {
 public enum UserRole: String, Codable, Equatable {
     case player = "PLAYER"
     case organizer = "ORGANIZER"
-    case administrator = "ADMINISTRATOR"
+    case administrator = "ADMIN"
 }
 
 // MARK: - User Status

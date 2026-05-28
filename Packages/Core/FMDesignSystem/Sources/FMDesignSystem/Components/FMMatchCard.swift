@@ -176,6 +176,8 @@ public struct FMMatchCard: View {
             
             Text(spotsLabel)
                 .font(FMTypography.labelSmall)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
         }
         .foregroundColor(badgeTextColor)
         .padding(.horizontal, 8)

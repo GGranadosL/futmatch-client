@@ -6,10 +6,20 @@ struct MatchListResponse: Decodable {
     let data: [MatchListItemDTO]
 }
 
+/// Image object returned by the production `/match/matches` endpoint.
+struct FieldImageDTO: Decodable {
+    let imagePath: String?
+}
+
 struct MatchListItemDTO: Decodable {
     let id: String
     let fieldName: String
-    let fieldImageUrl: String?
+    // Production endpoint: `fieldImages: [{ imagePath, ... }]`
+    // Demo endpoint:       `fieldImages: []` (empty array of objects, no imagePath)
+    // Both are optional so decoding succeeds for either format.
+    private let fieldImageUrl: String?
+    private let fieldImages: [FieldImageDTO]?
+    var resolvedFieldImageUrl: String? { fieldImageUrl ?? fieldImages?.compactMap(\.imagePath).first }
     let startTime: Int64
     let endTime: Int64
     let originalPriceInCents: Int
@@ -44,7 +54,7 @@ struct MatchListItemDTO: Decodable {
             teamBMax: perTeamMax,
             distance: "",
             duration: MatchFormatters.durationString(start: start, end: end),
-            fieldImageName: fieldImageUrl,
+            fieldImageName: resolvedFieldImageUrl,
             shoeType: "",
             fieldType: "",
             hasParking: false,
@@ -67,7 +77,9 @@ struct MatchDetailResponse: Decodable {
 struct MatchDetailItemDTO: Decodable {
     let id: String
     let fieldName: String
-    let fieldImageUrl: String?
+    private let fieldImageUrl: String?
+    private let fieldImages: [FieldImageDTO]?
+    var resolvedFieldImageUrl: String? { fieldImageUrl ?? fieldImages?.compactMap(\.imagePath).first }
     let startTime: Int64
     let endTime: Int64
     let originalPriceInCents: Int
@@ -108,7 +120,7 @@ struct MatchDetailItemDTO: Decodable {
             teamBMax: perTeamMax,
             distance: "",
             duration: MatchFormatters.durationString(start: start, end: end),
-            fieldImageName: fieldImageUrl,
+            fieldImageName: resolvedFieldImageUrl,
             shoeType: Self.mapFootwear(footwearType),
             fieldType: Self.mapFieldType(fieldType),
             hasParking: hasParking ?? false,
@@ -156,7 +168,7 @@ struct MatchPlayerDTO: Decodable {
     let gender: String?
     let name: String
     let country: String?
-    let status: String
+    let status: String?   // optional: demo endpoints omit this field
 
     func toMatchPlayer() -> MatchPlayer {
         MatchPlayer(
@@ -164,7 +176,8 @@ struct MatchPlayerDTO: Decodable {
             playerId: id,
             name: name,
             avatarUrl: avatarUrl,
-            status: status.uppercased() == "RESERVED" ? .reserved : .joined
+            status: status?.uppercased() == "RESERVED" ? .reserved : .joined,
+            country: country
         )
     }
 }

@@ -1,5 +1,6 @@
 import Foundation
 import NetworkFramework
+import SharedModels
 
 // MARK: - Protocol
 
@@ -11,7 +12,7 @@ protocol HomeServiceProtocol {
 
 struct HomeData {
     let greetingName: String
-    let level: String
+    let level: PlayerLevel
     let averageScore: Int
     let profileImageUrl: String?
     let suggestedMatches: [MatchItem]

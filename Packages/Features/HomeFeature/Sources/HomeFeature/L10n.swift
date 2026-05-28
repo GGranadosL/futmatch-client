@@ -56,6 +56,9 @@ public enum L10n {
         public static var title: String {
             NSLocalizedString("home.suggestedGames.title", bundle: .module, comment: "")
         }
+        public static var empty: String {
+            NSLocalizedString("home.suggestedGames.empty", bundle: .module, comment: "")
+        }
     }
     
     // MARK: - Stats
@@ -88,6 +91,12 @@ public enum L10n {
         public static var draw: String {
             NSLocalizedString("home.lastMatch.draw", bundle: .module, comment: "")
         }
+        public static var empty: String {
+            NSLocalizedString("home.lastMatch.empty", bundle: .module, comment: "")
+        }
+        public static var emptyAction: String {
+            NSLocalizedString("home.lastMatch.emptyAction", bundle: .module, comment: "")
+        }
     }
     
     // MARK: - Profile
@@ -115,6 +124,15 @@ public enum L10n {
         }
         public static var playerLevel: String {
             NSLocalizedString("profile.playerLevel", bundle: .module, comment: "")
+        }
+        public static var logoutTitle: String {
+            NSLocalizedString("profile.logoutTitle", bundle: .module, comment: "")
+        }
+        public static var logoutMessage: String {
+            NSLocalizedString("profile.logoutMessage", bundle: .module, comment: "")
+        }
+        public static var logoutConfirm: String {
+            NSLocalizedString("profile.logoutConfirm", bundle: .module, comment: "")
         }
     }
     
@@ -160,6 +178,12 @@ public enum L10n {
         public static var ok: String {
             NSLocalizedString("common.ok", bundle: .module, comment: "")
         }
+        public static var save: String {
+            NSLocalizedString("common.save", bundle: .module, comment: "")
+        }
+        public static var copied: String {
+            NSLocalizedString("common.copied", bundle: .module, comment: "")
+        }
     }
     
     // MARK: - Reserved
@@ -172,6 +196,27 @@ public enum L10n {
         }
         public static var emptySubtitle: String {
             NSLocalizedString("reserved.emptySubtitle", bundle: .module, comment: "")
+        }
+        public static var past: String {
+            NSLocalizedString("reserved.past", bundle: .module, comment: "")
+        }
+        public static var tabUpcoming: String {
+            NSLocalizedString("reserved.tab.upcoming", bundle: .module, comment: "")
+        }
+        public static var tabFinished: String {
+            NSLocalizedString("reserved.tab.finished", bundle: .module, comment: "")
+        }
+        public static var tabCanceled: String {
+            NSLocalizedString("reserved.tab.canceled", bundle: .module, comment: "")
+        }
+        public static var emptyUpcoming: String {
+            NSLocalizedString("reserved.empty.upcoming", bundle: .module, comment: "")
+        }
+        public static var emptyFinished: String {
+            NSLocalizedString("reserved.empty.finished", bundle: .module, comment: "")
+        }
+        public static var emptyCanceled: String {
+            NSLocalizedString("reserved.empty.canceled", bundle: .module, comment: "")
         }
     }
 
@@ -282,6 +327,12 @@ public enum L10n {
         public static var leaveSuccessUnderstood: String {
             NSLocalizedString("matchDetail.leaveSuccessUnderstood", bundle: .module, comment: "")
         }
+        public static var reservationExpiredTitle: String {
+            NSLocalizedString("matchDetail.reservationExpiredTitle", bundle: .module, comment: "")
+        }
+        public static var reservationExpiredMessage: String {
+            NSLocalizedString("matchDetail.reservationExpiredMessage", bundle: .module, comment: "")
+        }
     }
 
     // MARK: - Settings
@@ -379,6 +430,42 @@ public enum L10n {
         }
         public static var uploadError: String {
             NSLocalizedString("editProfile.uploadError", bundle: .module, comment: "")
+        }
+        public static var uploadSuccess: String {
+            NSLocalizedString("editProfile.uploadSuccess", bundle: .module, comment: "")
+        }
+        public static var editName: String {
+            NSLocalizedString("editProfile.editName", bundle: .module, comment: "")
+        }
+        public static var editNameDesc: String {
+            NSLocalizedString("editProfile.editNameDesc", bundle: .module, comment: "")
+        }
+        public static var firstName: String {
+            NSLocalizedString("editProfile.firstName", bundle: .module, comment: "")
+        }
+        public static var lastName: String {
+            NSLocalizedString("editProfile.lastName", bundle: .module, comment: "")
+        }
+        public static var editCountry: String {
+            NSLocalizedString("editProfile.editCountry", bundle: .module, comment: "")
+        }
+        public static var editCountryDesc: String {
+            NSLocalizedString("editProfile.editCountryDesc", bundle: .module, comment: "")
+        }
+        public static var searchCountry: String {
+            NSLocalizedString("editProfile.searchCountry", bundle: .module, comment: "")
+        }
+        public static var editGender: String {
+            NSLocalizedString("editProfile.editGender", bundle: .module, comment: "")
+        }
+        public static var editGenderDesc: String {
+            NSLocalizedString("editProfile.editGenderDesc", bundle: .module, comment: "")
+        }
+        public static var editPosition: String {
+            NSLocalizedString("editProfile.editPosition", bundle: .module, comment: "")
+        }
+        public static var editPositionDesc: String {
+            NSLocalizedString("editProfile.editPositionDesc", bundle: .module, comment: "")
         }
     }
 

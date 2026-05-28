@@ -10,6 +10,7 @@ struct VerificationCodeView: View {
     @State private var timeRemaining: Int
     @State private var canResend: Bool = false
     @State private var timer: Timer?
+    @State private var shakeOffset: CGFloat = 0
     
     let email: String
     let initialCountdown: Int
@@ -48,22 +49,33 @@ struct VerificationCodeView: View {
                     }
                     .padding(.top, 40)
                     
+                    // Error banner — above the code input so keyboard never hides it
+                    if let error = viewModel.errorMessage {
+                        HStack(spacing: 8) {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundColor(FMColors.error)
+                            Text(error)
+                                .font(FMTypography.caption)
+                                .foregroundColor(FMColors.error)
+                                .multilineTextAlignment(.leading)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(FMColors.error.opacity(0.1))
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                    }
+
                     // Code Input
                     FMCodeInputField(code: $code) { completedCode in
-                        // Auto-submit when code is complete
                         verifyCode(completedCode)
                     }
+                    .offset(x: shakeOffset)
                     .padding(.vertical, 24)
-                    
-                    // Error message
-                    if let error = viewModel.errorMessage {
-                        Text(error)
-                            .font(FMTypography.caption)
-                            .foregroundColor(FMColors.error)
-                            .multilineTextAlignment(.center)
-                    }
                 }
                 .padding(.horizontal, 24)
+                .animation(.easeInOut(duration: 0.2), value: viewModel.errorMessage)
             }
             .hideKeyboardOnTap()
             
@@ -117,6 +129,12 @@ struct VerificationCodeView: View {
                 }
             }
         }
+        .onChange(of: code) { newValue in
+            // Only dismiss error when the user starts typing (not when we clear programmatically)
+            if viewModel.errorMessage != nil, !newValue.isEmpty {
+                viewModel.errorMessage = nil
+            }
+        }
         .onAppear {
             startTimer()
         }
@@ -144,9 +162,19 @@ struct VerificationCodeView: View {
     
     // MARK: - Actions
     
-    private func verifyCode(_ code: String) {
+    private func verifyCode(_ codeToVerify: String) {
         Task {
-            await viewModel.verifyCode(code)
+            await viewModel.verifyCode(codeToVerify)
+            if viewModel.errorMessage != nil {
+                // Clear fields and shake so user can re-enter immediately
+                code = ""
+                withAnimation(.interpolatingSpring(stiffness: 600, damping: 10)) {
+                    shakeOffset = -12
+                }
+                withAnimation(.interpolatingSpring(stiffness: 600, damping: 10).delay(0.1)) {
+                    shakeOffset = 0
+                }
+            }
         }
     }
     

@@ -1,4 +1,5 @@
 import SwiftUI
+import Lottie
 import FMDesignSystem
 
 /// Forgot Password Flow Container View
@@ -374,23 +375,21 @@ struct ForgotPasswordNewPasswordView: View {
 struct ForgotPasswordSuccessView: View {
     @ObservedObject var coordinator: ForgotPasswordCoordinatorViewModel
     @Environment(\.dismiss) private var dismiss
-    
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var animationName: String {
+        colorScheme == .dark ? "success_dark" : "success"
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             Spacer()
-            
-            // Success Animation (Lottie placeholder)
-            // TODO: Replace with Lottie animation from Resources/Animations/success.json
-            ZStack {
-                Circle()
-                    .fill(Color.green)
-                    .frame(width: 120, height: 120)
-                
-                Image(systemName: "checkmark")
-                    .font(.system(size: 60, weight: .bold))
-                    .foregroundColor(.white)
-            }
-            .padding(.bottom, 32)
+
+            LottieView(animation: .named(animationName, bundle: .module))
+                .playing(loopMode: .playOnce)
+                .resizable()
+                .frame(width: 220, height: 220)
+                .padding(.bottom, 16)
             
             Text(L10n.ForgotPassword.successCompleteTitle)
                 .font(FMTypography.title)
