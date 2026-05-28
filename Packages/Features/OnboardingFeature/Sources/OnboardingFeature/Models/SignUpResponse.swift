@@ -159,9 +159,9 @@ public struct ForgotPasswordRequest: Codable {
 
 public struct ForgotPasswordResponse: Codable {
     public let data: ResponseData
-    
+
     public struct ResponseData: Codable {
-        public let userId: String
+        public let userId: String?
         public let newCodeSent: Bool
         public let expiresInSeconds: Int
         public let resendCodeTimeInSeconds: Int

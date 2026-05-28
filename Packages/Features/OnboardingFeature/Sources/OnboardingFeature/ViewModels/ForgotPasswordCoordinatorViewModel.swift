@@ -43,7 +43,7 @@ public final class ForgotPasswordCoordinatorViewModel: ObservableObject {
         do {
             let response = try await forgotPasswordUseCase.execute(email: email)
             resendCodeTimeInSeconds = response.data.resendCodeTimeInSeconds
-            currentState = .verification(userId: response.data.userId, email: email)
+            currentState = .verification(userId: response.data.userId ?? "", email: email)
         } catch {
             self.error = error
         }

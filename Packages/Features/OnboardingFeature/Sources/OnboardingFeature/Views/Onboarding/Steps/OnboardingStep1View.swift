@@ -4,6 +4,8 @@ import FMDesignSystem
 /// Step 1: Personal Info
 struct OnboardingStep1View: View {
     @ObservedObject var viewModel: OnboardingViewModel
+    @State private var focusFirstName = false
+    @State private var focusLastName = false
     
     private var firstNameError: String? {
         guard !viewModel.firstName.isEmpty else { return nil }
@@ -33,50 +35,61 @@ struct OnboardingStep1View: View {
     }
     
     var body: some View {
-        VStack(spacing: 0) {
-            ScrollView {
-                VStack(spacing: 24) {
-                    // Header
-                    FMOnboardingHeader(
-                        title: L10n.Step1.title,
-                        subtitle: L10n.Step1.subtitle
+        ScrollView {
+            VStack(spacing: 24) {
+                // Header
+                FMOnboardingHeader(
+                    title: L10n.Step1.title,
+                    subtitle: L10n.Step1.subtitle
+                )
+                .padding(.top, 24)
+
+                // Form Fields
+                VStack(spacing: 20) {
+                    FMTextField(
+                        label: L10n.Step1.firstName,
+                        text: $viewModel.firstName,
+                        contentType: .givenName,
+                        errorMessage: firstNameError
                     )
-                    .padding(.top, 24)
-                    
-                    // Form Fields
-                    VStack(spacing: 20) {
-                        FMTextField(
-                            label: L10n.Step1.firstName,
-                            text: $viewModel.firstName,
-                            contentType: .givenName,
-                            errorMessage: firstNameError
-                        )
-                        
-                        FMTextField(
-                            label: L10n.Step1.lastName,
-                            text: $viewModel.lastName,
-                            contentType: .familyName,
-                            errorMessage: lastNameError
-                        )
-                        
-                        FMDateField(
-                            label: L10n.Step1.dateOfBirth,
-                            date: $viewModel.birthDate,
-                            errorMessage: birthDateError
-                        )
-                        
-                        FMChipGroup(
-                            title: L10n.Step1.gender,
-                            options: GenderOption.allCases,
-                            selected: $viewModel.gender
-                        )
-                    }
+                    .focused($focusFirstName)
+                    .keyboardNavigation(
+                        hasPrevious: false, hasNext: true,
+                        onPrevious: {},
+                        onNext: { focusLastName = true; focusFirstName = false }
+                    )
+
+                    FMTextField(
+                        label: L10n.Step1.lastName,
+                        text: $viewModel.lastName,
+                        contentType: .familyName,
+                        errorMessage: lastNameError
+                    )
+                    .focused($focusLastName)
+                    .keyboardNavigation(
+                        hasPrevious: true, hasNext: false,
+                        onPrevious: { focusFirstName = true; focusLastName = false },
+                        onNext: {}
+                    )
+
+                    FMDateField(
+                        label: L10n.Step1.dateOfBirth,
+                        date: $viewModel.birthDate,
+                        errorMessage: birthDateError
+                    )
+
+                    FMChipGroupOptional(
+                        title: L10n.Step1.gender,
+                        options: GenderOption.allCases,
+                        selected: $viewModel.gender
+                    )
                 }
-                .padding(.horizontal, 24)
-                .padding(.bottom, 24)
             }
-            
-            // Fixed Bottom Button
+            .padding(.horizontal, 24)
+            .padding(.bottom, 24)
+        }
+        .background(FMColors.background)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
             FMPrimaryButton(
                 title: L10n.Button.nextStep,
                 isEnabled: viewModel.isStep1Valid
@@ -84,11 +97,10 @@ struct OnboardingStep1View: View {
                 viewModel.nextStep()
             }
             .padding(.horizontal, 24)
-            .padding(.bottom, 32)
             .padding(.top, 16)
+            .padding(.bottom, 16)
             .background(FMColors.background)
         }
-        .background(FMColors.background)
         .onDisappear {
             // Save draft only when leaving the step
             Task {

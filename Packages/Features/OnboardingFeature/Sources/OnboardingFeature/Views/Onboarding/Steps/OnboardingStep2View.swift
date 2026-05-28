@@ -1,35 +1,64 @@
 import SwiftUI
 import FMDesignSystem
+import SharedModels
+
+// Retroactive conformances so Country and DialCode can be used directly as dropdown options.
+// FMDropdownOption requires Identifiable, Hashable, and displayName — all already satisfied.
+extension Country: @retroactive FMDropdownOption {}
+extension DialCode: @retroactive FMDropdownOption {}
 
 /// Step 2: Contact & Account
 struct OnboardingStep2View: View {
     @ObservedObject var viewModel: OnboardingViewModel
     @State private var activeDropdownId: String? = nil
-    
-    // Country code options
-    private let countryCodeOptions = [
-        "+52",  // México
-        "+1",   // USA/Canadá
-        "+54",  // Argentina
-        "+55",  // Brasil
-        "+56",  // Chile
-        "+57",  // Colombia
-        "+34",  // España
-        "+33"   // Francia
-    ]
-    
-    // Country options
-    private let countryOptions = [
-        "México",
-        "USA",
-        "Canadá",
-        "Argentina",
-        "Brasil",
-        "Chile",
-        "Colombia",
-        "España",
-        "Francia"
-    ]
+    @State private var focusEmail = false
+    @State private var focusPassword = false
+    @State private var focusPhone = false
+
+    /// Dial-code list: Remote Config data once loaded, fallback otherwise.
+    /// Each entry shows "🇲🇽 +52" via `DialCode.displayName`.
+    private var dialCodeList: [DialCode] {
+        viewModel.dialCodes.isEmpty ? DialCode.fallback : viewModel.dialCodes
+    }
+
+    /// Bridges `viewModel.countryCode` (stores just the dial string, e.g. "+52")
+    /// with the typed `DialCode?` generic dropdown.
+    private var dialCodeOptionBinding: Binding<DialCode?> {
+        Binding(
+            get: {
+                // Match on iso first (unique), fall back to first dial-code match
+                // for the initial "+52" pre-fill where no iso is stored yet.
+                dialCodeList.first { $0.iso == viewModel.selectedDialCodeISO }
+                    ?? dialCodeList.first { $0.dialCode == viewModel.countryCode }
+            },
+            set: { dialCode in
+                viewModel.countryCode = dialCode?.dialCode ?? ""
+                viewModel.selectedDialCodeISO = dialCode?.iso ?? ""
+            }
+        )
+    }
+
+    /// Active list: Remote Config data once loaded, fallback otherwise.
+    /// Both sources already carry flag + name via `Country.displayName`.
+    private var countryList: [Country] {
+        viewModel.countries.isEmpty ? Country.fallback : viewModel.countries
+    }
+
+    /// Bridges the `String`-based `viewModel.country` (stores name, e.g. "México")
+    /// and `viewModel.countryISO` (stores ISO code, e.g. "MX") with the `Country?`-typed dropdown.
+    private var countryOptionBinding: Binding<Country?> {
+        Binding(
+            get: {
+                countryList.first {
+                    $0.name == viewModel.country || $0.displayName == viewModel.country
+                }
+            },
+            set: { country in
+                viewModel.country = country?.name ?? ""
+                viewModel.countryISO = country?.iso ?? ""
+            }
+        )
+    }
     
     private var passwordErrorMessage: String? {
         guard !viewModel.password.isEmpty else { return nil }
@@ -54,72 +83,90 @@ struct OnboardingStep2View: View {
     }
     
     var body: some View {
-        VStack(spacing: 0) {
-            ScrollView {
-                VStack(spacing: 24) {
-                    // Header
-                    FMOnboardingHeader(
-                        title: L10n.Step2.title,
-                        subtitle: L10n.Step2.subtitle
+        ScrollView {
+            VStack(spacing: 24) {
+                // Header
+                FMOnboardingHeader(
+                    title: L10n.Step2.title,
+                    subtitle: L10n.Step2.subtitle
+                )
+                .padding(.top, 24)
+
+                // Form Fields
+                VStack(spacing: 20) {
+                    FMTextField(
+                        label: L10n.Step2.email,
+                        text: $viewModel.email,
+                        keyboardType: .emailAddress,
+                        errorMessage: !viewModel.email.isEmpty && !viewModel.isEmailValid ? L10n.Step2.invalidEmail : nil
                     )
-                    .padding(.top, 24)
-                    
-                    // Form Fields
-                    VStack(spacing: 20) {
-                        FMTextField(
-                            label: L10n.Step2.email,
-                            text: $viewModel.email,
-                            keyboardType: .emailAddress,
-                            errorMessage: !viewModel.email.isEmpty && !viewModel.isEmailValid ? L10n.Step2.invalidEmail : nil
-                        )
-                        
-                        VStack(alignment: .leading, spacing: 4) {
-                            FMTextField(
-                                label: L10n.Step2.password,
-                                text: $viewModel.password,
-                                isSecure: true,
-                                errorMessage: passwordErrorMessage
-                            )
-                        }
-                        
-                        // Phone with country code dropdown
-                        HStack(alignment: .top, spacing: 12) {
-                            FMDropdownField(
-                                label: L10n.Step2.countryCode,
-                                dropdownId: "countryCode",
-                                selectedValue: $viewModel.countryCode,
-                                activeDropdownId: $activeDropdownId,
-                                options: countryCodeOptions
-                            )
-                            .frame(width: 100)
-                            .zIndex(2)
-                            
-                            FMTextField(
-                                label: L10n.Step2.phone,
-                                text: $viewModel.phone,
-                                keyboardType: .phonePad,
-                                contentType: .telephoneNumber,
-                                errorMessage: phoneErrorMessage
-                            )
-                        }
-                        .zIndex(2)
-                        
-                        // Country dropdown
+                    .focused($focusEmail)
+                    .keyboardNavigation(
+                        hasPrevious: false, hasNext: true,
+                        onPrevious: {},
+                        onNext: { focusPassword = true; focusEmail = false }
+                    )
+
+                    FMTextField(
+                        label: L10n.Step2.password,
+                        text: $viewModel.password,
+                        isSecure: true,
+                        errorMessage: passwordErrorMessage
+                    )
+                    .focused($focusPassword)
+                    .keyboardNavigation(
+                        hasPrevious: true, hasNext: true,
+                        onPrevious: { focusEmail = true; focusPassword = false },
+                        onNext: { focusPhone = true; focusPassword = false }
+                    )
+
+                    // Phone with country code dropdown
+                    HStack(alignment: .top, spacing: 12) {
                         FMDropdownField(
-                            label: L10n.Step2.country,
-                            dropdownId: "country",
-                            selectedValue: $viewModel.country,
+                            label: L10n.Step2.countryCode,
+                            dropdownId: "countryCode",
+                            selectedOption: dialCodeOptionBinding,
                             activeDropdownId: $activeDropdownId,
-                            options: countryOptions
+                            options: dialCodeList
                         )
-                        .zIndex(1)
+                        // 115 pt fits "🇲🇽 +52" through "🇪🇨 +593" + chevron + padding
+                        .frame(width: 115)
+                        .zIndex(2)
+
+                        FMTextField(
+                            label: L10n.Step2.phone,
+                            text: $viewModel.phone,
+                            keyboardType: .phonePad,
+                            contentType: .telephoneNumber,
+                            errorMessage: phoneErrorMessage
+                        )
+                        .focused($focusPhone)
+                        .keyboardNavigation(
+                            hasPrevious: true, hasNext: false,
+                            onPrevious: { focusPassword = true; focusPhone = false },
+                            onNext: {}
+                        )
                     }
+                    .zIndex(2)
+
+                    // Country dropdown — opens upward so it is never obscured by the
+                    // bottom button. List from Remote Config (flag + name via Country.displayName).
+                    FMDropdownField(
+                        label: L10n.Step2.country,
+                        dropdownId: "country",
+                        selectedOption: countryOptionBinding,
+                        activeDropdownId: $activeDropdownId,
+                        options: countryList,
+                        opensUpward: true
+                    )
+                    .zIndex(1)
                 }
-                .padding(.horizontal, 24)
-                .padding(.bottom, 24)
             }
-            
-            // Fixed Bottom Button
+            .padding(.horizontal, 24)
+            .padding(.bottom, 24)
+        }
+        .background(FMColors.background)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
             FMPrimaryButton(
                 title: L10n.Button.nextStep,
                 isEnabled: viewModel.isStep2Valid
@@ -127,11 +174,10 @@ struct OnboardingStep2View: View {
                 viewModel.nextStep()
             }
             .padding(.horizontal, 24)
-            .padding(.bottom, 32)
             .padding(.top, 16)
+            .padding(.bottom, 16)
             .background(FMColors.background)
         }
-        .background(FMColors.background)
         .onDisappear {
             // Save draft only when leaving the step
             Task {

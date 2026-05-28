@@ -1,6 +1,20 @@
 import SwiftUI
 import FMDesignSystem
 
+// MARK: - Tab
+
+private enum ReservedTab: CaseIterable {
+    case upcoming, finished, canceled
+
+    func label() -> String {
+        switch self {
+        case .upcoming:  return L10n.Reserved.tabUpcoming
+        case .finished:  return L10n.Reserved.tabFinished
+        case .canceled:  return L10n.Reserved.tabCanceled
+        }
+    }
+}
+
 // MARK: - Section Model
 
 private struct ReservedSection: Identifiable {
@@ -14,6 +28,7 @@ private struct ReservedSection: Identifiable {
 struct ReservedView: View {
     @EnvironmentObject private var viewModel: ReservedMatchesViewModel
     @Binding var navigationPath: NavigationPath
+    @State private var selectedTab: ReservedTab = .upcoming
 
     init(navigationPath: Binding<NavigationPath> = .constant(NavigationPath())) {
         self._navigationPath = navigationPath
@@ -21,6 +36,7 @@ struct ReservedView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            // Header
             Text(L10n.Reserved.title)
                 .font(FMTypography.headlineMedium)
                 .foregroundColor(FMColors.onBackground)
@@ -29,31 +45,67 @@ struct ReservedView: View {
                 .padding(.top, 16)
                 .padding(.bottom, 8)
 
+            // Tab bar
+            FMSegmentedTabBar(
+                tabs: ReservedTab.allCases,
+                selected: $selectedTab,
+                labelFor: { $0.label() }
+            )
+
+            // Content
             if viewModel.isLoading {
                 Spacer()
-                ProgressView()
+                ProgressView().tint(FMColors.primary)
                 Spacer()
-            } else if viewModel.myMatches.isEmpty {
-                emptyState
             } else {
-                matchesList
+                tabContent
             }
         }
         .background(FMColors.background)
-        .task {
-            await viewModel.load()
+        .task { await viewModel.load() }
+        .refreshable { await viewModel.load() }
+    }
+
+    // MARK: - Tab Content
+
+    @ViewBuilder
+    private var tabContent: some View {
+        let matches = filteredMatches(for: selectedTab)
+        if matches.isEmpty {
+            emptyState(for: selectedTab)
+        } else {
+            matchesList(matches)
         }
-        .refreshable {
-            await viewModel.load()
+    }
+
+    // MARK: - Filtering
+
+    private func filteredMatches(for tab: ReservedTab) -> [MatchItem] {
+        switch tab {
+        case .upcoming:
+            return viewModel.myMatches.filter {
+                let s = $0.matchStatus.uppercased()
+                return s != "COMPLETED" && s != "CANCELED" && s != "CANCELLED"
+            }
+        case .finished:
+            return viewModel.myMatches.filter {
+                $0.matchStatus.uppercased() == "COMPLETED"
+            }
+        case .canceled:
+            return viewModel.myMatches.filter {
+                let s = $0.matchStatus.uppercased()
+                return s == "CANCELED" || s == "CANCELLED"
+            }
         }
     }
 
     // MARK: - Matches List
 
-    private var matchesList: some View {
+    private func matchesList(_ matches: [MatchItem]) -> some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
-                ForEach(Array(reservedSections.enumerated()), id: \.element.id) { index, section in
+                let sections = groupByDate(matches)
+                ForEach(Array(sections.enumerated()), id: \.element.id) { index, section in
                     Section {
                         VStack(spacing: 12) {
                             ForEach(section.matches) { match in
@@ -70,10 +122,12 @@ struct ReservedView: View {
             }
             .padding(.bottom, 100)
         }
+        .refreshable { await viewModel.load() }
     }
 
-    /// Groups matches into date sections
-    private var reservedSections: [ReservedSection] {
+    // MARK: - Date Grouping
+
+    private func groupByDate(_ matches: [MatchItem]) -> [ReservedSection] {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
         guard let tomorrow = calendar.date(byAdding: .day, value: 1, to: today) else { return [] }
@@ -83,13 +137,20 @@ struct ReservedView: View {
         fmt.dateFormat = "EEEE d"
 
         var grouped: [Date: [MatchItem]] = [:]
-        for match in viewModel.myMatches {
+        for match in matches {
             grouped[calendar.startOfDay(for: match.startDate), default: []].append(match)
         }
 
-        return grouped.keys.sorted().compactMap { day in
-            let dayMatches = grouped[day] ?? []
+        // Upcoming: ascending. Finished/Canceled: descending (most recent first)
+        let ascending = selectedTab == .upcoming
+        let sortedDays = grouped.keys.sorted { ascending ? $0 < $1 : $0 > $1 }
+
+        return sortedDays.compactMap { day in
+            let dayMatches = (grouped[day] ?? []).sorted {
+                ascending ? $0.startDate < $1.startDate : $0.startDate > $1.startDate
+            }
             guard !dayMatches.isEmpty else { return nil }
+
             let title: String
             if calendar.isDate(day, inSameDayAs: today) {
                 title = L10n.Matches.today
@@ -102,11 +163,12 @@ struct ReservedView: View {
         }
     }
 
+    // MARK: - Section Header
+
     private func sectionHeader(_ title: String, showDivider: Bool) -> some View {
         VStack(spacing: 0) {
             if showDivider {
-                Divider()
-                    .padding(.horizontal, 16)
+                Divider().padding(.horizontal, 16)
             }
             Text(title)
                 .font(FMTypography.titleLarge)
@@ -117,6 +179,8 @@ struct ReservedView: View {
                 .padding(.bottom, 4)
         }
     }
+
+    // MARK: - Match Card
 
     private func reservedCard(for match: MatchItem) -> some View {
         let status = match.matchStatus.uppercased()
@@ -141,9 +205,7 @@ struct ReservedView: View {
             ),
             distance: match.distance,
             fieldImageUrl: match.fieldImageUrl,
-            onTap: {
-                navigationPath.append(match)
-            }
+            onTap: { navigationPath.append(match) }
         )
         .overlay {
             if isDimmed {
@@ -157,7 +219,6 @@ struct ReservedView: View {
                                     scoreColumn(title: L10n.Matches.teamB, value: match.teamBPlayers.count)
                                 }
                             }
-
                             HStack(spacing: 8) {
                                 Image(systemName: status == "COMPLETED" ? "checkmark.circle.fill" : "xmark.circle.fill")
                                     .font(.system(size: 18, weight: .semibold))
@@ -175,53 +236,58 @@ struct ReservedView: View {
 
     private func scoreColumn(title: String, value: Int) -> some View {
         VStack(spacing: 2) {
-            Text(title)
-                .font(FMTypography.labelMedium)
-            Text("\(value)")
-                .font(FMTypography.headlineMedium)
-                .bold()
+            Text(title).font(FMTypography.labelMedium)
+            Text("\(value)").font(FMTypography.headlineMedium).bold()
         }
     }
 
     private func statusTitle(for status: String) -> String {
-        let isSpanish = Locale.current.language.languageCode?.identifier == "es"
-
         switch status {
-        case "COMPLETED":
-            return isSpanish ? "Finalizado" : "Completed"
-        case "CANCELED", "CANCELLED":
-            return isSpanish ? "Cancelado" : "Canceled"
-        default:
-            return status
+        case "COMPLETED":  return L10n.Reserved.tabFinished
+        case "CANCELED", "CANCELLED": return L10n.Reserved.tabCanceled
+        default: return status
         }
     }
 
-    // MARK: - Empty State
+    // MARK: - Empty States
 
-    private var emptyState: some View {
-        VStack(spacing: 16) {
-            Spacer()
-            Image("emptyStateReserved", bundle: .main)
-                .resizable()
-                .scaledToFit()
-                .frame(width: 80, height: 80)
-                .foregroundColor(FMColors.onSurfaceVariant)
-            Text(L10n.Reserved.empty)
-                .font(FMTypography.titleLarge)
-                .foregroundColor(FMColors.onBackground)
-                .bold()
-                .multilineTextAlignment(.center)
-            Text(L10n.Reserved.emptySubtitle)
-                .font(FMTypography.bodySmall)
-                .foregroundColor(FMColors.onSurfaceVariant)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 40)
-            Spacer()
+    private func emptyState(for tab: ReservedTab) -> some View {
+        ScrollView {
+            VStack(spacing: 16) {
+                Spacer(minLength: 80)
+                Image("emptyStateReserved", bundle: .main)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 80, height: 80)
+                    .foregroundColor(FMColors.onSurfaceVariant)
+                Text(emptyTitle(for: tab))
+                    .font(FMTypography.titleLarge)
+                    .foregroundColor(FMColors.onBackground)
+                    .bold()
+                    .multilineTextAlignment(.center)
+                Text(L10n.Reserved.emptySubtitle)
+                    .font(FMTypography.bodySmall)
+                    .foregroundColor(FMColors.onSurfaceVariant)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 40)
+                Spacer(minLength: 80)
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .refreshable { await viewModel.load() }
+    }
+
+    private func emptyTitle(for tab: ReservedTab) -> String {
+        switch tab {
+        case .upcoming:  return L10n.Reserved.emptyUpcoming
+        case .finished:  return L10n.Reserved.emptyFinished
+        case .canceled:  return L10n.Reserved.emptyCanceled
         }
     }
 }
 
 // MARK: - Preview
+
 #Preview {
     ReservedView()
         .environmentObject(ReservedMatchesViewModel(fetchMyMatchesUseCase: HomeDependencyFactory().makeFetchMyMatchesUseCase()))

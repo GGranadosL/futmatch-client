@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="1" systemVersion="11A491" minimumToolsVersion="Automatic" sourceLanguage="Swift" usedWithCloudKit="false" userDefinedModelVersionIdentifier="">
+    <entity name="OnboardingDraftEntity" representedClassName="OnboardingDraftEntity" syncable="YES" codeGenerationType="class">
+        <attribute name="firstName" attributeType="String" defaultValueString=""/>
+        <attribute name="lastName" attributeType="String" defaultValueString=""/>
+        <attribute name="birthDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="gender" optional="YES" attributeType="String"/>
+        <attribute name="email" attributeType="String" defaultValueString=""/>
+        <attribute name="phoneCountryCode" attributeType="String" defaultValueString="+52"/>
+        <attribute name="phone" attributeType="String" defaultValueString=""/>
+        <attribute name="country" attributeType="String" defaultValueString=""/>
+        <attribute name="currentStep" attributeType="Integer 16" defaultValueString="1" usesScalarValueType="YES"/>
+        <attribute name="createdAt" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="updatedAt" attributeType="Date" usesScalarValueType="NO"/>
+    </entity>
+    <entity name="UserProfileEntity" representedClassName="UserProfileEntity" syncable="YES" codeGenerationType="class">
+        <attribute name="id" attributeType="String" defaultValueString=""/>
+        <attribute name="name" attributeType="String" defaultValueString=""/>
+        <attribute name="lastName" attributeType="String" defaultValueString=""/>
+        <attribute name="email" attributeType="String" defaultValueString=""/>
+        <attribute name="phone" attributeType="String" defaultValueString=""/>
+        <attribute name="status" attributeType="String" defaultValueString="ACTIVE"/>
+        <attribute name="country" attributeType="String" defaultValueString=""/>
+        <attribute name="birthDate" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="gender" attributeType="String" defaultValueString="OTHER"/>
+        <attribute name="playerPosition" attributeType="String" defaultValueString="MIDFIELDER"/>
+        <attribute name="profilePic" attributeType="String" defaultValueString=""/>
+        <attribute name="level" attributeType="String" defaultValueString="BEGINNER"/>
+        <attribute name="userRole" attributeType="String" defaultValueString="PLAYER"/>
+        <attribute name="isEmailVerified" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="cachedAt" attributeType="Date" usesScalarValueType="NO"/>
+    </entity>
+    <entity name="CachedMatchEntity" representedClassName="CachedMatchEntity" syncable="YES" codeGenerationType="class">
+        <attribute name="id" attributeType="String" defaultValueString=""/>
+        <attribute name="venueName" attributeType="String" defaultValueString=""/>
+        <attribute name="location" attributeType="String" defaultValueString=""/>
+        <attribute name="timeRange" attributeType="String" defaultValueString=""/>
+        <attribute name="date" attributeType="String" defaultValueString=""/>
+        <attribute name="startDate" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="price" attributeType="String" defaultValueString=""/>
+        <attribute name="matchType" attributeType="String" defaultValueString=""/>
+        <attribute name="spotsLeft" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="teamAMax" attributeType="Integer 32" defaultValueString="5" usesScalarValueType="YES"/>
+        <attribute name="teamBMax" attributeType="Integer 32" defaultValueString="5" usesScalarValueType="YES"/>
+        <attribute name="distance" attributeType="String" defaultValueString=""/>
+        <attribute name="duration" attributeType="String" defaultValueString="60 min"/>
+        <attribute name="fieldImageUrl" optional="YES" attributeType="String"/>
+        <attribute name="shoeType" attributeType="String" defaultValueString=""/>
+        <attribute name="fieldType" attributeType="String" defaultValueString=""/>
+        <attribute name="hasParking" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="extraInfo" optional="YES" attributeType="String"/>
+        <attribute name="teamAPlayersJSON" attributeType="String" defaultValueString="[]"/>
+        <attribute name="teamBPlayersJSON" attributeType="String" defaultValueString="[]"/>
+        <attribute name="rulesJSON" attributeType="String" defaultValueString="[]"/>
+        <attribute name="matchStatus" attributeType="String" defaultValueString=""/>
+        <attribute name="cachedAt" attributeType="Date" usesScalarValueType="NO"/>
+    </entity>
+    <entity name="CachedReservedMatchEntity" representedClassName="CachedReservedMatchEntity" syncable="YES" codeGenerationType="class">
+        <attribute name="id" attributeType="String" defaultValueString=""/>
+        <attribute name="venueName" attributeType="String" defaultValueString=""/>
+        <attribute name="location" attributeType="String" defaultValueString=""/>
+        <attribute name="timeRange" attributeType="String" defaultValueString=""/>
+        <attribute name="date" attributeType="String" defaultValueString=""/>
+        <attribute name="startDate" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="price" attributeType="String" defaultValueString=""/>
+        <attribute name="matchType" attributeType="String" defaultValueString=""/>
+        <attribute name="spotsLeft" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="teamAMax" attributeType="Integer 32" defaultValueString="5" usesScalarValueType="YES"/>
+        <attribute name="teamBMax" attributeType="Integer 32" defaultValueString="5" usesScalarValueType="YES"/>
+        <attribute name="distance" attributeType="String" defaultValueString=""/>
+        <attribute name="duration" attributeType="String" defaultValueString="60 min"/>
+        <attribute name="fieldImageUrl" optional="YES" attributeType="String"/>
+        <attribute name="shoeType" attributeType="String" defaultValueString=""/>
+        <attribute name="fieldType" attributeType="String" defaultValueString=""/>
+        <attribute name="hasParking" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="extraInfo" optional="YES" attributeType="String"/>
+        <attribute name="teamAPlayersJSON" attributeType="String" defaultValueString="[]"/>
+        <attribute name="teamBPlayersJSON" attributeType="String" defaultValueString="[]"/>
+        <attribute name="rulesJSON" attributeType="String" defaultValueString="[]"/>
+        <attribute name="matchStatus" attributeType="String" defaultValueString=""/>
+        <attribute name="cachedAt" attributeType="Date" usesScalarValueType="NO"/>
+    </entity>
+    <elements>
+        <element name="OnboardingDraftEntity" positionX="-63" positionY="27" width="128" height="194"/>
+        <element name="UserProfileEntity" positionX="270" positionY="27" width="128" height="254"/>
+        <element name="CachedMatchEntity" positionX="440" positionY="27" width="128" height="374"/>
+        <element name="CachedReservedMatchEntity" positionX="610" positionY="27" width="128" height="404"/>
+    </elements>
+</model>

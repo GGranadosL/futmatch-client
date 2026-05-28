@@ -3,6 +3,18 @@ import UIKit
 import FMDesignSystem
 import SharedModels
 
+// MARK: - Hide Tab Bar Modifier
+
+private struct HideTabBarModifier: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 18.0, *) {
+            content.toolbarVisibility(.hidden, for: .tabBar)
+        } else {
+            content.toolbar(.hidden, for: .tabBar)
+        }
+    }
+}
+
 // MARK: - UIKit Image Picker
 
 private struct ImagePicker: UIViewControllerRepresentable {
@@ -63,6 +75,11 @@ struct EditProfileView: View {
     @State private var showImagePicker = false
     @State private var isUploadingImage = false
     @State private var uploadError: String?
+    @State private var showUploadSuccess = false
+    @State private var showEditName = false
+    @State private var showEditCountry = false
+    @State private var showEditGender = false
+    @State private var showEditPosition = false
 
     private var user: User? { userSession.currentUser }
 
@@ -84,22 +101,16 @@ struct EditProfileView: View {
                 value: user?.fullName ?? "—"
             ),
             EditProfileRow(
-                icon: "envelope",
-                iconColor: FMColors.primary,
-                title: L10n.EditProfile.email,
-                value: user?.email ?? "—"
-            ),
-            EditProfileRow(
                 icon: "globe.americas",
                 iconColor: FMColors.primary,
                 title: L10n.EditProfile.country,
-                value: user?.country ?? "—"
+                value: user?.countryDisplayName ?? "—"
             ),
             EditProfileRow(
                 icon: "person",
                 iconColor: FMColors.primary,
                 title: L10n.EditProfile.gender,
-                value: user?.gender.displayName ?? "—"
+                value: user?.gender?.displayName ?? "—"
             ),
             EditProfileRow(
                 icon: "sportscourt",
@@ -114,8 +125,6 @@ struct EditProfileView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            headerBar
-
             ScrollView {
                 VStack(spacing: 24) {
                     avatarSection
@@ -126,7 +135,17 @@ struct EditProfileView: View {
             }
         }
         .background(FMColors.background)
-        .navigationBarHidden(true)
+        .navigationBarBackButtonHidden(true)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                FMBackButton { dismiss() }
+            }
+            ToolbarItem(placement: .principal) {
+                Text(L10n.EditProfile.title)
+                    .font(FMTypography.titleMedium)
+                    .foregroundColor(FMColors.onBackground)
+            }
+        }
         .confirmationDialog(
             L10n.EditProfile.editAvatar,
             isPresented: $showImageSourceSheet,
@@ -159,80 +178,67 @@ struct EditProfileView: View {
                 Text(uploadError)
             }
         }
-    }
-
-    // MARK: - Header Bar
-
-    private var headerBar: some View {
-        ZStack {
-            Text(L10n.EditProfile.title)
-                .font(FMTypography.titleMedium)
-                .foregroundColor(FMColors.onBackground)
-
-            HStack {
-                Button {
-                    dismiss()
-                } label: {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.black)
-                        .padding(8)
-                        .background(Circle().fill(.white))
-                }
-                Spacer()
-            }
+        .navigationDestination(isPresented: $showEditName) {
+            EditNameView()
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 12)
+        .navigationDestination(isPresented: $showEditCountry) {
+            EditCountryView()
+        }
+        .navigationDestination(isPresented: $showEditGender) {
+            EditGenderView()
+        }
+        .navigationDestination(isPresented: $showEditPosition) {
+            EditPositionView()
+        }
+        .modifier(HideTabBarModifier())
+        .fmToast(L10n.EditProfile.uploadSuccess, isPresented: $showUploadSuccess, style: .success)
     }
 
     // MARK: - Avatar Section
 
     private var avatarSection: some View {
-        VStack(spacing: 8) {
-            ZStack {
-                FMAvatar(
-                    image: selectedImage.map { Image(uiImage: $0) },
-                    url: selectedImage == nil ? profilePicURL : nil,
-                    defaultImageName: user?.gender.defaultAvatarAssetName,
-                    size: 100,
-                    showCameraBadge: false
-                )
-                .overlay(
-                    Circle()
-                        .stroke(FMColors.outlineVariant, lineWidth: 2)
-                )
+        ZStack {
+            FMAvatar(
+                image: selectedImage.map { Image(uiImage: $0) },
+                url: selectedImage == nil ? profilePicURL : nil,
+                defaultImageName: user?.gender?.defaultAvatarAssetName,
+                size: 100,
+                showCameraBadge: false
+            )
+            .overlay(
+                Circle()
+                    .stroke(FMColors.outlineVariant, lineWidth: 2)
+            )
 
-                if isUploadingImage {
-                    Circle()
-                        .fill(.black.opacity(0.4))
-                        .frame(width: 100, height: 100)
-                    ProgressView()
-                        .tint(.white)
-                }
+            if isUploadingImage {
+                Circle()
+                    .fill(.black.opacity(0.4))
+                    .frame(width: 100, height: 100)
+                ProgressView()
+                    .tint(.white)
             }
-
+        }
+        .overlay(alignment: .bottom) {
             Button {
                 showImageSourceSheet = true
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "pencil")
-                        .font(.system(size: 14, weight: .medium))
-                    
+                        .font(.system(size: 13, weight: .medium))
+
                     Text(L10n.EditProfile.editAvatar)
-                        .font(FMTypography.labelLarge)
+                        .font(FMTypography.labelMedium)
                 }
                 .foregroundColor(FMColors.onTertiary)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
-                .background(
-                    Capsule()
-                        .fill(FMColors.tertiary)
-                )
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .background(Capsule().fill(FMColors.tertiary))
             }
+            .offset(y: 16)
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 16)
+        .padding(.bottom, 16)
     }
 
     // MARK: - Description Section
@@ -274,7 +280,7 @@ struct EditProfileView: View {
 
     private func profileRowView(_ row: EditProfileRow) -> some View {
         Button {
-            // TODO: Navigate to row edit
+            handleRowTap(row)
         } label: {
             HStack(spacing: 14) {
                 Image(systemName: row.icon)
@@ -303,6 +309,20 @@ struct EditProfileView: View {
         }
     }
 
+    // MARK: - Row Actions
+
+    private func handleRowTap(_ row: EditProfileRow) {
+        if row.title == L10n.EditProfile.name {
+            showEditName = true
+        } else if row.title == L10n.EditProfile.country {
+            showEditCountry = true
+        } else if row.title == L10n.EditProfile.gender {
+            showEditGender = true
+        } else if row.title == L10n.EditProfile.mainPosition {
+            showEditPosition = true
+        }
+    }
+
     // MARK: - Upload Profile Pic
 
     private func uploadProfilePic(_ image: UIImage) {
@@ -313,6 +333,7 @@ struct EditProfileView: View {
             do {
                 try await userSession.uploadProfilePic(imageData: data)
                 await homeViewModel.load()
+                showUploadSuccess = true
             } catch {
                 uploadError = error.localizedDescription
             }

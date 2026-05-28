@@ -8,6 +8,7 @@ import SwiftUI
 /// causes iOS to fill both fields with the password on login forms.
 private struct UIKitTextField: UIViewRepresentable {
     @Binding var text: String
+    @Binding var externalFocus: Bool
     var isSecure: Bool
     var keyboardType: UIKeyboardType
     var contentType: UITextContentType?
@@ -15,6 +16,10 @@ private struct UIKitTextField: UIViewRepresentable {
     var font: UIFont
     var textColor: UIColor
     var onFocusChange: (Bool) -> Void
+    var onPrevious: (() -> Void)? = nil
+    var onNext: (() -> Void)? = nil
+    var hasPrevious: Bool = false
+    var hasNext: Bool = false
 
     func makeCoordinator() -> Coordinator {
         Coordinator(parent: self)
@@ -31,6 +36,9 @@ private struct UIKitTextField: UIViewRepresentable {
             for: .editingChanged
         )
         configureField(field)
+        if onPrevious != nil || onNext != nil {
+            field.inputAccessoryView = context.coordinator.makeToolbar()
+        }
         return field
     }
 
@@ -42,6 +50,20 @@ private struct UIKitTextField: UIViewRepresentable {
             uiView.isSecureTextEntry = isSecure
         }
         configureField(uiView)
+
+        // Programmatic focus — only trigger when state actually changes
+        let shouldBeFocused = externalFocus
+        let isFocused = uiView.isFirstResponder
+        if shouldBeFocused != isFocused {
+            if shouldBeFocused {
+                DispatchQueue.main.async { uiView.becomeFirstResponder() }
+            } else {
+                DispatchQueue.main.async { uiView.resignFirstResponder() }
+            }
+        }
+
+        // Update toolbar button states
+        context.coordinator.updateToolbar(hasPrevious: hasPrevious, hasNext: hasNext)
     }
 
     /// Shared configuration for `makeUIView` and `updateUIView`.
@@ -68,20 +90,53 @@ private struct UIKitTextField: UIViewRepresentable {
 
     final class Coordinator: NSObject, UITextFieldDelegate {
         var parent: UIKitTextField
+        private weak var prevButton: UIBarButtonItem?
+        private weak var nextButton: UIBarButtonItem?
 
         init(parent: UIKitTextField) {
             self.parent = parent
         }
+
+        func makeToolbar() -> UIToolbar {
+            let toolbar = UIToolbar()
+            toolbar.sizeToFit()
+            let prev = UIBarButtonItem(image: UIImage(systemName: "chevron.up"),
+                                       style: .plain, target: self,
+                                       action: #selector(tappedPrev))
+            let next = UIBarButtonItem(image: UIImage(systemName: "chevron.down"),
+                                       style: .plain, target: self,
+                                       action: #selector(tappedNext))
+            let spacer = UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil)
+            let done = UIBarButtonItem(title: "Listo", style: .done, target: self,
+                                       action: #selector(tappedDone))
+            prev.isEnabled = parent.hasPrevious
+            next.isEnabled = parent.hasNext
+            toolbar.items = [prev, next, spacer, done]
+            self.prevButton = prev
+            self.nextButton = next
+            return toolbar
+        }
+
+        func updateToolbar(hasPrevious: Bool, hasNext: Bool) {
+            prevButton?.isEnabled = hasPrevious
+            nextButton?.isEnabled = hasNext
+        }
+
+        @objc private func tappedPrev() { parent.onPrevious?() }
+        @objc private func tappedNext() { parent.onNext?() }
+        @objc private func tappedDone() { parent.externalFocus = false }
 
         @objc func textChanged(_ sender: UITextField) {
             parent.text = sender.text ?? ""
         }
 
         func textFieldDidBeginEditing(_ textField: UITextField) {
+            parent.externalFocus = true
             parent.onFocusChange(true)
         }
 
         func textFieldDidEndEditing(_ textField: UITextField) {
+            parent.externalFocus = false
             parent.onFocusChange(false)
         }
 
@@ -105,10 +160,15 @@ public struct FMTextField: View {
     var errorMessage: String? = nil
     var trailingIcon: Image? = nil
     var onTrailingIconTap: (() -> Void)? = nil
-    
+
     @State private var isFocused: Bool = false
     @State private var isSecureTextHidden: Bool = true
-    
+    private var externalFocusBinding: Binding<Bool>?
+    private var navHasPrevious: Bool = false
+    private var navHasNext: Bool = false
+    private var navOnPrevious: (() -> Void)? = nil
+    private var navOnNext: (() -> Void)? = nil
+
     public init(
         label: String,
         text: Binding<String>,
@@ -129,6 +189,29 @@ public struct FMTextField: View {
         self.errorMessage = errorMessage
         self.trailingIcon = trailingIcon
         self.onTrailingIconTap = onTrailingIconTap
+        self.externalFocusBinding = nil
+    }
+
+    /// Programmatically control focus. Pass a `Binding<Bool>` — set it to `true` to focus, `false` to blur.
+    public func focused(_ binding: Binding<Bool>) -> FMTextField {
+        var copy = self
+        copy.externalFocusBinding = binding
+        return copy
+    }
+
+    /// Attach a prev/next/done navigation toolbar to the keyboard.
+    public func keyboardNavigation(
+        hasPrevious: Bool,
+        hasNext: Bool,
+        onPrevious: @escaping () -> Void,
+        onNext: @escaping () -> Void
+    ) -> FMTextField {
+        var copy = self
+        copy.navHasPrevious = hasPrevious
+        copy.navHasNext = hasNext
+        copy.navOnPrevious = onPrevious
+        copy.navOnNext = onNext
+        return copy
     }
     
     private var shouldShowLabel: Bool {
@@ -172,6 +255,7 @@ public struct FMTextField: View {
                     ZStack(alignment: .leading) {
                         UIKitTextField(
                             text: $text,
+                            externalFocus: externalFocusBinding ?? $isFocused,
                             isSecure: isSecure && isSecureTextHidden,
                             keyboardType: keyboardType,
                             contentType: contentType,
@@ -182,7 +266,11 @@ public struct FMTextField: View {
                                 withAnimation(.easeInOut(duration: 0.15)) {
                                     isFocused = focused
                                 }
-                            }
+                            },
+                            onPrevious: navOnPrevious,
+                            onNext: navOnNext,
+                            hasPrevious: navHasPrevious,
+                            hasNext: navHasNext
                         )
                     }
                     .padding(.horizontal, 16)

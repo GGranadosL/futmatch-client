@@ -16,7 +16,8 @@ let package = Package(
         .package(path: "../../Core/NetworkFramework"),
         .package(path: "../../Core/PersistenceFramework"),
         .package(path: "../../Core/FMDesignSystem"),
-        .package(path: "../../Shared/SharedModels")
+        .package(path: "../../Shared/SharedModels"),
+        .package(url: "https://github.com/airbnb/lottie-spm.git", from: "4.5.0")
     ],
     targets: [
         .target(
@@ -25,7 +26,8 @@ let package = Package(
                 "NetworkFramework",
                 "PersistenceFramework",
                 "FMDesignSystem",
-                "SharedModels"
+                "SharedModels",
+                .product(name: "Lottie", package: "lottie-spm")
             ],
             resources: [
                 .process("Resources")

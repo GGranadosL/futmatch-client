@@ -5,6 +5,14 @@ import FMDesignSystem
 struct OnboardingStep4View: View {
     @ObservedObject var viewModel: OnboardingViewModel
     
+    private func flagAndName(for iso: String) -> String {
+        let upper = iso.uppercased()
+        let flag = upper.unicodeScalars.compactMap { Unicode.Scalar($0.value + 127397) }
+            .map(String.init).joined()
+        let name = Locale.current.localizedString(forRegionCode: iso) ?? iso
+        return flag.isEmpty ? name : "\(flag) \(name)"
+    }
+
     private var formattedBirthDate: String {
         let formatter = DateFormatter()
         formatter.dateFormat = "dd MMMM yyyy"
@@ -13,12 +21,12 @@ struct OnboardingStep4View: View {
     }
     
     var body: some View {
-        VStack(spacing: 0) {
-            scrollContent
-            bottomSection
-        }
-        .background(FMColors.background)
-        .navigationDestination(isPresented: $viewModel.showVerification) {
+        scrollContent
+            .background(FMColors.background)
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                bottomSection
+            }
+            .navigationDestination(isPresented: $viewModel.showVerification) {
             VerificationCodeView(
                 viewModel: viewModel,
                 email: viewModel.email,
@@ -50,41 +58,50 @@ struct OnboardingStep4View: View {
     }
     
     private var identitySection: some View {
-        ReviewSection(title: L10n.Step4.identity) {
+        ReviewSection(title: L10n.Step4.identity, onEdit: { viewModel.goToStep(3) }) {
             HStack(spacing: 16) {
-                FMAvatar(image: viewModel.profileImage, size: 60)
-                
-                VStack(alignment: .leading, spacing: 4) {
+                FMAvatar(image: viewModel.profileImage, size: 56)
+
+                VStack(alignment: .leading, spacing: 6) {
                     Text("\(viewModel.firstName) \(viewModel.lastName)")
                         .font(FMTypography.bodyMedium)
-                        .foregroundColor(FMColors.primary)
-                    
-                    Text(viewModel.playerPosition.description)
-                        .font(FMTypography.caption)
-                        .foregroundColor(FMColors.secondary)
+                        .foregroundColor(FMColors.onSurface)
+
+                    if let position = viewModel.playerPosition {
+                        HStack(spacing: 4) {
+                            Image(systemName: "soccerball")
+                                .font(.system(size: 11))
+                                .foregroundColor(FMColors.onSurfaceVariant)
+                            Text(position.description)
+                                .font(FMTypography.labelSmall)
+                                .foregroundColor(FMColors.onSurfaceVariant)
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(FMColors.surfaceContainer)
+                        .clipShape(Capsule())
+                    }
                 }
-                
+
                 Spacer()
             }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
         }
     }
-    
+
     private var personalInfoSection: some View {
-        ReviewSection(title: L10n.Step4.personalInfo) {
-            VStack(spacing: 12) {
-                ReviewRow(label: L10n.Step4.birthDate, value: formattedBirthDate)
-                ReviewRow(label: L10n.Step1.gender, value: viewModel.gender.description)
-                ReviewRow(label: L10n.Step2.country, value: viewModel.country)
-            }
+        ReviewSection(title: L10n.Step4.personalInfo, onEdit: { viewModel.goToStep(1) }) {
+            ReviewRow(label: L10n.Step4.birthDate, value: formattedBirthDate)
+            ReviewRow(label: L10n.Step1.gender, value: viewModel.gender?.description ?? "—")
+            ReviewRow(label: L10n.Step2.country, value: flagAndName(for: viewModel.countryISO), isLast: true)
         }
     }
-    
+
     private var contactSection: some View {
-        ReviewSection(title: L10n.Step4.contact) {
-            VStack(spacing: 12) {
-                ReviewRow(label: L10n.Step2.email, value: viewModel.email)
-                ReviewRow(label: L10n.Step2.phone, value: "\(viewModel.countryCode) \(viewModel.phone)")
-            }
+        ReviewSection(title: L10n.Step4.contact, onEdit: { viewModel.goToStep(2) }) {
+            ReviewRow(label: L10n.Step2.email, value: viewModel.email)
+            ReviewRow(label: L10n.Step2.phone, value: "\(viewModel.countryCode) \(viewModel.phone)", isLast: true)
         }
     }
     
@@ -130,8 +147,8 @@ struct OnboardingStep4View: View {
             termsText
         }
         .padding(.horizontal, 24)
-        .padding(.bottom, 32)
         .padding(.top, 16)
+        .padding(.bottom, 16)
         .background(FMColors.background)
     }
     
@@ -157,32 +174,32 @@ struct OnboardingStep4View: View {
 // MARK: - Review Section
 private struct ReviewSection<Content: View>: View {
     let title: String
+    let onEdit: () -> Void
     @ViewBuilder let content: () -> Content
-    
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text(title)
-                    .font(FMTypography.caption)
-                    .foregroundColor(FMColors.secondary)
-                
+                    .font(FMTypography.labelMedium)
+                    .foregroundColor(FMColors.onSurfaceVariant)
+
                 Spacer()
-                
-                Button("Editar") {
-                    // Navigate to edit
-                }
-                .font(FMTypography.captionMedium)
-                .foregroundColor(FMColors.primary)
+
+                Button("Editar", action: onEdit)
+                    .font(FMTypography.labelMedium)
+                    .foregroundColor(FMColors.primary)
             }
-            
-            VStack(alignment: .leading, spacing: 8) {
+
+            VStack(spacing: 0) {
                 content()
             }
-            .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
+            .background(FMColors.surfaceContainerLowest)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .overlay(
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(FMColors.background)
+                    .stroke(FMColors.outlineVariant, lineWidth: 1)
             )
         }
     }
@@ -192,18 +209,29 @@ private struct ReviewSection<Content: View>: View {
 private struct ReviewRow: View {
     let label: String
     let value: String
-    
+    var isLast: Bool = false
+
     var body: some View {
-        HStack {
-            Text(label)
-                .font(FMTypography.caption)
-                .foregroundColor(FMColors.secondary)
-            
-            Spacer()
-            
-            Text(value)
-                .font(FMTypography.captionMedium)
-                .foregroundColor(FMColors.primary)
+        VStack(spacing: 0) {
+            HStack {
+                Text(label)
+                    .font(FMTypography.bodySmall)
+                    .foregroundColor(FMColors.onSurfaceVariant)
+
+                Spacer()
+
+                Text(value)
+                    .font(FMTypography.bodySmall)
+                    .foregroundColor(FMColors.onSurface)
+                    .multilineTextAlignment(.trailing)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+
+            if !isLast {
+                Divider()
+                    .padding(.horizontal, 16)
+            }
         }
     }
 }

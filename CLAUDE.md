@@ -99,3 +99,114 @@ OnboardingFeature supports English and Spanish via generated `L10n.swift` (using
 
 - `PersistenceFramework`: iOS 14
 - All feature packages: iOS 16
+
+---
+
+## Engineering Standards
+
+These rules are non-negotiable. Apply them to every file you create or modify.
+
+### 1. `struct` over `class`
+
+Use `struct` by default. Only use `class` when identity semantics, inheritance, or a framework requirement demand it.
+
+| Use `struct` | Use `class` |
+|---|---|
+| DTOs, domain models, value types | `ObservableObject` ViewModels (`@StateObject` requires reference type) |
+| Endpoints, formatters, helper types | Singleton services (`APIClient`, `KeychainManager`) |
+| Repository/UseCase implementations that hold no mutable state | Objects shared across multiple owners |
+| `NotificationItem`, `MatchItem`, `NotificationSection`, etc. | `AppState`, `UserSession` (reference semantics needed) |
+
+If a type holds only injected dependencies (protocols) and no mutable state, it is almost certainly a `struct`.
+
+### 2. Mandatory UseCase + Repository Architecture
+
+Every piece of business logic must go through this chain — no exceptions:
+
+```
+View → ViewModel → UseCase (protocol) → Repository (protocol) → Data Source
+```
+
+- **UseCases** live in `Domain/UseCases/`. One public `execute(...)` method. No direct dependency on `APIClient`, CoreData, or any concrete type.
+- **Repositories** live in `Domain/Repositories/` (protocol) and `Data/Repositories/` (concrete). They translate between data sources and domain models.
+- **ViewModels** depend only on UseCase protocols, never on Services or APIClient directly.
+- **Services** (`MatchService`, `NotificationService`, etc.) are an intermediate layer owned by repository implementations — they must not be injected directly into ViewModels.
+
+### 3. ⚠️ Zero Uninjected Dependencies — CRITICAL
+
+**Every dependency must be injected.** There must be no hidden coupling.
+
+❌ **Never do this:**
+```swift
+// Inside any init, method, or property
+let client = APIClient.shared          // accessing a singleton directly
+let service = MatchService()           // constructing a concrete type inline
+let factory = HomeDependencyFactory()  // creating a factory inside a view or VM
+KeychainManager.shared.retrieve(...)   // reaching for a singleton inside business logic
+```
+
+✅ **Always do this:**
+```swift
+// Inject via init
+struct FetchMatchDetailUseCase: FetchMatchDetailUseCaseProtocol {
+    private let repository: MatchRepositoryProtocol
+    init(repository: MatchRepositoryProtocol) { self.repository = repository }
+}
+
+// Wire everything in DependencyFactory — that is the only place allowed to touch concrete types
+func makeFetchMatchDetailUseCase() -> FetchMatchDetailUseCaseProtocol {
+    FetchMatchDetailUseCase(repository: makeMatchRepository())
+}
+```
+
+Rules:
+- Every dependency a type needs must appear in its `init` as a protocol parameter.
+- `DependencyFactory` is the **only** place where concrete types are instantiated.
+- Views must never create ViewModels, Services, or Factories inline. Use `.environmentObject()` or pass via `init`.
+- If you catch yourself writing `SomeConcrete()` inside a ViewModel, UseCase, or Repository — stop. Inject it instead.
+
+### 4. Unit Tests — Business Logic Only
+
+Generate tests that validate **business rules**, not implementation details or third-party behavior.
+
+**Test targets:** UseCases, ViewModels, domain model transformations, grouping/formatting logic.
+
+**What to test:**
+- A UseCase returns the correct domain model given a mock repository response
+- A ViewModel transitions to the right state (`.loaded`, `.empty`, `.failed`) based on UseCase output
+- Date grouping logic (`groupByDate`) produces the correct section titles
+- Price/time formatters return the expected strings
+- Error paths (UseCase throws → ViewModel sets `.failed`)
+
+**What NOT to test:**
+- `APIClient` network calls — that's framework code
+- Stripe or Firebase SDK behavior — that's third-party code
+- CoreData or Keychain internals
+- SwiftUI view rendering
+- Trivial getters/setters with no logic
+
+**Test structure:**
+```swift
+// Use mocks via protocol conformance — never subclassing
+final class MockMatchRepository: MatchRepositoryProtocol {
+    var stubbedMatches: [MatchItem] = []
+    var fetchCallCount = 0
+    func fetchMatches(lat: Double?, lon: Double?) async throws -> [MatchItem] {
+        fetchCallCount += 1
+        return stubbedMatches
+    }
+}
+
+final class FetchMatchesUseCaseTests: XCTestCase {
+    func test_execute_returnsMappedMatches() async throws {
+        let repo = MockMatchRepository()
+        repo.stubbedMatches = [.stub()]
+        let sut = FetchMatchesUseCase(repository: repo)
+        let result = try await sut.execute(lat: nil, lon: nil)
+        XCTAssertEqual(result.count, 1)
+        XCTAssertEqual(repo.fetchCallCount, 1)
+    }
+}
+```
+
+Each test file lives in `Tests/[FeatureName]Tests/` inside the relevant SPM package.

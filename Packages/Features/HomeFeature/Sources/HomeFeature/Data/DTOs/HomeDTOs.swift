@@ -1,4 +1,5 @@
 import Foundation
+import SharedModels
 
 // MARK: - Home Response
 
@@ -6,7 +7,7 @@ struct HomeResponse: Decodable {
     let data: HomeDataDTO
 }
 
-struct HomeDataDTO: Decodable {
+struct HomeDataDTO: Codable {
     let profile: HomeProfileDTO
     let suggestedMatches: [HomeSuggestedMatchDTO]
     let lastMatch: HomeLastMatchDTO?
@@ -14,16 +15,16 @@ struct HomeDataDTO: Decodable {
 
 // MARK: - Profile
 
-struct HomeProfileDTO: Decodable {
+struct HomeProfileDTO: Codable {
     let greetingName: String
-    let level: String
+    let level: PlayerLevel
     let averageScore: Int
     let profileImageUrl: String?
 }
 
 // MARK: - Suggested Match
 
-struct HomeSuggestedMatchDTO: Decodable {
+struct HomeSuggestedMatchDTO: Codable {
     let matchId: String
     let fieldId: String
     let fieldName: String
@@ -50,7 +51,7 @@ struct HomeSuggestedMatchDTO: Decodable {
 
 // MARK: - Last Match
 
-struct HomeLastMatchDTO: Decodable {
+struct HomeLastMatchDTO: Codable {
     let matchId: String
     let fieldId: String
     let fieldName: String

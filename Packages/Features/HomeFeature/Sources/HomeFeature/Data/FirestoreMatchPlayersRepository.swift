@@ -79,6 +79,7 @@ private struct MatchPlayerFirestoreDTO {
     let avatarUrl: String?
     let team: String
     let status: String
+    let country: String?
     let reservationExpiresAt: Date?
 
     init?(dict: [String: Any]) {
@@ -93,6 +94,7 @@ private struct MatchPlayerFirestoreDTO {
         self.avatarUrl = dict["avatarUrl"] as? String
         self.team = team
         self.status = status
+        self.country = dict["country"] as? String
 
         // reservationExpiresAt can be a Firestore Timestamp or a Unix ms integer
         if let ts = dict["reservationExpiresAt"] as? Timestamp {
@@ -112,7 +114,8 @@ private struct MatchPlayerFirestoreDTO {
             playerId: playerId,
             name: name,
             avatarUrl: avatarUrl,
-            status: status.uppercased() == "RESERVED" ? .reserved : .joined
+            status: status.uppercased() == "RESERVED" ? .reserved : .joined,
+            country: country
         )
     }
 }

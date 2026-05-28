@@ -1,17 +1,30 @@
 import SwiftUI
 import FMDesignSystem
+import SharedModels
 
 /// Main Login View - Entry point of the app
 public struct LoginView: View {
-    @StateObject private var viewModel = LoginViewModel()
+    @StateObject private var viewModel: LoginViewModel
     @State private var showOnboarding = false
     @State private var showForgotPassword = false
-    
+
+    /// Injected country data source forwarded to the Onboarding flow.
+    private let fetchCountriesUseCase: (any FetchCountriesUseCaseProtocol)?
+    /// Injected dial-code data source forwarded to the Onboarding flow.
+    private let fetchDialCodesUseCase: (any FetchDialCodesUseCaseProtocol)?
     /// Callback when login or registration is successful
     public var onLoginSuccess: (() -> Void)?
-    
-    public init(onLoginSuccess: (() -> Void)? = nil) {
+
+    public init(
+        fetchCountriesUseCase: (any FetchCountriesUseCaseProtocol)? = nil,
+        fetchDialCodesUseCase: (any FetchDialCodesUseCaseProtocol)? = nil,
+        onLoginSuccess: (() -> Void)? = nil,
+        firebaseSignIn: ((String) async throws -> Void)? = nil
+    ) {
+        self.fetchCountriesUseCase = fetchCountriesUseCase
+        self.fetchDialCodesUseCase = fetchDialCodesUseCase
         self.onLoginSuccess = onLoginSuccess
+        _viewModel = StateObject(wrappedValue: LoginViewModel(firebaseSignIn: firebaseSignIn))
     }
     
     public var body: some View {
@@ -49,10 +62,14 @@ public struct LoginView: View {
                 Text(viewModel.errorMessage)
             }
             .fullScreenCover(isPresented: $showOnboarding) {
-                OnboardingContainerView(onRegistrationComplete: {
-                    showOnboarding = false
-                    onLoginSuccess?()
-                })
+                OnboardingContainerView(
+                    fetchCountriesUseCase: fetchCountriesUseCase,
+                    fetchDialCodesUseCase: fetchDialCodesUseCase,
+                    onRegistrationComplete: {
+                        showOnboarding = false
+                        onLoginSuccess?()
+                    }
+                )
             }
         }
     }
@@ -67,8 +84,15 @@ public struct LoginView: View {
                 .frame(width: 61, height: 73)
             
             Text("FutMatch")
-                .font(FMTypography.title)
-                .foregroundColor(FMColors.primary)
+                .font(.interBold(size: 32))
+                .tracking(1.5)
+                .foregroundStyle(
+                    LinearGradient(
+                        colors: [FMColors.primary, FMColors.inversePrimary],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
             
             Text(L10n.Login.title)
                 .font(FMTypography.caption)
@@ -117,12 +141,12 @@ public struct LoginView: View {
                     await viewModel.login()
                 }
             }
-            
+
             HStack(spacing: 4) {
                 Text(L10n.Login.noAccount)
                     .font(FMTypography.caption)
                     .foregroundColor(FMColors.secondary)
-                
+
                 Button {
                     showOnboarding = true
                 } label: {

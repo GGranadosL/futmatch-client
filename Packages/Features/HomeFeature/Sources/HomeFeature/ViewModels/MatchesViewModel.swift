@@ -18,16 +18,20 @@ final class MatchesViewModel: ObservableObject {
     @Published private(set) var isRefreshing: Bool = false
 
     private let fetchMatchesUseCase: FetchMatchesUseCaseProtocol
-    private var cacheRepo: MatchCacheRepositoryProtocol?
+    private let cacheRepo: MatchCacheRepositoryProtocol?
     private var cancellables = Set<AnyCancellable>()
 
-    init(fetchMatchesUseCase: FetchMatchesUseCaseProtocol) {
+    init(
+        fetchMatchesUseCase: FetchMatchesUseCaseProtocol,
+        cacheRepo: MatchCacheRepositoryProtocol? = nil
+    ) {
         self.fetchMatchesUseCase = fetchMatchesUseCase
+        self.cacheRepo = cacheRepo
+        // Pre-load cache synchronously so the first render already has data
+        if let cached = cacheRepo?.loadMatches(), !cached.isEmpty {
+            state = .loaded(MatchesViewModel.buildSections(from: cached))
+        }
         observeMembershipChanges()
-    }
-
-    func setCache(_ repo: MatchCacheRepositoryProtocol) {
-        cacheRepo = repo
     }
 
     // MARK: - Derived State
@@ -54,11 +58,15 @@ final class MatchesViewModel: ObservableObject {
     // MARK: - Actions
 
     func loadMatches(lat: Double? = nil, lon: Double? = nil) async {
-        guard case .idle = state else { return }
+        // Block only if already fetching to avoid duplicate requests
+        if case .loading = state { return }
 
-        // 1. Show cached matches instantly if available
+        // 1. Show cached matches instantly — if already showing loaded data (from
+        //    cache pre-loaded in init) just set refreshing so the UI doesn't flicker
         let cached = cacheRepo?.loadMatches() ?? []
-        if !cached.isEmpty {
+        if case .loaded = state {
+            isRefreshing = true
+        } else if !cached.isEmpty {
             state = .loaded(groupByDate(cached))
             isRefreshing = true
         } else {
@@ -71,7 +79,7 @@ final class MatchesViewModel: ObservableObject {
             state = .loaded(groupByDate(matches))
             try? cacheRepo?.saveMatches(matches)
         } catch {
-            // If we already have cached data visible, keep it — don't replace with error
+            // If we already have data visible, keep it — just fail silently
             if case .loaded = state { /* silent failure */ } else {
                 state = .failed(error.localizedDescription)
             }
@@ -81,7 +89,9 @@ final class MatchesViewModel: ObservableObject {
     }
 
     func reload(lat: Double? = nil, lon: Double? = nil) async {
-        state = .idle
+        // Reset to idle so loadMatches doesn't skip the loading state
+        if case .loaded = state { /* keep data visible while refreshing */ }
+        else { state = .idle }
         // Run in a detached-like context so SwiftUI .refreshable cancellation
         // doesn't abort the network request when the user releases the pull gesture.
         await Task {
@@ -101,7 +111,15 @@ final class MatchesViewModel: ObservableObject {
             .store(in: &cancellables)
     }
 
+    static func buildSections(from matches: [MatchItem]) -> [MatchSection] {
+        MatchesViewModel.groupByDateStatic(matches)
+    }
+
     private func groupByDate(_ matches: [MatchItem]) -> [MatchSection] {
+        MatchesViewModel.groupByDateStatic(matches)
+    }
+
+    private static func groupByDateStatic(_ matches: [MatchItem]) -> [MatchSection] {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
         guard let tomorrow = calendar.date(byAdding: .day, value: 1, to: today) else { return [] }

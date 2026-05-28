@@ -1,5 +1,6 @@
 import SwiftUI
 import FMDesignSystem
+import SharedModels
 
 /// Navigation destinations for onboarding flow
 enum OnboardingDestination: Hashable {
@@ -8,14 +9,28 @@ enum OnboardingDestination: Hashable {
 
 /// Main Onboarding Flow Container
 public struct OnboardingContainerView: View {
-    @StateObject private var viewModel = OnboardingViewModel()
+    @StateObject private var viewModel: OnboardingViewModel
     @Environment(\.dismiss) private var dismiss
     @State private var navigationPath = NavigationPath()
-    
+    /// Shown as a `fullScreenCover` after the email is verified successfully.
+    @State private var showRegistrationSuccess = false
+
     /// Callback when registration and verification are complete
     public var onRegistrationComplete: (() -> Void)?
-    
-    public init(onRegistrationComplete: (() -> Void)? = nil) {
+
+    /// - Parameters:
+    ///   - fetchCountriesUseCase: Country data source. Defaults to `FallbackCountryRepository`.
+    ///   - fetchDialCodesUseCase: Dial-code data source. Defaults to `FallbackDialCodeRepository`.
+    ///   - onRegistrationComplete: Called after successful registration + email verification.
+    public init(
+        fetchCountriesUseCase: (any FetchCountriesUseCaseProtocol)? = nil,
+        fetchDialCodesUseCase: (any FetchDialCodesUseCaseProtocol)? = nil,
+        onRegistrationComplete: (() -> Void)? = nil
+    ) {
+        _viewModel = StateObject(wrappedValue: OnboardingViewModel(
+            fetchCountriesUseCase: fetchCountriesUseCase,
+            fetchDialCodesUseCase: fetchDialCodesUseCase
+        ))
         self.onRegistrationComplete = onRegistrationComplete
     }
     
@@ -85,6 +100,15 @@ public struct OnboardingContainerView: View {
         }
         .onChange(of: viewModel.isVerificationComplete) { isComplete in
             if isComplete {
+                // Show the success animation first; the CTA inside it triggers onRegistrationComplete.
+                showRegistrationSuccess = true
+            }
+        }
+        .fullScreenCover(isPresented: $showRegistrationSuccess) {
+            RegistrationSuccessView(
+                viewModel: viewModel
+            ) {
+                showRegistrationSuccess = false
                 onRegistrationComplete?()
             }
         }

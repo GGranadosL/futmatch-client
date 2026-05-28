@@ -17,6 +17,7 @@ let package = Package(
         .package(path: "../../Shared/SharedModels"),
         .package(url: "https://github.com/firebase/firebase-ios-sdk", from: "12.0.0"),
         .package(url: "https://github.com/stripe/stripe-ios-spm", from: "24.0.0"),
+        .package(url: "https://github.com/airbnb/lottie-spm.git", from: "4.5.0"),
     ],
     targets: [
         .target(
@@ -28,6 +29,7 @@ let package = Package(
                 "SharedModels",
                 .product(name: "FirebaseFirestore", package: "firebase-ios-sdk"),
                 .product(name: "StripePaymentSheet", package: "stripe-ios-spm"),
+                .product(name: "Lottie", package: "lottie-spm"),
             ],
             resources: [
                 .process("Resources")

@@ -19,5 +19,8 @@ Pods/
 .env
 *.local
 
+# Secrets
+GoogleService-Info.plist
+
 # IDE
 .vscode/

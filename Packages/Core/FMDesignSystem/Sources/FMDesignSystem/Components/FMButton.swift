@@ -34,11 +34,17 @@ public struct FMPrimaryButton: View {
             .frame(height: 52)
             .background(
                 RoundedRectangle(cornerRadius: 26)
-                    .fill(isEnabled ? FMColors.primary : FMColors.secondary)
+                    // Material Design 3 disabled state: onSurface @ 12 % opacity.
+                    // This produces a clearly inert grey instead of the very-similar
+                    // secondary blue, so the user can tell at a glance that the
+                    // button is unavailable.
+                    .fill(isEnabled ? FMColors.primary : FMColors.onSurface.opacity(0.12))
             )
-            .foregroundColor(isEnabled ? .white : FMColors.onSecondary)
+            // Disabled text: onSurface @ 38 % opacity (also per MD3).
+            .foregroundColor(isEnabled ? .white : FMColors.onSurface.opacity(0.38))
         }
         .disabled(!isEnabled || isLoading)
+        .animation(.easeInOut(duration: 0.15), value: isEnabled)
     }
 }
 
