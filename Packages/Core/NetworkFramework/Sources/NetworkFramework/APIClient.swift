@@ -235,12 +235,16 @@ public class APIClient {
     // MARK: - Error Parsing with Higher-Order Functions
     
     private func parseErrorDetails(from data: Data, decoder: JSONDecoder) -> (title: String, message: String) {
+        // Try {"error": {"title":…, "message":…}} structure first
         if let errorResponse = try? decoder.decode(APIErrorResponse.self, from: data) {
             return (errorResponse.error.title, errorResponse.displayMessage)
         }
-        
-        let fallback = String(data: data, encoding: .utf8) ?? "Unknown error occurred"
-        return ("", fallback)
+        // Fallback: server returns flat {"title":…, "message":…} at root level
+        if let flat = try? decoder.decode(ErrorDetails.self, from: data) {
+            let msg = flat.message.isEmpty ? flat.title : flat.message
+            return (flat.title, msg)
+        }
+        return ("", "Error desconocido")
     }
 }
 

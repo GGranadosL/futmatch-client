@@ -1,5 +1,6 @@
 import Foundation
 import NetworkFramework
+import Security
 
 // MARK: - Profile DTOs (/profiles/me and /profiles/{userId})
 
@@ -145,6 +146,11 @@ public final class UserSession: ObservableObject {
     @Published public private(set) var currentUser: User?
     @Published public private(set) var isLoading: Bool = false
     @Published public private(set) var error: Error?
+    /// Toggled true when a refresh fails but a cached profile is still shown —
+    /// drives a transient error toast. The view resets it after display.
+    @Published public var refreshFailed: Bool = false
+    /// API-provided message for the refresh toast (nil → generic copy).
+    @Published public private(set) var refreshErrorMessage: String?
     
     private let apiClient: APIClient
     private let cache: UserProfileCacheProtocol?
@@ -183,7 +189,18 @@ public final class UserSession: ObservableObject {
             currentUser = user
             try? cache?.save(user)
         } catch {
-            self.error = error
+            guard !(error is CancellationError) else {
+                isLoading = false
+                return
+            }
+            // Full-screen error only when we have no cached profile;
+            // otherwise surface a transient toast over the cached content.
+            if currentUser == nil {
+                self.error = error
+            } else {
+                refreshErrorMessage = error.apiErrorMessage
+                refreshFailed = true
+            }
             #if DEBUG
             print("❌ UserSession: \(error.localizedDescription)")
             #endif
@@ -198,6 +215,19 @@ public final class UserSession: ObservableObject {
         error = nil
         isLoading = false
         try? cache?.clear()
+    }
+
+    /// Get auth token from Keychain (used for loading authenticated images).
+    public func getAuthToken() async throws -> String? {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrAccount as String: "access_token",
+            kSecReturnData as String: true
+        ]
+        var result: AnyObject?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        guard status == errSecSuccess, let data = result as? Data else { return nil }
+        return String(data: data, encoding: .utf8)
     }
 
     // MARK: - Profile Picture Upload

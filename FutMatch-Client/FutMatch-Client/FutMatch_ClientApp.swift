@@ -3,7 +3,7 @@ import CoreData
 import Combine
 import FirebaseAuth
 import OnboardingFeature
-import HomeFeature
+import PlayerFeature
 import FMDesignSystem
 import PersistenceFramework
 import NetworkFramework
@@ -112,6 +112,8 @@ struct FutMatchApp: App {
             try? context.save()
             // Clear home cache so the next user doesn't see stale data
             UserDefaults.standard.removeObject(forKey: "home.cache.homeDataDTO")
+            // Reset notification seen-count so the next user gets a fresh badge
+            UserDefaults.standard.removeObject(forKey: "notifications.seenUnreadCount")
         }
         return state
     }()
@@ -273,7 +275,7 @@ struct RootView: View {
         #if DEBUG
         print("[🔔 FM-PUSH] Syncing FCM token with server on session start…")
         #endif
-        let useCase = HomeDependencyFactory().makeUpdateFCMTokenUseCase()
+        let useCase = PlayerDependencyFactory().makeUpdateFCMTokenUseCase()
         do {
             try await useCase.execute(fcmToken: token)
             #if DEBUG

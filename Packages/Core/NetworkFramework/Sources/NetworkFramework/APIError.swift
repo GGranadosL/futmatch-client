@@ -41,3 +41,26 @@ public enum APIError: LocalizedError {
         }
     }
 }
+
+// MARK: - API-provided error text
+
+public extension Error {
+    /// The API-provided error title (e.g. "Token inválido"), when this error is
+    /// a server error that carries one. `nil` for non-API or empty titles, so
+    /// callers can fall back to a generic localized string.
+    var apiErrorTitle: String? {
+        guard let apiError = self as? APIError,
+              case let .serverError(_, title, _) = apiError,
+              !title.isEmpty else { return nil }
+        return title
+    }
+
+    /// The API-provided error message, when this error is a server error that
+    /// carries one. `nil` for non-API or empty messages.
+    var apiErrorMessage: String? {
+        guard let apiError = self as? APIError,
+              case let .serverError(_, _, message) = apiError,
+              !message.isEmpty else { return nil }
+        return message
+    }
+}

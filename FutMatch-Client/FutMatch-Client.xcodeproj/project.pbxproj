@@ -12,7 +12,7 @@
 		C05EB5F72F7B911E00E0C69B /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = C05EB5F62F7B911E00E0C69B /* FirebaseFirestore */; };
 		C05EB5F92F7B971A00E0C69B /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = C05EB5F82F7B971A00E0C69B /* FirebaseAuth */; };
 		C07A6C3B2F1B7C19002868BD /* FMDesignSystem in Frameworks */ = {isa = PBXBuildFile; productRef = C07A6C3A2F1B7C19002868BD /* FMDesignSystem */; };
-		C07A6C3D2F1B7C19002868BD /* HomeFeature in Frameworks */ = {isa = PBXBuildFile; productRef = C07A6C3C2F1B7C19002868BD /* HomeFeature */; };
+		C07A6C3D2F1B7C19002868BD /* PlayerFeature in Frameworks */ = {isa = PBXBuildFile; productRef = C07A6C3C2F1B7C19002868BD /* PlayerFeature */; };
 		C09AFBD42FB68DB900CF33F0 /* FirebaseRemoteConfig in Frameworks */ = {isa = PBXBuildFile; productRef = C09AFBD32FB68DB900CF33F0 /* FirebaseRemoteConfig */; };
 		C0A59BA12F18832700B28BAD /* OnboardingFeature in Frameworks */ = {isa = PBXBuildFile; productRef = C0A59BA02F18832700B28BAD /* OnboardingFeature */; };
 		C0B1A0032FD0A00300E712F5 /* IQKeyboardManagerSwift in Frameworks */ = {isa = PBXBuildFile; productRef = C0B1A0022FD0A00200E712F5 /* IQKeyboardManagerSwift */; };
@@ -82,7 +82,7 @@
 				C0A59BA12F18832700B28BAD /* OnboardingFeature in Frameworks */,
 				C0404E6B2F73A34800E712F5 /* FirebaseMessaging in Frameworks */,
 				C0404E692F73A34800E712F5 /* FirebaseCore in Frameworks */,
-				C07A6C3D2F1B7C19002868BD /* HomeFeature in Frameworks */,
+				C07A6C3D2F1B7C19002868BD /* PlayerFeature in Frameworks */,
 				C05EB5F92F7B971A00E0C69B /* FirebaseAuth in Frameworks */,
 				C05EB5F72F7B911E00E0C69B /* FirebaseFirestore in Frameworks */,
 				C0B1A0032FD0A00300E712F5 /* IQKeyboardManagerSwift in Frameworks */,
@@ -156,7 +156,7 @@
 			packageProductDependencies = (
 				C0A59BA02F18832700B28BAD /* OnboardingFeature */,
 				C07A6C3A2F1B7C19002868BD /* FMDesignSystem */,
-				C07A6C3C2F1B7C19002868BD /* HomeFeature */,
+				C07A6C3C2F1B7C19002868BD /* PlayerFeature */,
 				C0404E682F73A34800E712F5 /* FirebaseCore */,
 				C0404E6A2F73A34800E712F5 /* FirebaseMessaging */,
 				C05EB5F62F7B911E00E0C69B /* FirebaseFirestore */,
@@ -252,7 +252,7 @@
 				C070F98F2F175A8900E6003D /* XCLocalSwiftPackageReference "../Packages/Core/NetworkFramework" */,
 				C0A59B9F2F18831900B28BAD /* XCLocalSwiftPackageReference "../Packages/Features/OnboardingFeature" */,
 				C0A59BA42F18BCD200B28BAD /* XCLocalSwiftPackageReference "../Packages/Core/FMDesignSystem" */,
-				C07A6C392F1B7A95002868BD /* XCLocalSwiftPackageReference "../Packages/Features/HomeFeature" */,
+				C07A6C392F1B7A95002868BD /* XCLocalSwiftPackageReference "../Packages/Features/PlayerFeature" */,
 				C0404E672F73A34800E712F5 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 				C0B1A0012FD0A00100E712F5 /* XCRemoteSwiftPackageReference "IQKeyboardManager" */,
 				C09AFBDA2FB6AB1100CF33F0 /* XCRemoteSwiftPackageReference "lottie-spm" */,
@@ -459,49 +459,9 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = "FutMatch-Client/FutMatch-Client.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 8NB4P3S66S;
-				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "FutMatch-Client/Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = Futmatch;
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.sports";
-				INFOPLIST_KEY_NSCameraUsageDescription = "Vamos a tomarte una foto para el perfil ";
-				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 16;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-				);
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.futmatch.client;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				PROVISIONING_PROFILE_SPECIFIER = "";
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-			};
-			name = Debug;
-		};
-		C070F9812F17506B00E6003D /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = "FutMatch-Client/FutMatch-Client.entitlements";
-				CODE_SIGN_IDENTITY = "Apple Development";
-				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = 8NB4P3S66S;
 				ENABLE_PREVIEWS = YES;
@@ -520,11 +480,54 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 0.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.futmatch.client;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
-				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = AppsStore;
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = "iOS development";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		C070F9812F17506B00E6003D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "FutMatch-Client/FutMatch-Client.entitlements";
+				CODE_SIGN_IDENTITY = "Apple Development";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 2;
+				DEVELOPMENT_TEAM = "";
+				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = 8NB4P3S66S;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "FutMatch-Client/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = Futmatch;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.sports";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Vamos a tomarte una foto para el perfil ";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 16;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.futmatch.client;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = "iOS development";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
@@ -669,9 +672,9 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = ../Packages/Core/NetworkFramework;
 		};
-		C07A6C392F1B7A95002868BD /* XCLocalSwiftPackageReference "../Packages/Features/HomeFeature" */ = {
+		C07A6C392F1B7A95002868BD /* XCLocalSwiftPackageReference "../Packages/Features/PlayerFeature" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = ../Packages/Features/HomeFeature;
+			relativePath = ../Packages/Features/PlayerFeature;
 		};
 		C0A59B9F2F18831900B28BAD /* XCLocalSwiftPackageReference "../Packages/Features/OnboardingFeature" */ = {
 			isa = XCLocalSwiftPackageReference;
@@ -736,10 +739,10 @@
 			package = C0A59BA42F18BCD200B28BAD /* XCLocalSwiftPackageReference "../Packages/Core/FMDesignSystem" */;
 			productName = FMDesignSystem;
 		};
-		C07A6C3C2F1B7C19002868BD /* HomeFeature */ = {
+		C07A6C3C2F1B7C19002868BD /* PlayerFeature */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = C07A6C392F1B7A95002868BD /* XCLocalSwiftPackageReference "../Packages/Features/HomeFeature" */;
-			productName = HomeFeature;
+			package = C07A6C392F1B7A95002868BD /* XCLocalSwiftPackageReference "../Packages/Features/PlayerFeature" */;
+			productName = PlayerFeature;
 		};
 		C09AFBD32FB68DB900CF33F0 /* FirebaseRemoteConfig */ = {
 			isa = XCSwiftPackageProductDependency;
