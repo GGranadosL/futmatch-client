@@ -58,7 +58,7 @@ struct OnboardingStep4View: View {
     }
     
     private var identitySection: some View {
-        ReviewSection(title: L10n.Step4.identity, onEdit: { viewModel.goToStep(3) }) {
+        ReviewSection(title: L10n.Step4.identity, onEdit: { viewModel.goToStep(1) }) {
             HStack(spacing: 16) {
                 FMAvatar(image: viewModel.profileImage, size: 56)
 

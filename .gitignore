@@ -1,10 +1,14 @@
 # Xcode
 .DS_Store
-*.xcodeproj/xcuserdata/
-*.xcworkspace/xcuserdata/
+**/*.xcodeproj/xcuserdata/
+**/*.xcworkspace/xcuserdata/
+xcuserdata/
 DerivedData/
 build/
 .build/
+
+# Claude local config
+.claude/
 
 # Swift Package Manager
 .swiftpm/

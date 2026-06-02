@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// Card showing the user's next upcoming game
 /// Displays date, time, location, and a field image
@@ -12,6 +13,9 @@ public struct FMNextGameCard: View {
     var fieldImageUrl: String?
     var fieldImage: Image?
     var onDetailTap: (() -> Void)?
+
+    /// Cached downloaded image — survives re-renders caused by parent state changes.
+    @State private var cachedFieldImage: UIImage? = nil
     
     public init(
         title: String,
@@ -49,7 +53,7 @@ public struct FMNextGameCard: View {
                         .foregroundColor(FMColors.onSurface)
                     
                     HStack(spacing: 4) {
-                        Image(systemName: "mappin.circle.fill")
+                        Image(systemName: "mappin.and.ellipse")
                             .font(.system(size: 14))
                             .foregroundColor(FMColors.primary)
                         
@@ -83,37 +87,54 @@ public struct FMNextGameCard: View {
             RoundedRectangle(cornerRadius: 16)
                 .stroke(FMColors.outlineVariant, lineWidth: 1)
         )
+        .task(id: fieldImageUrl) {
+            await loadFieldImage()
+        }
     }
-    
+
     // MARK: - Private
-    
+
     @ViewBuilder
     private var fieldImageView: some View {
-        if let urlString = fieldImageUrl, let url = URL(string: urlString) {
-            AsyncImage(url: url) { phase in
-                switch phase {
-                case .success(let image):
-                    image.resizable().scaledToFill()
-                default:
-                    Image("defaultField1x1", bundle: .main)
-                        .resizable()
-                        .scaledToFill()
-                }
+        Group {
+            if let cached = cachedFieldImage {
+                Image(uiImage: cached)
+                    .resizable()
+                    .scaledToFill()
+            } else if let image = fieldImage {
+                image
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                Image("defaultField1x1", bundle: .main)
+                    .resizable()
+                    .scaledToFill()
             }
-            .frame(width: 100, height: 72)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-        } else if let image = fieldImage {
-            image
-                .resizable()
-                .scaledToFill()
-                .frame(width: 100, height: 72)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-        } else {
-            Image("defaultField1x1", bundle: .main)
-                .resizable()
-                .scaledToFill()
-                .frame(width: 100, height: 72)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+        }
+        .frame(width: 100, height: 72)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+
+    private func loadFieldImage() async {
+        guard
+            let urlString = fieldImageUrl,
+            let url = URL(string: urlString)
+        else { return }
+
+        // Return immediately if already in the shared cache
+        if let cached = FMImageCache.shared.image(for: urlString) {
+            cachedFieldImage = cached
+            return
+        }
+
+        do {
+            let (data, response) = try await URLSession.shared.data(from: url)
+            if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) { return }
+            guard let downloaded = UIImage(data: data) else { return }
+            FMImageCache.shared.store(downloaded, for: urlString)
+            cachedFieldImage = downloaded
+        } catch {
+            // Silently fail — default image stays visible
         }
     }
 }

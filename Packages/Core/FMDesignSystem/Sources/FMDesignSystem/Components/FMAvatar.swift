@@ -56,7 +56,7 @@ public struct FMAvatar: View {
             } else {
                 defaultAvatarView
             }
-            
+
             // Camera badge
             if showCameraBadge {
                 Circle()

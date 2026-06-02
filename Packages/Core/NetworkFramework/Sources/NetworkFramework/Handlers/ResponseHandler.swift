@@ -66,8 +66,10 @@ public struct DefaultResponseHandler: ResponseHandler {
         if let errorResponse = try? decoder.decode(APIErrorResponse.self, from: data) {
             return (errorResponse.error.title, errorResponse.displayMessage)
         }
-        
-        let fallback = String(data: data, encoding: .utf8) ?? "Unknown error occurred"
-        return ("", fallback)
+        if let flat = try? decoder.decode(ErrorDetails.self, from: data) {
+            let msg = flat.message.isEmpty ? flat.title : flat.message
+            return (flat.title, msg)
+        }
+        return ("", "Error desconocido")
     }
 }

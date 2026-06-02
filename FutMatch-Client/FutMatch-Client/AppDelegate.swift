@@ -2,7 +2,7 @@ import UIKit
 import UserNotifications
 import FirebaseCore
 import FirebaseMessaging
-import HomeFeature
+import PlayerFeature
 import PersistenceFramework
 import IQKeyboardManagerSwift
 import IQKeyboardToolbarManager
@@ -110,7 +110,7 @@ extension AppDelegate: MessagingDelegate {
         print("[🔔 FM-PUSH] User is logged in — syncing FCM token with server…")
         #endif
 
-        let useCase = HomeDependencyFactory().makeUpdateFCMTokenUseCase()
+        let useCase = PlayerDependencyFactory().makeUpdateFCMTokenUseCase()
         Task {
             do {
                 try await useCase.execute(fcmToken: fcmToken)
