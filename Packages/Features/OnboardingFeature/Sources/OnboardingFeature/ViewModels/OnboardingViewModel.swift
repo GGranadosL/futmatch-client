@@ -144,22 +144,11 @@ public class OnboardingViewModel: ObservableObject {
     
     // Step 2 Validations
     public var isStep2Valid: Bool {
-        let valid = isEmailValid
+        return isEmailValid
             && isPasswordValid
             && isPhoneValid
             && !countryCode.isEmpty
             && !countryISO.isEmpty
-        #if DEBUG
-        if !valid {
-            print("📋 Step2 Validation:")
-            print("  - Email valid: \(isEmailValid) (\(email))")
-            print("  - Password valid: \(isPasswordValid) (\(password.count) chars)")
-            print("  - Phone valid: \(isPhoneValid) (\(cleanedPhone))")
-            print("  - Dial code: \(!countryCode.isEmpty) (\(countryCode))")
-            print("  - Country: \(!country.isEmpty) (\(country))")
-        }
-        #endif
-        return valid
     }
     
     public var isEmailValid: Bool {
@@ -202,12 +191,10 @@ public class OnboardingViewModel: ObservableObject {
             
             if result.success {
                 resendCodeTimeInSeconds = result.resendCodeTimeInSeconds
-                print("✅ Registration successful, navigating to verification...")
                 showVerification = true
             }
         } catch {
             errorMessage = error.localizedDescription
-            print("❌ Registration error: \(error.localizedDescription)")
         }
         
         isLoading = false
@@ -223,19 +210,14 @@ public class OnboardingViewModel: ObservableObject {
             let result = try await verifyCodeUseCase.execute(email: cleanEmail, code: code)
             
             if result.success {
-                print("✅ Verification successful!")
-                print("📦 User ID: \(result.userId)")
-                print("🔑 Tokens saved to Keychain")
-                
                 // Clear draft after successful registration
                 await clearDraftAfterSuccess()
-                
+
                 // Navigate to Home
                 isVerificationComplete = true
             }
         } catch {
             errorMessage = error.localizedDescription
-            print("❌ Verification error: \(error)")
         }
         
         isLoading = false
@@ -369,23 +351,15 @@ extension OnboardingViewModel {
             currentStep: currentStep
         )
         
-        do {
-            try await useCase.execute(draft, password: password.isEmpty ? nil : password)
-        } catch {
-            print("⚠️ Failed to save onboarding draft: \(error)")
-        }
+        try? await useCase.execute(draft, password: password.isEmpty ? nil : password)
     }
     
     /// Load saved draft on initialization
     private func loadDraft() async {
         guard let useCase = getOnboardingDraftUseCase else { return }
         
-        do {
-            if let result = try await useCase.execute() {
-                await restoreDraft(result.draft, password: result.password)
-            }
-        } catch {
-            print("⚠️ Failed to load onboarding draft: \(error)")
+        if let result = try? await useCase.execute() {
+            await restoreDraft(result.draft, password: result.password)
         }
     }
     
@@ -411,11 +385,7 @@ extension OnboardingViewModel {
     public func clearDraftAfterSuccess() async {
         guard let useCase = clearOnboardingDraftUseCase else { return }
 
-        do {
-            try await useCase.execute()
-        } catch {
-            print("⚠️ Failed to clear onboarding draft: \(error)")
-        }
+        try? await useCase.execute()
     }
 
     /// Upload profile picture to /user/profile-pic after email verification.
@@ -431,10 +401,8 @@ extension OnboardingViewModel {
                 fileName: "perfil.jpg",
                 mimeType: "image/jpeg"
             )
-            print("✅ Profile picture uploaded successfully")
         } catch {
             // Non-blocking — user can update picture later from profile
-            print("⚠️ Failed to upload profile picture: \(error.localizedDescription)")
         }
     }
 }

@@ -12,11 +12,5 @@ import Foundation
 public enum APIEnvironment {
     
     /// Base URL for all API endpoints. Must be set before making any requests.
-    public static var baseURL: String = "" {
-        didSet {
-            #if DEBUG
-            print("🌐 APIEnvironment.baseURL set to: \(baseURL)")
-            #endif
-        }
-    }
+    public static var baseURL: String = ""
 }

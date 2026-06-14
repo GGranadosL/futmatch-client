@@ -136,6 +136,14 @@ struct MatchItem: Identifiable, Hashable {
 
     static func == (lhs: MatchItem, rhs: MatchItem) -> Bool { lhs.id == rhs.id }
     func hash(into hasher: inout Hasher) { hasher.combine(id) }
+
+    /// Distance to show on the card, falling back to a localized "no location"
+    /// label when the backend doesn't provide a distance/location.
+    var distanceDisplay: String {
+        distance.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? L10n.Matches.noLocation
+            : distance
+    }
 }
 
 struct MatchSection: Identifiable {
@@ -315,7 +323,7 @@ struct MatchesListView: View {
                 avatarURLs: match.teamBPlayers.prefix(3).map { $0.avatarUrl },
                 playerCount: match.teamBPlayers.count
             ),
-            distance: match.distance,
+            distance: match.distanceDisplay,
             fieldImageUrl: match.fieldImageUrl,
             onTap: {
                 navigationPath.append(match)

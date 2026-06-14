@@ -16,12 +16,11 @@ public enum Gender: String, Codable, Equatable, CaseIterable {
     }
 
     /// Asset name for the default avatar when the user has no profile picture.
-    /// Returns nil for `.other` → caller falls back to a neutral SF Symbol.
-    public var defaultAvatarAssetName: String? {
+    /// `.other` intentionally maps to the male asset (product decision).
+    public var defaultAvatarAssetName: String {
         switch self {
-        case .male: return "defaultAvatar"
+        case .male, .other: return "defaultAvatar"
         case .female: return "defaultAvatarWoman"
-        case .other: return nil
         }
     }
 }

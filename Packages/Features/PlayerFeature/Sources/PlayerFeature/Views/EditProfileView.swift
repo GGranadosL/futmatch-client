@@ -15,42 +15,6 @@ private struct HideTabBarModifier: ViewModifier {
     }
 }
 
-// MARK: - UIKit Image Picker
-
-private struct ImagePicker: UIViewControllerRepresentable {
-    let sourceType: UIImagePickerController.SourceType
-    let onImagePicked: (UIImage) -> Void
-    @Environment(\.dismiss) private var dismiss
-    
-    func makeUIViewController(context: Context) -> UIImagePickerController {
-        let picker = UIImagePickerController()
-        picker.sourceType = sourceType
-        picker.allowsEditing = true
-        picker.delegate = context.coordinator
-        return picker
-    }
-    
-    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
-    
-    func makeCoordinator() -> Coordinator { Coordinator(self) }
-    
-    final class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
-        private let parent: ImagePicker
-        init(_ parent: ImagePicker) { self.parent = parent }
-        
-        func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
-            if let image = info[.editedImage] as? UIImage ?? info[.originalImage] as? UIImage {
-                parent.onImagePicked(image)
-            }
-            parent.dismiss()
-        }
-        
-        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
-            parent.dismiss()
-        }
-    }
-}
-
 // MARK: - EditProfileRow Model
 
 private struct EditProfileRow: Identifiable {
@@ -76,9 +40,7 @@ struct EditProfileView: View {
     @EnvironmentObject private var homeViewModel: HomeViewModel
     
     @State private var selectedImage: UIImage?
-    @State private var showImageSourceSheet = false
-    @State private var imagePickerSource: UIImagePickerController.SourceType = .photoLibrary
-    @State private var showImagePicker = false
+    @State private var showImagePickerFlow = false
     @State private var isUploadingImage = false
     @State private var uploadError: String?
     @State private var showUploadSuccess = false
@@ -162,27 +124,24 @@ struct EditProfileView: View {
                     .foregroundColor(FMColors.onBackground)
             }
         }
-        .confirmationDialog(
-            L10n.EditProfile.editAvatar,
-            isPresented: $showImageSourceSheet,
-            titleVisibility: .visible
-        ) {
-            Button(L10n.EditProfile.takePhoto) {
-                imagePickerSource = .camera
-                showImagePicker = true
-            }
-            Button(L10n.EditProfile.chooseFromGallery) {
-                imagePickerSource = .photoLibrary
-                showImagePicker = true
-            }
-            Button(L10n.EditProfile.cancel, role: .cancel) {}
-        }
-        .sheet(isPresented: $showImagePicker) {
-            ImagePicker(sourceType: imagePickerSource) { uiImage in
-                selectedImage = uiImage
-                uploadProfilePic(uiImage)
-            }
-            .ignoresSafeArea()
+        .fmImagePickerFlow(
+            isPresented: $showImagePickerFlow,
+            config: FMImagePickerFlowConfig(
+                title: L10n.EditProfile.avatarPickerTitle,
+                subtitle: L10n.EditProfile.avatarPickerSubtitle,
+                takePhotoTitle: L10n.EditProfile.takePhoto,
+                takePhotoSubtitle: L10n.EditProfile.takePhotoSubtitle,
+                galleryTitle: L10n.EditProfile.chooseFromGallery,
+                gallerySubtitle: L10n.EditProfile.gallerySubtitle,
+                confirmTitle: L10n.EditProfile.confirmImageTitle,
+                confirmMessage: L10n.EditProfile.confirmImageMessage,
+                confirmButtonTitle: L10n.EditProfile.useImage,
+                cancelTitle: L10n.EditProfile.cancel,
+                circularPreview: true
+            )
+        ) { uiImage in
+            selectedImage = uiImage
+            uploadProfilePic(uiImage)
         }
         .alert(L10n.EditProfile.uploadError, isPresented: Binding(
             get: { uploadError != nil },
@@ -217,7 +176,7 @@ struct EditProfileView: View {
             FMAvatar(
                 image: selectedImage.map { Image(uiImage: $0) },
                 url: selectedImage == nil ? profilePicURL : nil,
-                defaultImageName: user?.gender?.defaultAvatarAssetName,
+                defaultImageName: user?.gender?.defaultAvatarAssetName ?? "defaultAvatar",
                 size: 100,
                 showCameraBadge: false
             )
@@ -236,7 +195,7 @@ struct EditProfileView: View {
         }
         .overlay(alignment: .bottom) {
             Button {
-                showImageSourceSheet = true
+                showImagePickerFlow = true
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "pencil")
@@ -338,13 +297,15 @@ struct EditProfileView: View {
                         }
                         
                         Spacer()
-                        
+
                         Image(systemName: "chevron.right")
                             .font(.system(size: 13, weight: .medium))
                             .foregroundColor(FMColors.outline)
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
+                    // Whole row tappable, including the gap before the chevron
+                    .contentShape(Rectangle())
                 }
             }
         }

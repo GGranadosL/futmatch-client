@@ -21,20 +21,12 @@ public enum FMFonts {
         guard let fontURL = Bundle.module.url(forResource: name, withExtension: ext),
               let fontDataProvider = CGDataProvider(url: fontURL as CFURL),
               let font = CGFont(fontDataProvider) else {
-            print("⚠️ FMDesignSystem: Failed to load font '\(name).\(ext)'")
             return
         }
-        
+
+        // Registration can fail if the font is already registered — that's OK.
         var error: Unmanaged<CFError>?
-        if !CTFontManagerRegisterGraphicsFont(font, &error) {
-            if let error = error?.takeRetainedValue() {
-                let errorDescription = CFErrorCopyDescription(error) as String? ?? "Unknown error"
-                // Font already registered is OK
-                if !errorDescription.contains("already registered") {
-                    print("⚠️ FMDesignSystem: Error registering font '\(name)': \(errorDescription)")
-                }
-            }
-        }
+        _ = CTFontManagerRegisterGraphicsFont(font, &error)
     }
 }
 

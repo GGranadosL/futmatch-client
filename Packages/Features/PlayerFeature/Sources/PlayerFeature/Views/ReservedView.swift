@@ -214,7 +214,7 @@ struct ReservedView: View {
                 avatarURLs: match.teamBPlayers.prefix(3).map { $0.avatarUrl },
                 playerCount: match.teamBPlayers.count
             ),
-            distance: match.distance,
+            distance: match.distanceDisplay,
             fieldImageUrl: match.fieldImageUrl,
             onTap: { navigationPath.append(match) }
         )

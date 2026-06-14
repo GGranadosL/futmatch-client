@@ -37,6 +37,7 @@ public struct PublicPlayerProfile: Equatable, Identifiable {
     public let name: String
     public let lastName: String
     public let country: String
+    public let gender: Gender?
     public let playerPosition: PlayerPosition
     public let profilePic: String?
     public let level: PlayerLevel
@@ -49,6 +50,7 @@ public struct PublicPlayerProfile: Equatable, Identifiable {
         name: String,
         lastName: String,
         country: String,
+        gender: Gender? = nil,
         playerPosition: PlayerPosition,
         profilePic: String?,
         level: PlayerLevel,
@@ -60,6 +62,7 @@ public struct PublicPlayerProfile: Equatable, Identifiable {
         self.name = name
         self.lastName = lastName
         self.country = country
+        self.gender = gender
         self.playerPosition = playerPosition
         self.profilePic = profilePic
         self.level = level

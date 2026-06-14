@@ -16,6 +16,7 @@
 		C09AFBD42FB68DB900CF33F0 /* FirebaseRemoteConfig in Frameworks */ = {isa = PBXBuildFile; productRef = C09AFBD32FB68DB900CF33F0 /* FirebaseRemoteConfig */; };
 		C0A59BA12F18832700B28BAD /* OnboardingFeature in Frameworks */ = {isa = PBXBuildFile; productRef = C0A59BA02F18832700B28BAD /* OnboardingFeature */; };
 		C0B1A0032FD0A00300E712F5 /* IQKeyboardManagerSwift in Frameworks */ = {isa = PBXBuildFile; productRef = C0B1A0022FD0A00200E712F5 /* IQKeyboardManagerSwift */; };
+		D1A0CA01000000000000FACE /* FirebaseAppCheck in Frameworks */ = {isa = PBXBuildFile; productRef = D1A0CA00000000000000FACE /* FirebaseAppCheck */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -39,6 +40,7 @@
 		C070F9592F17506900E6003D /* FutMatch-Client.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "FutMatch-Client.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		C070F96B2F17506A00E6003D /* FutMatch-ClientTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "FutMatch-ClientTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		C070F9752F17506A00E6003D /* FutMatch-ClientUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "FutMatch-ClientUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		C0DE8E3C2FD77C5A004C9326 /* FutMatch-Client.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = "FutMatch-Client.xctestplan"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -84,6 +86,7 @@
 				C0404E692F73A34800E712F5 /* FirebaseCore in Frameworks */,
 				C07A6C3D2F1B7C19002868BD /* PlayerFeature in Frameworks */,
 				C05EB5F92F7B971A00E0C69B /* FirebaseAuth in Frameworks */,
+				D1A0CA01000000000000FACE /* FirebaseAppCheck in Frameworks */,
 				C05EB5F72F7B911E00E0C69B /* FirebaseFirestore in Frameworks */,
 				C0B1A0032FD0A00300E712F5 /* IQKeyboardManagerSwift in Frameworks */,
 			);
@@ -109,6 +112,7 @@
 		C070F9502F17506900E6003D = {
 			isa = PBXGroup;
 			children = (
+				C0DE8E3C2FD77C5A004C9326 /* FutMatch-Client.xctestplan */,
 				C070F95B2F17506900E6003D /* FutMatch-Client */,
 				C070F96E2F17506A00E6003D /* FutMatch-ClientTests */,
 				C070F9782F17506B00E6003D /* FutMatch-ClientUITests */,
@@ -161,6 +165,7 @@
 				C0404E6A2F73A34800E712F5 /* FirebaseMessaging */,
 				C05EB5F62F7B911E00E0C69B /* FirebaseFirestore */,
 				C05EB5F82F7B971A00E0C69B /* FirebaseAuth */,
+				D1A0CA00000000000000FACE /* FirebaseAppCheck */,
 				C0B1A0022FD0A00200E712F5 /* IQKeyboardManagerSwift */,
 				C09AFBD32FB68DB900CF33F0 /* FirebaseRemoteConfig */,
 			);
@@ -459,11 +464,9 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = "FutMatch-Client/FutMatch-Client.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
-				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
-				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 2;
-				DEVELOPMENT_TEAM = "";
-				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = 8NB4P3S66S;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 3;
+				DEVELOPMENT_TEAM = 8NB4P3S66S;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "FutMatch-Client/Info.plist";
@@ -484,7 +487,6 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.futmatch.client;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
-				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = "iOS development";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
@@ -502,11 +504,9 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = "FutMatch-Client/FutMatch-Client.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
-				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
-				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 2;
-				DEVELOPMENT_TEAM = "";
-				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = 8NB4P3S66S;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 3;
+				DEVELOPMENT_TEAM = 8NB4P3S66S;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "FutMatch-Client/Info.plist";
@@ -527,7 +527,6 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.futmatch.client;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
-				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = "iOS development";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
@@ -758,6 +757,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = C0B1A0012FD0A00100E712F5 /* XCRemoteSwiftPackageReference "IQKeyboardManager" */;
 			productName = IQKeyboardManagerSwift;
+		};
+		D1A0CA00000000000000FACE /* FirebaseAppCheck */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C0404E672F73A34800E712F5 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAppCheck;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

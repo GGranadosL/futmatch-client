@@ -8,10 +8,4 @@
 import Testing
 @testable import FutMatch_Client
 
-struct FutMatch_ClientTests {
-
-    @Test func example() async throws {
-        // Write your test here and use APIs like `#expect(...)` to check expected conditions.
-    }
-
-}
+struct FutMatch_ClientTests {}

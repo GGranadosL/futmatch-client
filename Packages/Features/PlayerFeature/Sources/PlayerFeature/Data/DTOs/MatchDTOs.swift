@@ -1,5 +1,101 @@
 import Foundation
 
+// MARK: - Versioned List Response (V2)
+
+/// Envelope for `GET /match/matches/v2`. When `hasChanges == false` the backend
+/// omits `matches` (the client keeps its current list); otherwise it sends the
+/// full list plus the new `currentVersion`.
+struct MatchesV2Response: Decodable {
+    let data: MatchesV2Data
+}
+
+struct MatchesV2Data: Decodable {
+    let region: String
+    let currentVersion: Int64
+    let hasChanges: Bool
+    let matches: [MatchListItemV2DTO]?
+}
+
+/// List item for the versioned feed. Unlike the legacy DTO it carries
+/// `maxPlayers` — the *fixed* capacity, which the capacity contract makes the
+/// source of truth for spots/missing calculations.
+struct MatchListItemV2DTO: Decodable {
+    let id: String
+    let fieldName: String
+    let fieldImages: [FieldImageDTO]?
+    let startTime: Int64
+    let endTime: Int64
+    let originalPriceInCents: Int
+    let totalDiscountInCents: Int
+    let priceInCents: Int
+    let genderType: String
+    let status: String
+    let maxPlayers: Int
+    /// Backend snapshot — kept for reference but recomputed from `maxPlayers`.
+    let availableSpots: Int?
+    let teams: MatchTeamsDTO
+    let location: MatchLocationV2DTO?
+    let teamAScore: Int?
+    let teamBScore: Int?
+    let winnerTeam: String?
+
+    var resolvedFieldImageUrl: String? { fieldImages?.compactMap(\.imagePath).first }
+
+    func toMatchItem() -> MatchItem {
+        let (start, end) = MatchFormatters.dates(startMs: startTime, endMs: endTime)
+        // Capacity contract: `maxPlayers` is the fixed total capacity and the
+        // source of truth. Spots per team and available spots are derived from
+        // it and the per-team `playerCount`, never from the snapshot.
+        let spotsPerTeam = max(1, maxPlayers / 2)
+        let occupied = teams.teamA.playerCount + teams.teamB.playerCount
+        let computedAvailable = max(0, maxPlayers - occupied)
+        return MatchItem(
+            id: id,
+            venueName: fieldName,
+            location: MatchLocationV2DTO.displayString(location),
+            timeRange: MatchFormatters.timeRange(start: start, end: end),
+            date: MatchFormatters.dateString(start),
+            startDate: start,
+            price: MatchFormatters.priceString(priceInCents),
+            matchType: MatchFormatters.genderLabel(genderType),
+            spotsLeft: computedAvailable,
+            teamAPlayers: teams.teamA.players.map { $0.toMatchPlayer() },
+            teamBPlayers: teams.teamB.players.map { $0.toMatchPlayer() },
+            teamAMax: spotsPerTeam,
+            teamBMax: spotsPerTeam,
+            distance: "",
+            duration: MatchFormatters.durationString(start: start, end: end),
+            fieldImageUrl: resolvedFieldImageUrl,
+            shoeType: "",
+            fieldType: "",
+            hasParking: false,
+            extraInfo: nil,
+            rules: [],
+            matchStatus: status,
+            teamAScore: teamAScore,
+            teamBScore: teamBScore,
+            winnerTeam: winnerTeam
+        )
+    }
+}
+
+/// Location shape returned by the V2 feed — uses region *codes* (`cityCode`,
+/// `countryCode`) rather than display names, so we surface the street `address`.
+struct MatchLocationV2DTO: Decodable {
+    let id: String?
+    let address: String?
+    let cityCode: String?
+    let countryCode: String?
+    let latitude: Double?
+    let longitude: Double?
+
+    static func displayString(_ location: MatchLocationV2DTO?) -> String {
+        guard let loc = location else { return "" }
+        if let address = loc.address, !address.isEmpty { return address }
+        return [loc.cityCode, loc.countryCode].compactMap { $0 }.joined(separator: ", ")
+    }
+}
+
 // MARK: - List Response
 
 struct MatchListResponse: Decodable {

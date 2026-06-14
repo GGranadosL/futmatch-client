@@ -28,19 +28,23 @@ final class MatchesViewModel: ObservableObject {
 
     private let fetchMatchesUseCase: FetchMatchesUseCaseProtocol
     private let cacheRepo: MatchCacheRepositoryProtocol?
+    private let region: MatchRegion
     private var cancellables = Set<AnyCancellable>()
 
     init(
         fetchMatchesUseCase: FetchMatchesUseCaseProtocol,
-        cacheRepo: MatchCacheRepositoryProtocol? = nil
+        cacheRepo: MatchCacheRepositoryProtocol? = nil,
+        region: MatchRegion = .default
     ) {
         self.fetchMatchesUseCase = fetchMatchesUseCase
         self.cacheRepo = cacheRepo
+        self.region = region
         // Pre-load cache synchronously so the first render already has data
         if let cached = cacheRepo?.loadMatches(), !cached.isEmpty {
             state = .loaded(MatchesViewModel.buildSections(from: cached))
         }
         observeMembershipChanges()
+        observeRegionalUpdates()
     }
 
     // MARK: - Derived State
@@ -82,11 +86,22 @@ final class MatchesViewModel: ObservableObject {
             state = .loading
         }
 
-        // 2. Fetch fresh data from API
+        // 2. Fetch fresh data from API (versioned — may report no changes)
         do {
-            let matches = try await fetchMatchesUseCase.execute(lat: lat, lon: lon)
-            state = .loaded(groupByDate(matches))
-            try? cacheRepo?.saveMatches(matches)
+            let result = try await fetchMatchesUseCase.execute(region: region, lat: lat, lon: lon)
+            switch result {
+            case .changed(let matches, _):
+                state = .loaded(groupByDate(matches))
+                try? cacheRepo?.saveMatches(matches)
+            case .unchanged:
+                // Region version unchanged — keep the current list. If nothing
+                // was loaded yet (e.g. cache miss), fall back to whatever cache holds.
+                if case .loaded = state {
+                    // already showing data, nothing to do
+                } else {
+                    state = .loaded(groupByDate(cached))
+                }
+            }
         } catch {
             guard !(error is CancellationError) else {
                 isRefreshing = false
@@ -125,6 +140,24 @@ final class MatchesViewModel: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 guard let self else { return }
+                Task { await self.reload() }
+            }
+            .store(in: &cancellables)
+    }
+
+    /// Auto-refresh when a regional data-only push (`matches_updated`) arrives.
+    /// Re-runs the V2 fetch with the stored `sinceVersion`; the backend answers
+    /// `hasChanges=false` if this client already has the latest version, so the
+    /// extra call is cheap. Ignores pushes for other regions.
+    private func observeRegionalUpdates() {
+        NotificationCenter.default.publisher(for: .matchesRegionDidUpdate)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] note in
+                guard let self else { return }
+                if let pushedRegion = note.userInfo?["region"] as? String,
+                   pushedRegion != self.region.key {
+                    return
+                }
                 Task { await self.reload() }
             }
             .store(in: &cancellables)

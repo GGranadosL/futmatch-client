@@ -1,18 +1,29 @@
 import SwiftUI
 import FMDesignSystem
 import SharedModels
+import AdminFeature
 
 /// Main Home screen showing greeting, next game, suggested games, and last match
 struct HomeContentView: View {
     @EnvironmentObject private var homeViewModel: HomeViewModel
     @EnvironmentObject private var reservedViewModel: ReservedMatchesViewModel
     @EnvironmentObject private var notificationsViewModel: NotificationsViewModel
+    @EnvironmentObject private var userSession: UserSession
     @Binding var selectedTab: HomeTab
     @Binding var navigationPath: NavigationPath
     var onLogout: (() -> Void)?
     var isDemoMode: Bool = false
 
     @State private var showNotifications = false
+    @State private var showAdmin = false
+
+    /// `ADMIN` and `ORGANIZER` users see the admin-panel button next to the bell,
+    /// unless `admin_feature_enabled` Remote Config flag is set to false.
+    private var isAdmin: Bool {
+        guard AdminRemoteConfig().isAdminFeatureEnabled else { return false }
+        let role = userSession.currentUser?.userRole
+        return role == .administrator || role == .organizer
+    }
 
     private var nextMatch: MatchItem? { reservedViewModel.nextMatch }
 
@@ -63,42 +74,91 @@ struct HomeContentView: View {
             NotificationsView(navigationPath: $navigationPath)
                 .environmentObject(notificationsViewModel)
         }
+        .navigationDestination(isPresented: $showAdmin) {
+            AdminPanelView()
+        }
     }
 
     // MARK: - Header
 
     private var headerBar: some View {
-        HStack {
+        HStack(spacing: 4) {
             FMBrandLogo()
 
             Spacer()
 
-            Button {
-                showNotifications = true
-            } label: {
-                ZStack(alignment: .topTrailing) {
-                    Image(systemName: "bell")
-                        .font(.system(size: 20, weight: .medium))
-                        .foregroundColor(FMColors.onSurface)
-
-                    if notificationsViewModel.unreadCount > 0 {
-                        Text(notificationsViewModel.unreadCount > 99 ? "99+" : "\(notificationsViewModel.unreadCount)")
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 4)
-                            .frame(minWidth: 16, minHeight: 16)
-                            .background(FMColors.error)
-                            .clipShape(Capsule())
-                            .offset(x: 8, y: -6)
-                    }
-                }
-                .frame(width: 44, height: 44)
-                .contentShape(Rectangle())
-            }
+            headerActions
         }
         .padding(.horizontal, 24)
         .padding(.top, 8)
         .padding(.bottom, 4)
+    }
+
+    /// On iOS 26+ both actions live inside a single Liquid Glass capsule (like
+    /// the Photos app toolbar), each labelled with its title. On older OSes the
+    /// buttons render plainly over the solid background.
+    @ViewBuilder
+    private var headerActions: some View {
+        if #available(iOS 26.0, *) {
+            GlassEffectContainer(spacing: 8) {
+                HStack(spacing: 8) {
+                    if isAdmin {
+                        adminButton
+                            .glassEffect(.regular.interactive(), in: .capsule)
+                    }
+                    notificationsButton
+                        .glassEffect(.regular.interactive(), in: .capsule)
+                }
+            }
+        } else {
+            HStack(spacing: 8) {
+                if isAdmin { adminButton }
+                notificationsButton
+            }
+        }
+    }
+
+    private var adminButton: some View {
+        Button {
+            showAdmin = true
+        } label: {
+            Image("admin_panel_settings", bundle: .main)
+                .renderingMode(.template)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 22, height: 22)
+                .foregroundColor(FMColors.primary)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        }
+    }
+
+    private var notificationsButton: some View {
+        Button {
+            showNotifications = true
+        } label: {
+            ZStack(alignment: .topTrailing) {
+                Image("notifications", bundle: .main)
+                    .renderingMode(.template)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 22, height: 22)
+
+                if notificationsViewModel.unreadCount > 0 {
+                    Text(notificationsViewModel.unreadCount > 99 ? "99+" : "\(notificationsViewModel.unreadCount)")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 4)
+                        .frame(minWidth: 16, minHeight: 16)
+                        .background(FMColors.error)
+                        .clipShape(Capsule())
+                        .offset(x: 8, y: -6)
+                }
+            }
+            .foregroundColor(FMColors.onSurface)
+            .frame(width: 44, height: 44)
+            .contentShape(Rectangle())
+        }
     }
 
     // MARK: - Greeting Section

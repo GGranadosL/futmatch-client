@@ -9,11 +9,11 @@ public protocol LogoutUseCaseProtocol {
 // MARK: - Implementation
 public final class LogoutUseCase: LogoutUseCaseProtocol {
     private let authService: AuthServiceProtocol
-    private let keychainManager: KeychainManager
-    
+    private let keychainManager: KeychainManaging
+
     public init(
         authService: AuthServiceProtocol,
-        keychainManager: KeychainManager = .shared
+        keychainManager: KeychainManaging = KeychainManager.shared
     ) {
         self.authService = authService
         self.keychainManager = keychainManager

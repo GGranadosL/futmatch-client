@@ -4,6 +4,13 @@ import NetworkFramework
 // MARK: - MatchEndpoint
 
 enum MatchEndpoint: APIEndpoint {
+    /// Versioned public matches feed. Sends `sinceVersion` so the backend can
+    /// answer `hasChanges=false` without re-sending the list. Optional
+    /// `countryCode`/`stateCode` resolve the region (default `MX:CDMX`);
+    /// `lat`/`lon` drive distance sort.
+    case matchesV2(sinceVersion: Int64?, countryCode: String?, stateCode: String?, lat: Double?, lon: Double?)
+    /// Deprecated public feed. The production player list now uses `matchesV2`;
+    /// this case is retained only so legacy/demo paths keep compiling.
     case matches(lat: Double?, lon: Double?)
     case myMatches(lat: Double?, lon: Double?)
     case matchDetail(id: String)
@@ -17,6 +24,8 @@ enum MatchEndpoint: APIEndpoint {
 
     var path: String {
         switch self {
+        case .matchesV2:
+            return "/match/matches/v2"
         case .matches:
             return "/match/matches"
         case .myMatches:
@@ -40,7 +49,7 @@ enum MatchEndpoint: APIEndpoint {
 
     var method: HTTPMethod {
         switch self {
-        case .matches, .matchDetail, .myMatches,
+        case .matchesV2, .matches, .matchDetail, .myMatches,
              .demoMatches, .demoMyMatches, .demoMatchDetail:
             return .get
         case .joinMatch, .leaveMatch:
@@ -61,6 +70,14 @@ enum MatchEndpoint: APIEndpoint {
 
     var queryItems: [URLQueryItem]? {
         switch self {
+        case let .matchesV2(sinceVersion, countryCode, stateCode, lat, lon):
+            var items: [URLQueryItem] = []
+            if let sinceVersion { items.append(URLQueryItem(name: "sinceVersion", value: "\(sinceVersion)")) }
+            if let countryCode { items.append(URLQueryItem(name: "countryCode", value: countryCode)) }
+            if let stateCode { items.append(URLQueryItem(name: "stateCode", value: stateCode)) }
+            if let lat { items.append(URLQueryItem(name: "lat", value: "\(lat)")) }
+            if let lon { items.append(URLQueryItem(name: "lon", value: "\(lon)")) }
+            return items.isEmpty ? nil : items
         case .matches(let lat, let lon),
              .myMatches(let lat, let lon),
              .demoMatches(let lat, let lon),

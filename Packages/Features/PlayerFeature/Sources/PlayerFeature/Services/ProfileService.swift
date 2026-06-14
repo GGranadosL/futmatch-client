@@ -19,6 +19,9 @@ private struct PublicProfileDTO: Decodable {
     let name: String
     let lastName: String
     let country: String
+    /// Raw gender string ("MALE"/"FEMALE"/"OTHER"); tolerated as nil when the
+    /// backend omits it or sends an unknown value.
+    let gender: String?
     let playerPosition: PlayerPosition
     let profilePic: String?
     let level: PlayerLevel
@@ -32,6 +35,7 @@ private struct PublicProfileDTO: Decodable {
             name: name,
             lastName: lastName,
             country: country,
+            gender: gender.flatMap(Gender.init(rawValue:)),
             playerPosition: playerPosition,
             profilePic: profilePic,
             level: level,

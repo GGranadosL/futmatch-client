@@ -201,9 +201,6 @@ public final class UserSession: ObservableObject {
                 refreshErrorMessage = error.apiErrorMessage
                 refreshFailed = true
             }
-            #if DEBUG
-            print("❌ UserSession: \(error.localizedDescription)")
-            #endif
         }
 
         isLoading = false

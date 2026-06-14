@@ -1,7 +1,10 @@
 import SwiftUI
 import CoreData
 import Combine
+import OSLog
 import FirebaseAuth
+import FirebaseAppCheck
+import FirebaseMessaging
 import OnboardingFeature
 import PlayerFeature
 import FMDesignSystem
@@ -104,7 +107,7 @@ struct FutMatchApp: App {
         state.onDidLogout = {
             let context = PersistenceController.shared.container.viewContext
             // Clear both match caches on logout to avoid leaking data across accounts
-            for entityName in ["CachedMatchEntity", "CachedReservedMatchEntity"] {
+            for entityName in ["CachedMatchEntity", "CachedReservedMatchEntity", "CachedAdminFieldEntity"] {
                 let request = NSFetchRequest<NSFetchRequestResult>(entityName: entityName)
                 let delete = NSBatchDeleteRequest(fetchRequest: request)
                 _ = try? context.execute(delete)
@@ -114,6 +117,11 @@ struct FutMatchApp: App {
             UserDefaults.standard.removeObject(forKey: "home.cache.homeDataDTO")
             // Reset notification seen-count so the next user gets a fresh badge
             UserDefaults.standard.removeObject(forKey: "notifications.seenUnreadCount")
+            // Drop persisted regional matches versions so the next account
+            // re-fetches the full list instead of sending a stale sinceVersion.
+            PlayerDependencyFactory().clearMatchVersions()
+            // Stop receiving regional matches auto-refresh pushes for this device.
+            Messaging.messaging().unsubscribe(fromTopic: MatchRegion.default.topic)
         }
         return state
     }()
@@ -136,6 +144,24 @@ struct FutMatchApp: App {
         APIClient.shared.addInterceptor(AuthTokenInterceptor {
             try? KeychainManager.shared.retrieve(for: .accessToken)
         })
+        // App Check: attach an attestation token to every backend request so the
+        // server can verify the call comes from a genuine app instance. Gated by the
+        // same flag as the provider factory — without a provider, token() would just
+        // fail and waste the per-request timeout.
+        let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "FutMatch", category: "AppCheck")
+        let appCheckTokenProvider: () async throws -> String? = {
+            do {
+                return try await AppCheck.appCheck().token(forcingRefresh: false).token
+            } catch {
+                // Surfaces why requests go out without X-Firebase-AppCheck
+                // (e.g. unregistered debug token, attestation failure).
+                logger.error("App Check token fetch failed: \(error.localizedDescription, privacy: .public)")
+                return nil
+            }
+        }
+        if Config.isAppCheckEnabled {
+            APIClient.shared.addInterceptor(AppCheckInterceptor(tokenProvider: appCheckTokenProvider))
+        }
         APIClient.shared.unauthorizedHandler = {
             guard
                 let userId = KeychainManager.shared.userId,
@@ -145,6 +171,9 @@ struct FutMatchApp: App {
                 throw APIError.invalidResponse
             }
             let refreshClient = APIClient()
+            if Config.isAppCheckEnabled {
+                refreshClient.addInterceptor(AppCheckInterceptor(tokenProvider: appCheckTokenProvider))
+            }
             let response = try await AuthService(apiClient: refreshClient).refreshToken(userId: userId, deviceId: deviceId, refreshToken: refreshToken)
             let newAccessToken = response.data.authTokenResponse.accessToken
             try KeychainManager.shared.save(newAccessToken, for: .accessToken)
@@ -154,7 +183,7 @@ struct FutMatchApp: App {
             return newAccessToken
         }
     }
-    
+
     var body: some Scene {
         WindowGroup {
             RootView(persistenceContainer: persistenceController.container,
@@ -162,6 +191,9 @@ struct FutMatchApp: App {
                      dialCodeRepository: dialCodeRepository,
                      onRequestNotificationPermission: {
                          appDelegate.requestNotificationAuthorization()
+                     },
+                     onAuthenticatedStart: {
+                         appDelegate.subscribeToMatchUpdates()
                      })
                 .environment(\.managedObjectContext, persistenceController.container.viewContext)
                 .environmentObject(appState)
@@ -190,6 +222,9 @@ struct RootView: View {
     let countryRepository: any CountryRepositoryProtocol
     let dialCodeRepository: any DialCodeRepositoryProtocol
     var onRequestNotificationPermission: (() -> Void)?
+    /// Invoked once an authenticated (non-demo) session is ready — subscribes to
+    /// the regional matches push topic.
+    var onAuthenticatedStart: (() -> Void)?
     
     var body: some View {
         Group {
@@ -221,6 +256,8 @@ struct RootView: View {
                     // when using custom tokens — only on-login sign-in covers new logins).
                     await reAuthFirebaseIfNeeded()
                     await syncFCMTokenIfNeeded()
+                    // Subscribe to the regional matches topic for auto-refresh pushes.
+                    onAuthenticatedStart?()
                 }
             } else {
                 makeLoginView()
@@ -233,59 +270,23 @@ struct RootView: View {
     /// Custom-token sessions are not persisted by Firebase across cold starts,
     /// so we need to re-authenticate every time the app is opened with an active session.
     private func reAuthFirebaseIfNeeded() async {
-        #if DEBUG
-        print("[🔔 FM-PUSH] reAuthFirebaseIfNeeded — currentUser: \(Auth.auth().currentUser?.uid ?? "nil")")
-        #endif
         guard Auth.auth().currentUser == nil else {
-            #if DEBUG
-            print("[🔔 FM-PUSH] Firebase already authenticated, skipping re-auth")
-            #endif
             return
         }
         guard let token = KeychainManager.shared.firebaseToken, !token.isEmpty else {
-            #if DEBUG
-            print("[🔔 FM-PUSH] ⚠️ No Firebase token in Keychain — cannot re-authenticate")
-            #endif
             return
         }
-        #if DEBUG
-        print("[🔔 FM-PUSH] Signing in to Firebase with custom token (relaunch)…")
-        #endif
-        do {
-            let result = try await Auth.auth().signIn(withCustomToken: token)
-            #if DEBUG
-            print("[🔔 FM-PUSH] Firebase re-auth success ✓ — uid: \(result.user.uid)")
-            #endif
-        } catch {
-            #if DEBUG
-            print("[🔔 FM-PUSH] ❌ Firebase re-auth failed: \(error)")
-            #endif
-        }
+        try! await Auth.auth().signIn(withCustomToken: token)
     }
 
     /// Syncs the stored FCM token with the server on every authenticated session start.
     /// Covers the case where Firebase fires the token delegate before the session is ready.
     private func syncFCMTokenIfNeeded() async {
         guard let token = KeychainManager.shared.fcmToken, !token.isEmpty else {
-            #if DEBUG
-            print("[🔔 FM-PUSH] syncFCMTokenIfNeeded — no FCM token in Keychain, skipping")
-            #endif
             return
         }
-        #if DEBUG
-        print("[🔔 FM-PUSH] Syncing FCM token with server on session start…")
-        #endif
         let useCase = PlayerDependencyFactory().makeUpdateFCMTokenUseCase()
-        do {
-            try await useCase.execute(fcmToken: token)
-            #if DEBUG
-            print("[🔔 FM-PUSH] FCM token synced with server on session start ✓")
-            #endif
-        } catch {
-            #if DEBUG
-            print("[🔔 FM-PUSH] ❌ FCM token sync on session start failed: \(error)")
-            #endif
-        }
+        try! await useCase.execute(fcmToken: token)
     }
 
 
@@ -302,13 +303,7 @@ struct RootView: View {
             fetchDialCodesUseCase: factory.makeFetchDialCodesUseCase(),
             onLoginSuccess: { appState.isLoggedIn = true },
             firebaseSignIn: { token in
-                #if DEBUG
-                print("[🔔 FM-PUSH] Signing in to Firebase with custom token (login)…")
-                #endif
-                let result = try await Auth.auth().signIn(withCustomToken: token)
-                #if DEBUG
-                print("[🔔 FM-PUSH] Firebase sign-in success ✓ — uid: \(result.user.uid)")
-                #endif
+                try await Auth.auth().signIn(withCustomToken: token)
             }
         )
     }

@@ -129,10 +129,8 @@ struct SettingsView: View {
             }
         }
         .onChange(of: paymentMethodsVM.customerSheet != nil) { ready in
-            debugLog("customerSheet ready changed ready=\(ready)")
             if ready {
                 presentCustomerSheet = true
-                debugLog("Setting presentCustomerSheet=true")
             }
         }
         .background(
@@ -206,6 +204,8 @@ struct SettingsView: View {
                     .foregroundColor(FMColors.outline)
             }
             .padding(.vertical, 4)
+            // Whole row tappable, including the gap before the chevron
+            .contentShape(Rectangle())
         }
     }
 }
@@ -223,7 +223,6 @@ struct SettingsView: View {
 private extension SettingsView {
     func handleRowTap(_ row: SettingsRow) {
         if row.title == L10n.Settings.paymentMethods {
-            debugLog("Tapped payment methods row")
             Task { await paymentMethodsVM.loadCustomerSheet() }
         } else if row.title == L10n.Settings.paymentHistory {
             showPaymentHistory = true
@@ -234,12 +233,6 @@ private extension SettingsView {
         } else if row.title == L10n.Settings.privacy {
             safariURL = FutMatchURLs.privacy
         }
-    }
-
-    func debugLog(_ message: String) {
-#if DEBUG
-        print("[FMDEBUG][Stripe][SettingsView] \(message)")
-#endif
     }
 }
 

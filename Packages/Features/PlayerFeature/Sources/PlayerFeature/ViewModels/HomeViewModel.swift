@@ -69,9 +69,6 @@ final class HomeViewModel: ObservableObject {
                 loadErrorMessage = error.apiErrorMessage
                 loadFailed = true
             }
-            #if DEBUG
-            print("❌ HomeViewModel: \(error.localizedDescription)")
-            #endif
         }
         isLoading = false
     }
