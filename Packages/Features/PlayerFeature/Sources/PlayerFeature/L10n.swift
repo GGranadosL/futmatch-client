@@ -159,6 +159,9 @@ public enum L10n {
         public static var mixed: String {
             NSLocalizedString("matches.mixed", bundle: .module, comment: "")
         }
+        public static var noLocation: String {
+            NSLocalizedString("matches.noLocation", bundle: .module, comment: "")
+        }
         public static var noMatchesAvailable: String {
             NSLocalizedString("matches.noMatchesAvailable", bundle: .module, comment: "")
         }
@@ -333,6 +336,12 @@ public enum L10n {
         public static var reservationExpiredMessage: String {
             NSLocalizedString("matchDetail.reservationExpiredMessage", bundle: .module, comment: "")
         }
+        public static func joinOpensCountdown(_ time: String) -> String {
+            String(format: NSLocalizedString("matchDetail.joinOpensCountdown", bundle: .module, comment: ""), time)
+        }
+        public static var joinNotOpenMessage: String {
+            NSLocalizedString("matchDetail.joinNotOpenMessage", bundle: .module, comment: "")
+        }
     }
 
     // MARK: - Settings
@@ -427,6 +436,27 @@ public enum L10n {
         }
         public static var cancel: String {
             NSLocalizedString("editProfile.cancel", bundle: .module, comment: "")
+        }
+        public static var avatarPickerTitle: String {
+            NSLocalizedString("editProfile.avatarPickerTitle", bundle: .module, comment: "")
+        }
+        public static var avatarPickerSubtitle: String {
+            NSLocalizedString("editProfile.avatarPickerSubtitle", bundle: .module, comment: "")
+        }
+        public static var takePhotoSubtitle: String {
+            NSLocalizedString("editProfile.takePhotoSubtitle", bundle: .module, comment: "")
+        }
+        public static var gallerySubtitle: String {
+            NSLocalizedString("editProfile.gallerySubtitle", bundle: .module, comment: "")
+        }
+        public static var confirmImageTitle: String {
+            NSLocalizedString("editProfile.confirmImageTitle", bundle: .module, comment: "")
+        }
+        public static var confirmImageMessage: String {
+            NSLocalizedString("editProfile.confirmImageMessage", bundle: .module, comment: "")
+        }
+        public static var useImage: String {
+            NSLocalizedString("editProfile.useImage", bundle: .module, comment: "")
         }
         public static var uploadError: String {
             NSLocalizedString("editProfile.uploadError", bundle: .module, comment: "")

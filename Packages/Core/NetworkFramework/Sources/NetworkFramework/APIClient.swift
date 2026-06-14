@@ -46,7 +46,7 @@ public class APIClient {
     
     public init(
         session: URLSession = .shared,
-        logger: NetworkLogger = ConsoleNetworkLogger()
+        logger: NetworkLogger = SilentNetworkLogger()
     ) {
         self.session = session
         self.logger = logger
@@ -91,6 +91,36 @@ public class APIClient {
         return try await performRequest(request, expecting: T.self, decoder: decoder)
     }
     
+    /// Downloads raw `Data` from an authenticated endpoint.
+    /// URLSession follows the 302 redirect automatically, so this works for
+    /// endpoints that redirect to signed Cloudinary URLs.
+    public func downloadData(endpoint: APIEndpoint) async throws -> Data {
+        let request = try await buildRequest(for: endpoint, body: nil)
+        logger.logRequest(request)
+        do {
+            let (data, response) = try await session.data(for: request)
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw APIError.invalidResponse
+            }
+            logger.logResponse(httpResponse, data: Data())
+            guard (200...299).contains(httpResponse.statusCode) else {
+                throw APIError.serverError(
+                    statusCode: httpResponse.statusCode,
+                    title: "Error al cargar imagen",
+                    message: "No se pudo descargar la imagen."
+                )
+            }
+            return data
+        } catch let apiError as APIError {
+            logger.logError(apiError)
+            throw apiError
+        } catch {
+            let networkError = APIError.networkError(error)
+            logger.logError(networkError)
+            throw networkError
+        }
+    }
+
     // MARK: - Private Methods
     
     private func buildRequest(for endpoint: APIEndpoint, body: Encodable?) async throws -> URLRequest {

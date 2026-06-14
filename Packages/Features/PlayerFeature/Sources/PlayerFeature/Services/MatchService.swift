@@ -1,9 +1,30 @@
 import Foundation
 import NetworkFramework
 
+// MARK: - V2 Result
+
+/// Domain result of the versioned matches feed. `matches` is `nil` when
+/// `hasChanges == false` (the caller keeps its current list).
+struct MatchesV2Result: Equatable {
+    let region: String
+    let currentVersion: Int64
+    let hasChanges: Bool
+    let matches: [MatchItem]?
+}
+
 // MARK: - Protocol
 
 protocol MatchServiceProtocol {
+    /// Versioned public feed. Pass the locally stored `sinceVersion`; the backend
+    /// returns `hasChanges=false` (no list) when the region is unchanged.
+    func fetchMatchesV2(
+        sinceVersion: Int64?,
+        countryCode: String?,
+        stateCode: String?,
+        lat: Double?,
+        lon: Double?
+    ) async throws -> MatchesV2Result
+    @available(*, deprecated, message: "Use fetchMatchesV2 — the versioned feed.")
     func fetchMatches(lat: Double?, lon: Double?) async throws -> [MatchItem]
     func fetchMyMatches(lat: Double?, lon: Double?) async throws -> [MatchItem]
     func fetchMatchDetail(id: String) async throws -> MatchItem
@@ -25,6 +46,45 @@ final class MatchService: MatchServiceProtocol {
 
     // MARK: - Reads
 
+    func fetchMatchesV2(
+        sinceVersion: Int64?,
+        countryCode: String?,
+        stateCode: String?,
+        lat: Double?,
+        lon: Double?
+    ) async throws -> MatchesV2Result {
+        if isDemoMode {
+            // Demo has no version semantics — reuse the demo list and always
+            // report changes so the caller renders whatever the demo returns.
+            let items: [MatchListItemDTO] = try await apiClient.request(
+                endpoint: MatchEndpoint.demoMatches(lat: lat, lon: lon)
+            )
+            return MatchesV2Result(
+                region: "DEMO",
+                currentVersion: 0,
+                hasChanges: true,
+                matches: items.map { $0.toMatchItem() }
+            )
+        }
+        let response: MatchesV2Response = try await apiClient.request(
+            endpoint: MatchEndpoint.matchesV2(
+                sinceVersion: sinceVersion,
+                countryCode: countryCode,
+                stateCode: stateCode,
+                lat: lat,
+                lon: lon
+            )
+        )
+        let data = response.data
+        return MatchesV2Result(
+            region: data.region,
+            currentVersion: data.currentVersion,
+            hasChanges: data.hasChanges,
+            matches: data.matches?.map { $0.toMatchItem() }
+        )
+    }
+
+    @available(*, deprecated, message: "Use fetchMatchesV2 — the versioned feed.")
     func fetchMatches(lat: Double? = nil, lon: Double? = nil) async throws -> [MatchItem] {
         if isDemoMode {
             // Demo endpoint returns a raw JSON array — not wrapped in { "data": [...] }

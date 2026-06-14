@@ -155,6 +155,9 @@ public struct FMTextField: View {
     @Binding var text: String
     var placeholder: String = ""
     var keyboardType: UIKeyboardType = .default
+    /// Overrides the auto-capitalization. When `nil`, falls back to the default
+    /// heuristic (`.none` for email keyboards, `.words` otherwise).
+    var autocapitalization: UITextAutocapitalizationType? = nil
     var contentType: UITextContentType?
     var isSecure: Bool = false
     var errorMessage: String? = nil
@@ -174,6 +177,7 @@ public struct FMTextField: View {
         text: Binding<String>,
         placeholder: String = "",
         keyboardType: UIKeyboardType = .default,
+        autocapitalization: UITextAutocapitalizationType? = nil,
         contentType: UITextContentType? = nil,
         isSecure: Bool = false,
         errorMessage: String? = nil,
@@ -184,6 +188,7 @@ public struct FMTextField: View {
         self._text = text
         self.placeholder = placeholder
         self.keyboardType = keyboardType
+        self.autocapitalization = autocapitalization
         self.contentType = contentType
         self.isSecure = isSecure
         self.errorMessage = errorMessage
@@ -259,7 +264,7 @@ public struct FMTextField: View {
                             isSecure: isSecure && isSecureTextHidden,
                             keyboardType: keyboardType,
                             contentType: contentType,
-                            autocapitalization: keyboardType == .emailAddress ? .none : .words,
+                            autocapitalization: autocapitalization ?? (keyboardType == .emailAddress ? .none : .words),
                             font: .systemFont(ofSize: 16),
                             textColor: UIColor(FMColors.primary),
                             onFocusChange: { focused in

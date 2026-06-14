@@ -92,34 +92,40 @@ public struct FMMatchCard: View {
         HStack(alignment: .top, spacing: 12) {
             // Field image
             fieldImageView
-            
-            // Center: venue + time + badge
+
+            // Center: venue + time + badge — takes all remaining width so the
+            // text can show as much as possible before truncating.
             VStack(alignment: .leading, spacing: 6) {
                 Text(venueName)
                     .font(FMTypography.titleMedium)
                     .foregroundColor(FMColors.onSurface)
-                    .lineLimit(1)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
 
                 Text(timeRange)
                     .font(FMTypography.bodySmall)
                     .foregroundColor(FMColors.onSurfaceVariant)
-                    .lineLimit(1)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
 
                 availabilityBadge
             }
-            
-            Spacer()
-            
-            // Right: price + type
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            // Right: price + type — keeps its natural width so it never steals
+            // room from the info column.
             VStack(alignment: .trailing, spacing: 6) {
                 Text(price)
                     .font(FMTypography.labelLarge)
                     .foregroundColor(FMColors.primary)
-                
+                    .lineLimit(1)
+
                 Text(matchType)
                     .font(FMTypography.bodySmall)
                     .foregroundColor(FMColors.onSurfaceVariant)
+                    .lineLimit(1)
             }
+            .fixedSize(horizontal: true, vertical: false)
         }
     }
     
@@ -169,7 +175,10 @@ public struct FMMatchCard: View {
         guard
             let urlString = fieldImageUrl,
             let url = URL(string: urlString)
-        else { return }
+        else {
+            cachedFieldImage = nil
+            return
+        }
 
         // Return immediately if already in the shared cache
         if let cached = FMImageCache.shared.image(for: urlString) {
@@ -231,6 +240,8 @@ public struct FMMatchCard: View {
             Text(distance)
                 .font(FMTypography.labelSmall)
                 .foregroundColor(FMColors.onSurfaceVariant)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
         }
     }
     
@@ -266,6 +277,19 @@ public struct FMMatchCard: View {
                 playerCount: 1
             ),
             distance: "1.4 km"
+        )
+
+        // Long venue name + verbose time + no location fallback
+        FMMatchCard(
+            venueName: "Cancha Futbol 7 La Magdalena Contreras",
+            timeRange: "08:24 p.m. - 11:15 p.m.",
+            price: "$19.00 MXN",
+            matchType: "Mixto",
+            spotsLeft: 20,
+            spotsLabel: "Quedan 20 lugares",
+            teamA: FMMatchTeam(name: "Equipo A", avatarURLs: [], playerCount: 0),
+            teamB: FMMatchTeam(name: "Equipo B", avatarURLs: [], playerCount: 0),
+            distance: "Sin ubicación"
         )
     }
     .padding()

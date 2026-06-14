@@ -50,14 +50,12 @@ public final class OnboardingRepository: OnboardingRepositoryProtocol {
             // Save to persistent store
             if context.hasChanges {
                 try context.save()
-                print("✅ Onboarding draft saved successfully")
             }
         }
-        
+
         // Save password in Keychain (secure)
         if let password = password, !password.isEmpty {
             try keychainManager.save(password, forKey: passwordKey)
-            print("✅ Password saved to Keychain")
         }
     }
     
@@ -72,12 +70,10 @@ public final class OnboardingRepository: OnboardingRepositoryProtocol {
             fetchRequest.sortDescriptors = [NSSortDescriptor(key: "updatedAt", ascending: false)]
             
             let results = try context.fetch(fetchRequest)
-            print("📦 Found \(results.count) draft(s) in CoreData")
             return results.first
         }
-        
+
         guard let entity = result else {
-            print("⚠️ No draft found in CoreData")
             return nil
         }
         
@@ -95,11 +91,8 @@ public final class OnboardingRepository: OnboardingRepositoryProtocol {
             updatedAt: entity.value(forKey: "updatedAt") as? Date ?? Date()
         )
         
-        print("✅ Draft loaded: \(draft.firstName) \(draft.lastName), step \(draft.currentStep)")
-        
         // Check expiration
         if draft.isExpired {
-            print("⚠️ Draft expired, clearing...")
             try await clearDraft()
             return nil
         }
@@ -133,11 +126,9 @@ public final class OnboardingRepository: OnboardingRepositoryProtocol {
             if context.hasChanges {
                 try context.save()
             }
-            print("✅ Onboarding draft cleared")
         }
-        
+
         // Clear password from Keychain
         try? keychainManager.delete(forKey: passwordKey)
-        print("✅ Password cleared from Keychain")
     }
 }

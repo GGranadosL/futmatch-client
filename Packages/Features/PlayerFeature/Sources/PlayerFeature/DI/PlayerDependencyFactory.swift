@@ -6,6 +6,7 @@ import SharedModels
 public struct PlayerDependencyFactory {
     private static let sharedMatchService      = MatchService(isDemoMode: false)
     private static let sharedDemoMatchService  = MatchService(isDemoMode: true)
+    private static let sharedMatchVersionStore = UserDefaultsMatchVersionStore()
 
     private let isDemoMode: Bool
     private let countryRepository: CountryRepositoryProtocol
@@ -40,8 +41,22 @@ public struct PlayerDependencyFactory {
         isDemoMode ? Self.sharedDemoMatchService : Self.sharedMatchService
     }
 
+    func makeMatchVersionStore() -> MatchVersionStoreProtocol {
+        Self.sharedMatchVersionStore
+    }
+
+    /// Clears all persisted regional matches versions. Call on logout so the
+    /// next account re-fetches the full list instead of sending a stale
+    /// `sinceVersion`.
+    public func clearMatchVersions() {
+        makeMatchVersionStore().clear()
+    }
+
     func makeFetchMatchesUseCase() -> FetchMatchesUseCaseProtocol {
-        FetchMatchesUseCase(matchService: makeMatchService())
+        FetchMatchesUseCase(
+            matchService: makeMatchService(),
+            versionStore: makeMatchVersionStore()
+        )
     }
 
     func makeFetchMatchDetailUseCase() -> FetchMatchDetailUseCaseProtocol {

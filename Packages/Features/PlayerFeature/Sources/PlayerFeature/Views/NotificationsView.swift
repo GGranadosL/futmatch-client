@@ -163,7 +163,6 @@ private struct NotificationRowView: View {
                     Text(item.body)
                         .font(FMTypography.bodyMedium)
                         .foregroundColor(FMColors.onSurfaceVariant)
-                        .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)

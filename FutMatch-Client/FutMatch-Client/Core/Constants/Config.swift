@@ -36,4 +36,15 @@ enum Config {
     
     static let appVersion = "1.0.0"
     static let appName = "FutMatch"
+
+    /// Whether Firebase App Check is installed.
+    ///
+    /// In DEBUG the debug provider must exchange a debug token with Firebase; until
+    /// that token is registered in the console the exchange retries with backoff. The
+    /// Remote Config fetch is bounded by a timeout so this no longer freezes launch,
+    /// but other App-Check-gated calls (Auth, Firestore) may still be slow until the
+    /// debug token is registered. Release builds always use App Attest / DeviceCheck.
+    static var isAppCheckEnabled: Bool {
+        return true
+    }
 }

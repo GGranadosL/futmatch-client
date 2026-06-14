@@ -123,7 +123,7 @@ struct PlayerProfileView: View {
         HStack {
             FMAvatar(
                 url: profile.profilePicURL,
-                defaultImageName: "defaultAvatarWoman",
+                defaultImageName: profile.gender?.defaultAvatarAssetName ?? "defaultAvatar",
                 size: 100,
                 showCameraBadge: false
             )

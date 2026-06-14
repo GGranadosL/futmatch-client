@@ -91,9 +91,6 @@ final class NotificationsViewModel: ObservableObject {
         unreadCount = 0
     }
 
-    /// No-op — kept for call-site compatibility.
-    /// Badge suppression is now driven by `lastSeenCount` (persisted), not a session flag.
-    func resetSeen() { }
 
     /// Resets all notification state on logout so the next user starts clean.
     func clearOnLogout() {
@@ -124,14 +121,8 @@ final class NotificationsViewModel: ObservableObject {
         guard let matchId = item.metadata?.matchId else { return }
         isNavigating = true
         defer { isNavigating = false }
-        do {
-            let match = try await fetchMatchDetailUseCase.execute(matchId: matchId)
+        if let match = try? await fetchMatchDetailUseCase.execute(matchId: matchId) {
             pendingNavigation = match
-        } catch {
-            guard !(error is CancellationError) else { return }
-            #if DEBUG
-            print("❌ NotificationsViewModel: could not fetch match \(matchId) — \(error)")
-            #endif
         }
     }
 

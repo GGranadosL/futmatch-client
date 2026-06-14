@@ -35,6 +35,6 @@ let package = Package(
         ),
         .testTarget(
             name: "OnboardingFeatureTests",
-            dependencies: ["OnboardingFeature"])
+            dependencies: ["OnboardingFeature", "PersistenceFramework"])
     ]
 )

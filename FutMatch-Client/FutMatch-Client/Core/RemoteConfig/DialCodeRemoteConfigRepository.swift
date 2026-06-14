@@ -75,32 +75,27 @@ final class DialCodeRemoteConfigRepository: DialCodeRepositoryProtocol {
             return cached
         }
 
-        // 4. Blocking fetch (first launch, no cache).
-        await fetchAndCache()
+        // 4. Blocking fetch (first launch, no cache). Bounded with a timeout so a
+        //    stalled App-Check-gated Remote Config fetch can't freeze the launch
+        //    splash — we fall through to the hardcoded list instead.
+        _ = await withTimeout(seconds: 6) { [weak self] in
+            await self?.fetchAndCache()
+        }
         if let dialCodes = parsedDialCodes(), !dialCodes.isEmpty {
             return dialCodes
         }
 
         // 5. Hardcoded fallback — should never be reached after first successful fetch.
-        #if DEBUG
-        print("[RemoteConfig] ⚠️ Using hardcoded dial code fallback")
-        #endif
         return DialCode.fallback
     }
 
     // MARK: - Private helpers
 
     private func fetchAndCache() async {
-        do {
-            try await remoteConfig.fetch(withExpirationDuration: Self.fetchInterval)
-            _ = try? await remoteConfig.activate()
-            if let dialCodes = parsedDialCodes(), !dialCodes.isEmpty {
-                persist(dialCodes)
-            }
-        } catch {
-            #if DEBUG
-            print("[RemoteConfig] Dial code fetch failed: \(error.localizedDescription)")
-            #endif
+        guard (try? await remoteConfig.fetch(withExpirationDuration: Self.fetchInterval)) != nil else { return }
+        _ = try? await remoteConfig.activate()
+        if let dialCodes = parsedDialCodes(), !dialCodes.isEmpty {
+            persist(dialCodes)
         }
     }
 

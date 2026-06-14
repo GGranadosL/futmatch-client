@@ -30,14 +30,11 @@ struct PaymentMethodsView: View {
             }
         }
         .task {
-            debugLog("View task started")
             await viewModel.loadCustomerSheet()
         }
         .onChange(of: viewModel.customerSheet != nil) { ready in
-            debugLog("customerSheet ready changed ready=\(ready)")
             if ready {
                 presentSheet = true
-                debugLog("Setting presentSheet=true")
             }
         }
         .background(
@@ -91,11 +88,6 @@ struct PaymentMethodsView: View {
         }
     }
 
-    private func debugLog(_ message: String) {
-#if DEBUG
-        print("[FMDEBUG][Stripe][PaymentMethodsView] \(message)")
-#endif
-    }
 }
 
 // MARK: - CustomerSheet UIKit Bridge

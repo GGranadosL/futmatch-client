@@ -7,40 +7,13 @@ final class FirestoreMatchPlayersRepository: MatchPlayersListenerProtocol {
 
     func playerStream(matchId: String) -> AsyncStream<MatchPlayersSnapshot> {
         AsyncStream { continuation in
-            #if DEBUG
-            print("[Firestore] Subscribing to match_players/\(matchId)")
-            #endif
             let listener = db.collection("match_players")
                 .document(matchId)
-                .addSnapshotListener { snapshot, error in
-                    #if DEBUG
-                    if let error {
-                        print("[Firestore] Listener error: \(error)")
-                        return
-                    }
-                    guard let snapshot else {
-                        print("[Firestore] Snapshot is nil for matchId: \(matchId)")
-                        return
-                    }
-                    guard snapshot.exists else {
-                        print("[Firestore] Document does not exist for matchId: \(matchId)")
-                        return
-                    }
-                    guard let data = snapshot.data() else {
-                        print("[Firestore] snapshot.data() returned nil for matchId: \(matchId)")
-                        return
-                    }
-                    guard let rawPlayers = data["players"] as? [[String: Any]] else {
-                        print("[Firestore] 'players' field missing or wrong type. data keys: \(data.keys.joined(separator: ", "))")
-                        return
-                    }
-                    print("[Firestore] Received \(rawPlayers.count) players for matchId: \(matchId)")
-                    #else
+                .addSnapshotListener { snapshot, _ in
                     guard let data = snapshot?.data(),
                           let rawPlayers = data["players"] as? [[String: Any]] else {
                         return
                     }
-                    #endif
 
                     let players = rawPlayers.compactMap { MatchPlayerFirestoreDTO(dict: $0) }
                     let teamA = players
@@ -56,10 +29,6 @@ final class FirestoreMatchPlayersRepository: MatchPlayersListenerProtocol {
                             reservations[p.playerId] = expiry
                         }
                     }
-
-                    #if DEBUG
-                    print("[Firestore] Team A: \(teamA.count) players, Team B: \(teamB.count) players")
-                    #endif
 
                     continuation.yield(MatchPlayersSnapshot(teamAPlayers: teamA, teamBPlayers: teamB, reservationsByPlayerId: reservations))
                 }
