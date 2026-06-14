@@ -276,7 +276,14 @@ struct RootView: View {
         guard let token = KeychainManager.shared.firebaseToken, !token.isEmpty else {
             return
         }
-        try! await Auth.auth().signIn(withCustomToken: token)
+        do {
+            try await Auth.auth().signIn(withCustomToken: token)
+        } catch {
+            // Best-effort re-auth — a failure must not crash the app. If the
+            // session is truly invalid, the auth interceptor will force a logout.
+            let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "FutMatch", category: "FirebaseAuth")
+            logger.error("Firebase re-auth failed: \(error.localizedDescription, privacy: .public)")
+        }
     }
 
     /// Syncs the stored FCM token with the server on every authenticated session start.
@@ -286,7 +293,14 @@ struct RootView: View {
             return
         }
         let useCase = PlayerDependencyFactory().makeUpdateFCMTokenUseCase()
-        try! await useCase.execute(fcmToken: token)
+        do {
+            try await useCase.execute(fcmToken: token)
+        } catch {
+            // Best-effort FCM token sync — server errors (e.g. 500) must not
+            // crash the app. The token will resync on the next session start.
+            let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "FutMatch", category: "FCM")
+            logger.error("FCM token sync failed: \(error.localizedDescription, privacy: .public)")
+        }
     }
 
 
