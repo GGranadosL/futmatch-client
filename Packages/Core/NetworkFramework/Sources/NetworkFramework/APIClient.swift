@@ -24,8 +24,11 @@ public class APIClient {
     // MARK: - Properties
     
     public static let shared: APIClient = {
+        #if DEBUG
+        let client = APIClient(logger: DebugNetworkLogger())
+        #else
         let client = APIClient()
-        // Add User-Agent interceptor by default
+        #endif
         client.addInterceptor(UserAgentInterceptor())
         return client
     }()
