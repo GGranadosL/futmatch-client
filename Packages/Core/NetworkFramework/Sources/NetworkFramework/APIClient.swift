@@ -255,6 +255,12 @@ public class APIClient {
         for type: T.Type,
         decoder: JSONDecoder
     ) throws -> T {
+        // No-content endpoints (e.g. DELETE / 204): a 2xx status is success
+        // regardless of body shape, so don't attempt to decode it. This avoids
+        // spurious decoding failures on empty bodies or `{"data": null}`.
+        if type == EmptyResponse.self {
+            return EmptyResponse() as! T
+        }
         do {
             return try decoder.decode(type, from: data)
         } catch {

@@ -40,7 +40,7 @@ public struct HomeContainerView: View {
         let reservedCacheRepo: MatchCoreDataCacheRepository?
         if let ctx = managedObjectContext {
             cacheRepo = MatchCoreDataCacheRepository(context: ctx)
-            reservedCacheRepo = MatchCoreDataCacheRepository(context: ctx, entityName: "CachedReservedMatchEntity")
+            reservedCacheRepo = MatchCoreDataCacheRepository(context: ctx, entityClass: CachedReservedMatchEntity.self)
         } else {
             cacheRepo = nil
             reservedCacheRepo = nil

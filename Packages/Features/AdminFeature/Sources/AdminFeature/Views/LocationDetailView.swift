@@ -12,7 +12,8 @@ struct LocationDetailView: View {
     @State private var isDeleting = false
     @State private var showUpdateToast = false
     @State private var showDeleteToast = false
-    @State private var deleteErrorMessage: String?
+    @State private var showDeleteErrorToast = false
+    @State private var deleteErrorMessage = "No se pudo eliminar la ubicación"
 
     private let locationId: String
     private let factory: AdminDependencyFactory
@@ -44,7 +45,7 @@ struct LocationDetailView: View {
                 addressSearchSection
                 coordinatesSection
 
-                if let error = viewModel.errorMessage ?? deleteErrorMessage {
+                if let error = viewModel.errorMessage {
                     Text(error)
                         .font(FMTypography.bodySmall)
                         .foregroundColor(FMColors.error)
@@ -105,6 +106,7 @@ struct LocationDetailView: View {
         }
         .fmToast("¡Ubicación actualizada!", isPresented: $showUpdateToast, style: .success)
         .fmToast("¡Ubicación eliminada!", isPresented: $showDeleteToast, style: .success)
+        .fmToast(deleteErrorMessage, isPresented: $showDeleteErrorToast, style: .error)
         .task { await viewModel.onAppear() }
     }
 
@@ -112,15 +114,18 @@ struct LocationDetailView: View {
 
     private func deleteLocation() async {
         isDeleting = true
-        deleteErrorMessage = nil
         do {
             try await factory.makeDeleteLocationUseCase(context: context).execute(id: locationId)
+            // Success: show the toast, then navigate back to the locations list.
             showDeleteToast = true
-            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            try? await Task.sleep(nanoseconds: 1_200_000_000)
             onDelete()
             dismiss()
         } catch {
-            deleteErrorMessage = error.localizedDescription
+            // Failure: surface a visible error toast and stay so the user can retry.
+            deleteErrorMessage = (error as? LocalizedError)?.errorDescription
+                ?? "No se pudo eliminar la ubicación"
+            showDeleteErrorToast = true
             isDeleting = false
         }
     }

@@ -25,10 +25,6 @@ struct UpdateLocationRequest: Encodable {
     let longitude: Double
 }
 
-struct LocationUpdateResponse: Decodable {
-    let data: String
-}
-
 // MARK: - Get / List Location Response
 
 struct LocationResponseDTO: Decodable {
@@ -46,12 +42,6 @@ struct LocationSingleResponse: Decodable {
 
 struct LocationListResponse: Decodable {
     let data: [LocationResponseDTO]
-}
-
-// MARK: - Delete Location
-
-struct LocationDeleteResponse: Decodable {
-    let data: String
 }
 
 // MARK: - Location Domain Model
