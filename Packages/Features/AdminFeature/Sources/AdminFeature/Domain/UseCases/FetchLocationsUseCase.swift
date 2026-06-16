@@ -3,6 +3,9 @@ import Foundation
 // MARK: - Fetch Locations UseCase
 
 protocol FetchLocationsUseCaseProtocol {
+    /// Returns locally cached locations synchronously (empty if cache is cold).
+    func executeCached() -> [AdminLocation]
+    /// Fetches from the network, writes to cache, and returns the fresh list.
     func execute() async throws -> [AdminLocation]
 }
 
@@ -11,6 +14,10 @@ final class FetchLocationsUseCase: FetchLocationsUseCaseProtocol {
 
     init(repository: LocationRepositoryProtocol) {
         self.repository = repository
+    }
+
+    func executeCached() -> [AdminLocation] {
+        repository.loadLocationsCache()
     }
 
     func execute() async throws -> [AdminLocation] {

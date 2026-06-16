@@ -159,4 +159,14 @@ public struct AdminDependencyFactory {
             currentLocationProvider: CurrentLocationService()
         )
     }
+
+    @MainActor
+    func makeEditLocationViewModel(location: AdminLocation, context: NSManagedObjectContext) -> EditLocationViewModel {
+        EditLocationViewModel(
+            location: location,
+            geocodingService: NominatimGeocodingService(),
+            updateLocationUseCase: makeUpdateLocationUseCase(context: context),
+            fetchCatalogUseCase: makeFetchLocationCatalogUseCase()
+        )
+    }
 }

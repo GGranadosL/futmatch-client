@@ -15,49 +15,58 @@ final class AdminFieldsCoreDataCacheRepository: AdminFieldsCacheRepositoryProtoc
     // MARK: - Save
 
     func saveFields(_ items: [AdminFieldItem]) throws {
-        // Replace the cache atomically — delete all, then re-insert.
-        let request = NSFetchRequest<NSManagedObject>(entityName: entityName)
-        let existing = (try? context.fetch(request)) ?? []
-        existing.forEach { context.delete($0) }
+        // Run on the context's own queue. CoreData contexts are NOT thread-safe;
+        // these methods are called from background tasks, so touching `context`
+        // directly corrupts its internal object set and crashes.
+        try context.performAndWait {
+            // Replace the cache atomically — delete all, then re-insert.
+            let request = NSFetchRequest<NSManagedObject>(entityName: entityName)
+            let existing = (try? context.fetch(request)) ?? []
+            existing.forEach { context.delete($0) }
 
-        for item in items {
-            guard let entity = NSEntityDescription.entity(forEntityName: entityName, in: context) else { continue }
-            let object = NSManagedObject(entity: entity, insertInto: context)
-            object.setValue(item.id,                    forKey: "id")
-            object.setValue(item.name,                  forKey: "name")
-            object.setValue(Int32(item.priceInCents),   forKey: "priceInCents")
-            object.setValue(Int32(item.capacity),       forKey: "capacity")
-            object.setValue(item.imageUrl,              forKey: "imageUrl")
-            object.setValue(item.address,               forKey: "address")
-            object.setValue(Date(),                     forKey: "cachedAt")
-            // Detail fields — persisted so the field detail screen works offline.
-            object.setValue(item.description,           forKey: "fieldDescription")
-            object.setValue(item.rules,                 forKey: "rules")
-            object.setValue(item.extraInfo,             forKey: "extraInfo")
-            object.setValue(item.hasParking,            forKey: "hasParking")
-            object.setValue(item.fieldType?.rawValue,   forKey: "fieldType")
-            object.setValue(item.footwearType?.rawValue, forKey: "footwearType")
-            object.setValue(encodeImages(item.images),  forKey: "imagesJSON")
+            for item in items {
+                guard let entity = NSEntityDescription.entity(forEntityName: entityName, in: context) else { continue }
+                let object = NSManagedObject(entity: entity, insertInto: context)
+                object.setValue(item.id,                    forKey: "id")
+                object.setValue(item.name,                  forKey: "name")
+                object.setValue(Int32(item.priceInCents),   forKey: "priceInCents")
+                object.setValue(Int32(item.capacity),       forKey: "capacity")
+                object.setValue(item.imageUrl,              forKey: "imageUrl")
+                object.setValue(item.address,               forKey: "address")
+                object.setValue(Date(),                     forKey: "cachedAt")
+                // Detail fields — persisted so the field detail screen works offline.
+                object.setValue(item.description,           forKey: "fieldDescription")
+                object.setValue(item.rules,                 forKey: "rules")
+                object.setValue(item.extraInfo,             forKey: "extraInfo")
+                object.setValue(item.hasParking,            forKey: "hasParking")
+                object.setValue(item.fieldType?.rawValue,   forKey: "fieldType")
+                object.setValue(item.footwearType?.rawValue, forKey: "footwearType")
+                object.setValue(encodeImages(item.images),  forKey: "imagesJSON")
+            }
+            try context.save()
         }
-        try context.save()
     }
 
     // MARK: - Load
 
     func loadFields() -> [AdminFieldItem] {
-        let request = NSFetchRequest<NSManagedObject>(entityName: entityName)
-        request.sortDescriptors = [NSSortDescriptor(key: "name", ascending: true)]
-        guard let results = try? context.fetch(request) else { return [] }
-        return results.compactMap { map($0) }
+        context.performAndWait {
+            let request = NSFetchRequest<NSManagedObject>(entityName: entityName)
+            request.sortDescriptors = [NSSortDescriptor(key: "name", ascending: true)]
+            guard let results = try? context.fetch(request) else { return [] }
+            return results.compactMap { map($0) }
+        }
     }
 
     // MARK: - Clear
 
     func clearFields() throws {
-        let request = NSFetchRequest<NSManagedObject>(entityName: entityName)
-        let existing = (try? context.fetch(request)) ?? []
-        existing.forEach { context.delete($0) }
-        if context.hasChanges { try context.save() }
+        try context.performAndWait {
+            let request = NSFetchRequest<NSManagedObject>(entityName: entityName)
+            let existing = (try? context.fetch(request)) ?? []
+            existing.forEach { context.delete($0) }
+            if context.hasChanges { try context.save() }
+        }
     }
 
     // MARK: - Private

@@ -95,6 +95,59 @@ public enum LocationCity: String, CaseIterable {
         case .tx: return "Texas"
         }
     }
+
+    public var centerLatitude: Double {
+        switch self {
+        case .cdmx:  return 19.4326
+        case .gdl:   return 20.6597
+        case .mty:   return 25.6866
+        case .qro:   return 20.5888
+        case .pue:   return 19.0413
+        case .tij:   return 32.5027
+        case .leon:  return 21.1167
+        case .cjs:   return 28.6353
+        case .tx:    return 31.0
+        }
+    }
+
+    public var centerLongitude: Double {
+        switch self {
+        case .cdmx:  return -99.1332
+        case .gdl:   return -103.3496
+        case .mty:   return -100.3161
+        case .qro:   return -100.3899
+        case .pue:   return -98.2062
+        case .tij:   return -117.0037
+        case .leon:  return -101.6833
+        case .cjs:   return -106.0889
+        case .tx:    return -100.0
+        }
+    }
+
+    /// Lat/lon delta for the map region when panning to this city.
+    public var mapSpanDelta: Double {
+        switch self {
+        case .cdmx:  return 0.40
+        case .tx:    return 8.0
+        default:     return 0.18
+        }
+    }
+
+    /// Approximate bounding box of the metropolitan area.
+    /// Used to reject pins placed outside the selected city.
+    public var boundingBox: (minLat: Double, maxLat: Double, minLon: Double, maxLon: Double) {
+        switch self {
+        case .cdmx:  return (19.00, 19.95, -99.50, -98.85)
+        case .gdl:   return (20.50, 20.85, -103.60, -103.10)
+        case .mty:   return (25.40, 25.90, -100.65, -100.05)
+        case .qro:   return (20.45, 20.75, -100.50, -100.20)
+        case .pue:   return (18.85, 19.20, -98.35, -97.95)
+        case .tij:   return (32.35, 32.65, -117.20, -116.80)
+        case .leon:  return (20.90, 21.30, -101.90, -101.45)
+        case .cjs:   return (28.45, 28.80, -106.35, -105.90)
+        case .tx:    return (25.84, 36.50, -106.65,  -93.51)
+        }
+    }
 }
 
 public extension Array where Element == AdminLocationCountry {

@@ -62,7 +62,7 @@ struct NewLocationView: View {
             FMStickyActionBar(
                 title: "Guardar ubicación",
                 isLoading: viewModel.isSaving,
-                isEnabled: !viewModel.address.isEmpty,
+                isEnabled: viewModel.isReadyToSave,
                 action: { Task { await viewModel.save() } }
             )
         }
@@ -122,7 +122,7 @@ struct NewLocationView: View {
             // City dropdown
             Menu {
                 ForEach(viewModel.citiesForSelectedCountry, id: \.code) { city in
-                    Button(action: { viewModel.selectedCity = city.code }) {
+                    Button(action: { viewModel.selectCity(city.code) }) {
                         HStack {
                             Text(city.name)
                             if viewModel.selectedCity == city.code {
@@ -169,8 +169,21 @@ struct NewLocationView: View {
             .cornerRadius(12)
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
-                    .stroke(FMColors.outlineVariant, lineWidth: 1)
+                    .stroke(viewModel.cityValidationError != nil ? FMColors.error : FMColors.outlineVariant, lineWidth: 1)
             )
+
+            if let cityError = viewModel.cityValidationError {
+                HStack(spacing: 6) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.caption)
+                    Text(cityError)
+                        .font(FMTypography.bodySmall)
+                }
+                .foregroundColor(FMColors.error)
+                .padding(10)
+                .background(FMColors.errorContainer)
+                .cornerRadius(8)
+            }
         }
     }
 
@@ -181,30 +194,17 @@ struct NewLocationView: View {
                 .fontWeight(.bold)
                 .foregroundColor(FMColors.onBackground)
 
-            // Search field
-            HStack(spacing: 8) {
-                Image(systemName: "magnifyingglass")
-                    .foregroundColor(FMColors.onSurfaceVariant)
-
-                TextField("Buscar dirección...", text: $viewModel.searchQuery)
-                    .onChange(of: viewModel.searchQuery) { newValue in
-                        viewModel.searchAddresses(newValue)
-                    }
-
-                if !viewModel.searchQuery.isEmpty {
-                    Button(action: { viewModel.searchQuery = "" }) {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(FMColors.onSurfaceVariant)
-                    }
-                }
-            }
-            .padding(12)
-            .background(FMColors.surfaceContainerLowest)
-            .cornerRadius(8)
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(FMColors.outlineVariant, lineWidth: 1)
+            FMTextField(
+                label: "Buscar dirección",
+                text: $viewModel.searchQuery,
+                placeholder: "Calle, colonia, ciudad...",
+                autocapitalization: .sentences,
+                trailingIcon: viewModel.searchQuery.isEmpty ? nil : Image(systemName: "xmark.circle.fill"),
+                onTrailingIconTap: { viewModel.searchQuery = "" }
             )
+            .onChange(of: viewModel.searchQuery) { newValue in
+                viewModel.searchAddresses(newValue)
+            }
 
             // Search results
             if !viewModel.searchResults.isEmpty {
@@ -251,52 +251,49 @@ struct NewLocationView: View {
                 .fontWeight(.bold)
                 .foregroundColor(FMColors.onBackground)
 
-            // Address field
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Dirección")
-                    .font(FMTypography.labelMedium)
-                    .foregroundColor(FMColors.onSurfaceVariant)
-                TextField("Dirección", text: $viewModel.address)
-                    .padding(12)
-                    .background(FMColors.surfaceContainerLowest)
-                    .cornerRadius(8)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(FMColors.outlineVariant, lineWidth: 1)
-                    )
+            FMTextField(
+                label: "Dirección",
+                text: $viewModel.address,
+                autocapitalization: .sentences
+            )
+
+            FMTextField(
+                label: "Número Exterior",
+                text: $viewModel.exteriorNumber,
+                placeholder: "Ej: 15, 7B, 23-A (opcional)"
+            )
+            .onChange(of: viewModel.exteriorNumber) { _ in
+                viewModel.rebuildAddress()
             }
 
-            // Coordinates row
             HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Latitud")
-                        .font(FMTypography.labelMedium)
-                        .foregroundColor(FMColors.onSurfaceVariant)
-                    TextField("Latitud", value: $viewModel.latitude, format: .number)
-                        .padding(12)
-                        .background(FMColors.surfaceContainerLowest)
-                        .cornerRadius(8)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 8)
-                                .stroke(FMColors.outlineVariant, lineWidth: 1)
-                        )
-                }
+                FMTextField(
+                    label: "Latitud",
+                    text: latitudeBinding,
+                    keyboardType: .decimalPad
+                )
 
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Longitud")
-                        .font(FMTypography.labelMedium)
-                        .foregroundColor(FMColors.onSurfaceVariant)
-                    TextField("Longitud", value: $viewModel.longitude, format: .number)
-                        .padding(12)
-                        .background(FMColors.surfaceContainerLowest)
-                        .cornerRadius(8)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 8)
-                                .stroke(FMColors.outlineVariant, lineWidth: 1)
-                        )
-                }
+                FMTextField(
+                    label: "Longitud",
+                    text: longitudeBinding,
+                    keyboardType: .decimalPad
+                )
             }
         }
+    }
+
+    private var latitudeBinding: Binding<String> {
+        Binding(
+            get: { viewModel.latitude == 0 ? "" : String(format: "%.6f", viewModel.latitude) },
+            set: { if let d = Double($0) { viewModel.latitude = d } }
+        )
+    }
+
+    private var longitudeBinding: Binding<String> {
+        Binding(
+            get: { viewModel.longitude == 0 ? "" : String(format: "%.6f", viewModel.longitude) },
+            set: { if let d = Double($0) { viewModel.longitude = d } }
+        )
     }
 
 }
@@ -365,6 +362,7 @@ struct MapViewContainer: UIViewRepresentable {
         }
 
         func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
+            if annotation is MKUserLocation { return nil }
             let annotationView = MKMarkerAnnotationView(annotation: annotation, reuseIdentifier: "pin")
             annotationView.markerTintColor = UIColor(red: 0.2, green: 0.5, blue: 1.0, alpha: 1.0)
             annotationView.isDraggable = true

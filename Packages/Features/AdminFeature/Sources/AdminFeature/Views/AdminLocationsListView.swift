@@ -23,29 +23,26 @@ struct AdminLocationsListView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    // Content
-                    if isLoading {
-                        ProgressView()
-                            .frame(maxWidth: .infinity)
-                            .padding(32)
-                    } else if locations.isEmpty {
-                        FMEmptyStateCard(
-                            icon: "mappin.circle.fill",
-                            message: "No hay ubicaciones registradas"
-                        )
-                        .padding(.horizontal, 24)
-                        .padding(.top, 32)
-                    } else {
+            if isLoading && locations.isEmpty {
+                skeletonList
+            } else if !isLoading && locations.isEmpty {
+                FMEmptyStateCard(
+                    icon: "mappin.circle.fill",
+                    message: "No hay ubicaciones registradas"
+                )
+                .padding(.horizontal, 24)
+                .padding(.top, 32)
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
                         VStack(spacing: 12) {
                             ForEach(locations) { location in
                                 NavigationLink(destination: LocationDetailView(
                                     location: location,
                                     factory: factory,
                                     context: context,
-                                    localizer: localizer,
-                                    onDelete: { Task { await loadLocations() } }
+                                    onDelete:  { Task { await loadLocations() } },
+                                    onUpdated: { Task { await loadLocations() } }
                                 )) {
                                     LocationCard(location: location, localizer: localizer)
                                 }
@@ -53,20 +50,21 @@ struct AdminLocationsListView: View {
                             }
                         }
                         .padding(.horizontal, 24)
-                    }
 
-                    if let error = errorMessage {
-                        Text(error)
-                            .font(FMTypography.bodySmall)
-                            .foregroundColor(FMColors.error)
-                            .padding(12)
-                            .background(FMColors.errorContainer)
-                            .cornerRadius(8)
-                            .padding(24)
-                    }
+                        if let error = errorMessage {
+                            Text(error)
+                                .font(FMTypography.bodySmall)
+                                .foregroundColor(FMColors.error)
+                                .padding(12)
+                                .background(FMColors.errorContainer)
+                                .cornerRadius(8)
+                                .padding(24)
+                        }
 
-                    Spacer().frame(height: 32)
+                        Spacer().frame(height: 32)
+                    }
                 }
+                .refreshable { await loadLocations() }
             }
         }
         .background(FMColors.background.ignoresSafeArea())
@@ -81,21 +79,39 @@ struct AdminLocationsListView: View {
                     .foregroundColor(FMColors.onBackground)
             }
         }
-        .task {
-            await loadLocations()
+        .task { await loadLocations() }
+    }
+
+    private var skeletonList: some View {
+        ScrollView {
+            VStack(spacing: 12) {
+                ForEach(0..<4, id: \.self) { _ in
+                    AdminLocationCardSkeleton()
+                }
+            }
+            .padding(.horizontal, 24)
+            .padding(.top, 8)
         }
-        .refreshable {
-            await loadLocations()
-        }
+        .disabled(true)
     }
 
     private func loadLocations() async {
-        isLoading = true
+        let useCase = factory.makeFetchLocationsUseCase(context: context)
+
+        // Show cache immediately so the list appears without a spinner.
+        // Sort by address so cache and network arrive in the same order.
+        let cached = useCase.executeCached().sorted { $0.address < $1.address }
+        if !cached.isEmpty {
+            locations = cached
+        } else {
+            isLoading = true
+        }
+
         errorMessage = nil
 
         do {
-            let useCase = factory.makeFetchLocationsUseCase(context: context)
-            locations = try await useCase.execute()
+            let fresh = try await useCase.execute().sorted { $0.address < $1.address }
+            locations = fresh
         } catch {
             errorMessage = error.localizedDescription
         }

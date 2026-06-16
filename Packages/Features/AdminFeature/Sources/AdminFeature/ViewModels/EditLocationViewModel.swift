@@ -1,81 +1,71 @@
 import Foundation
 import MapKit
 
-// MARK: - New Location ViewModel
+// MARK: - Edit Location ViewModel
 
 @MainActor
-public final class NewLocationViewModel: NSObject, ObservableObject {
-    // MARK: - Published Properties
+public final class EditLocationViewModel: ObservableObject {
 
-    @Published public var selectedCountry = LocationCountry.mexico.rawValue
-    @Published public var selectedCity = LocationCity.cdmx.rawValue
+    // MARK: - Published
+
+    @Published public var selectedCountry: String
+    @Published public var selectedCity: String
     @Published public private(set) var catalog: [AdminLocationCountry] = .fallback
-    @Published public var address = ""
-    @Published public var exteriorNumber = ""
-    @Published public var latitude = NewLocationViewModel.defaultCoordinate.latitude
-    @Published public var longitude = NewLocationViewModel.defaultCoordinate.longitude
+    @Published public var address: String
+    @Published public var latitude: Double
+    @Published public var longitude: Double
     @Published public var isSaving = false
     @Published public var errorMessage: String?
     @Published public var searchQuery = ""
     @Published public var searchResults: [GeocodingSearchResult] = []
     @Published public var isSearching = false
     @Published public var mapRegion: MKCoordinateRegion
-    @Published public private(set) var createdLocation: AdminLocation?
+    @Published public private(set) var updatedLocation: AdminLocation?
     @Published public var cityValidationError: String?
 
     public var isReadyToSave: Bool {
         !address.isEmpty && cityValidationError == nil
     }
 
-    // MARK: - Private Properties
+    // MARK: - Private
 
-    /// CDMX — map starting point until the device location arrives.
-    private static let defaultCoordinate = CLLocationCoordinate2D(latitude: 19.4326, longitude: -99.1332)
-
+    private let locationId: String
     private let geocodingService: GeocodingServiceProtocol
-    private let createLocationUseCase: CreateLocationUseCaseProtocol
+    private let updateLocationUseCase: UpdateLocationUseCaseProtocol
     private let fetchCatalogUseCase: FetchLocationCatalogUseCaseProtocol
-    private let currentLocationProvider: CurrentLocationProviding
     private var searchTask: Task<Void, Never>?
-    /// Raw address returned by the geocoder. Kept separate so we can
-    /// re-insert a new exterior number without duplicating it.
-    private var rawGeocodedAddress = ""
-    /// Once the user moves the pin or picks a search result, the device
-    /// location must no longer override their choice.
-    private var hasUserAdjustedPin = false
 
     // MARK: - Init
 
     init(
+        location: AdminLocation,
         geocodingService: GeocodingServiceProtocol,
-        createLocationUseCase: CreateLocationUseCaseProtocol,
-        fetchCatalogUseCase: FetchLocationCatalogUseCaseProtocol,
-        currentLocationProvider: CurrentLocationProviding
+        updateLocationUseCase: UpdateLocationUseCaseProtocol,
+        fetchCatalogUseCase: FetchLocationCatalogUseCaseProtocol
     ) {
-        self.geocodingService = geocodingService
-        self.createLocationUseCase = createLocationUseCase
-        self.fetchCatalogUseCase = fetchCatalogUseCase
-        self.currentLocationProvider = currentLocationProvider
+        self.locationId = location.id
+        self.selectedCountry = location.country
+        self.selectedCity = location.city
+        self.address = location.address
+        self.latitude = location.latitude
+        self.longitude = location.longitude
         self.mapRegion = MKCoordinateRegion(
-            center: Self.defaultCoordinate,
-            span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)
+            center: CLLocationCoordinate2D(latitude: location.latitude, longitude: location.longitude),
+            span: MKCoordinateSpan(latitudeDelta: 0.02, longitudeDelta: 0.02)
         )
-        super.init()
+        self.geocodingService = geocodingService
+        self.updateLocationUseCase = updateLocationUseCase
+        self.fetchCatalogUseCase = fetchCatalogUseCase
     }
 
     // MARK: - Lifecycle
 
-    /// Loads the country/city catalog and centers the pin on the device's
-    /// current location (requesting permission if needed).
     public func onAppear() async {
-        async let catalogLoad: Void = loadCatalog()
-        async let locationLoad: Void = startAtCurrentLocation()
-        _ = await (catalogLoad, locationLoad)
+        await loadCatalog()
     }
 
     // MARK: - Catalog
 
-    /// Cities for the currently selected country.
     public var citiesForSelectedCountry: [AdminLocationCity] {
         catalog.first(where: { $0.code == selectedCountry })?.cities ?? []
     }
@@ -95,14 +85,10 @@ public final class NewLocationViewModel: NSObject, ObservableObject {
         }
     }
 
-    /// Select a city: pans the map to its center and resets the pin + address.
     public func selectCity(_ code: String) {
         selectedCity = code
-        hasUserAdjustedPin = true
         cityValidationError = nil
         address = ""
-        exteriorNumber = ""
-        rawGeocodedAddress = ""
 
         guard let city = LocationCity(rawValue: code) else { return }
         let center = CLLocationCoordinate2D(latitude: city.centerLatitude, longitude: city.centerLongitude)
@@ -118,7 +104,6 @@ public final class NewLocationViewModel: NSObject, ObservableObject {
         let countries = await fetchCatalogUseCase.execute()
         guard !countries.isEmpty else { return }
         catalog = countries
-        // Re-validate the current selection against the fresh catalog.
         if !countries.contains(where: { $0.code == selectedCountry }) {
             selectedCountry = countries[0].code
         }
@@ -127,26 +112,9 @@ public final class NewLocationViewModel: NSObject, ObservableObject {
         }
     }
 
-    // MARK: - Current Location
+    // MARK: - Map
 
-    private func startAtCurrentLocation() async {
-        guard let coordinate = await currentLocationProvider.requestCurrentLocation() else { return }
-        // The user may have placed the pin while we waited for permission.
-        guard !hasUserAdjustedPin else { return }
-        latitude = coordinate.latitude
-        longitude = coordinate.longitude
-        mapRegion = MKCoordinateRegion(
-            center: coordinate,
-            span: MKCoordinateSpan(latitudeDelta: 0.02, longitudeDelta: 0.02)
-        )
-        await fetchAddressFromCoordinates(coordinate.latitude, coordinate.longitude)
-    }
-
-    // MARK: - Public Methods
-
-    /// Update coordinates when user taps or drags the pin.
     public func updateMapCoordinates(latitude: Double, longitude: Double) {
-        hasUserAdjustedPin = true
         self.latitude = latitude
         self.longitude = longitude
         mapRegion.center = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
@@ -158,7 +126,8 @@ public final class NewLocationViewModel: NSObject, ObservableObject {
         Task { await fetchAddressFromCoordinates(latitude, longitude) }
     }
 
-    /// Search for addresses
+    // MARK: - Search
+
     public func searchAddresses(_ query: String) {
         searchQuery = query
         searchTask?.cancel()
@@ -169,8 +138,6 @@ public final class NewLocationViewModel: NSObject, ObservableObject {
         }
 
         searchTask = Task {
-            // Debounce: Nominatim's usage policy allows ~1 request/second. Wait for
-            // typing to settle and bail if a newer keystroke cancelled this task.
             try? await Task.sleep(nanoseconds: 400_000_000)
             guard !Task.isCancelled else { return }
 
@@ -180,19 +147,14 @@ public final class NewLocationViewModel: NSObject, ObservableObject {
                 guard !Task.isCancelled else { return }
                 searchResults = results
             } catch {
-                if !Task.isCancelled {
-                    errorMessage = error.localizedDescription
-                }
+                if !Task.isCancelled { errorMessage = error.localizedDescription }
             }
             isSearching = false
         }
     }
 
-    /// Select a search result and validate it falls within the selected city.
     public func selectSearchResult(_ result: GeocodingSearchResult) {
-        hasUserAdjustedPin = true
-        rawGeocodedAddress = result.name
-        address = addressWithExteriorNumber()
+        address = result.name
         latitude = result.latitude
         longitude = result.longitude
         searchQuery = ""
@@ -204,19 +166,14 @@ public final class NewLocationViewModel: NSObject, ObservableObject {
             : "La dirección está fuera de \(selectedCityName). Elige una dentro de la ciudad seleccionada."
     }
 
-    /// Re-inserts the current exterior number into the geocoded address.
-    /// Called by the View whenever `exteriorNumber` changes.
-    public func rebuildAddress() {
-        guard !rawGeocodedAddress.isEmpty else { return }
-        address = addressWithExteriorNumber()
-    }
+    // MARK: - Save
 
-    /// Save location to backend
     public func save() async {
         isSaving = true
         errorMessage = nil
 
-        let request = CreateLocationRequest(
+        let request = UpdateLocationRequest(
+            id: locationId,
             address: address,
             countryCode: selectedCountry,
             cityCode: selectedCity,
@@ -225,9 +182,8 @@ public final class NewLocationViewModel: NSObject, ObservableObject {
         )
 
         do {
-            // Success — location is created on the backend and cached locally.
-            let location = try await createLocationUseCase.execute(request: request)
-            createdLocation = location
+            let location = try await updateLocationUseCase.execute(request: request)
+            updatedLocation = location
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -235,7 +191,7 @@ public final class NewLocationViewModel: NSObject, ObservableObject {
         isSaving = false
     }
 
-    // MARK: - Private Methods
+    // MARK: - Private helpers
 
     private func isCityValid(latitude: Double, longitude: Double) -> Bool {
         guard let city = LocationCity(rawValue: selectedCity) else { return true }
@@ -246,24 +202,9 @@ public final class NewLocationViewModel: NSObject, ObservableObject {
 
     private func fetchAddressFromCoordinates(_ latitude: Double, _ longitude: Double) async {
         do {
-            let geocoded = try await geocodingService.reverseGeocode(
-                latitude: latitude,
-                longitude: longitude
-            )
-            rawGeocodedAddress = geocoded
-            address = addressWithExteriorNumber()
+            address = try await geocodingService.reverseGeocode(latitude: latitude, longitude: longitude)
         } catch {
             // Silently fail — keep existing address
         }
-    }
-
-    /// Inserts `exteriorNumber` after the street name (first segment before the
-    /// first comma). If there is no comma the number is appended at the end.
-    private func addressWithExteriorNumber() -> String {
-        guard !exteriorNumber.isEmpty else { return rawGeocodedAddress }
-        if let commaIdx = rawGeocodedAddress.firstIndex(of: ",") {
-            return rawGeocodedAddress[..<commaIdx] + " " + exteriorNumber + rawGeocodedAddress[commaIdx...]
-        }
-        return rawGeocodedAddress.isEmpty ? exteriorNumber : rawGeocodedAddress + " " + exteriorNumber
     }
 }

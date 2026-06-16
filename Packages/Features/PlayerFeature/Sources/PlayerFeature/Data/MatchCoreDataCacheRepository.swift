@@ -18,59 +18,68 @@ final class MatchCoreDataCacheRepository: MatchCacheRepositoryProtocol {
     // MARK: - Save
 
     func saveMatches(_ items: [MatchItem]) throws {
-        // Replace entire cache atomically
-        let request = NSFetchRequest<NSManagedObject>(entityName: entityName)
-        let existing = try context.fetch(request)
-        existing.forEach { context.delete($0) }
+        // Run on the context's own queue. CoreData contexts are NOT thread-safe;
+        // these methods are called from background tasks, so touching `context`
+        // directly corrupts its internal object set and crashes.
+        try context.performAndWait {
+            // Replace entire cache atomically
+            let request = NSFetchRequest<NSManagedObject>(entityName: entityName)
+            let existing = try context.fetch(request)
+            existing.forEach { context.delete($0) }
 
-        for item in items {
-            guard let entity = NSEntityDescription.entity(forEntityName: entityName, in: context) else { continue }
-            let object = NSManagedObject(entity: entity, insertInto: context)
-            object.setValue(item.id, forKey: "id")
-            object.setValue(item.venueName, forKey: "venueName")
-            object.setValue(item.location, forKey: "location")
-            object.setValue(item.timeRange, forKey: "timeRange")
-            object.setValue(item.date, forKey: "date")
-            object.setValue(item.startDate, forKey: "startDate")
-            object.setValue(item.price, forKey: "price")
-            object.setValue(item.matchType, forKey: "matchType")
-            object.setValue(item.spotsLeft, forKey: "spotsLeft")
-            object.setValue(item.teamAMax, forKey: "teamAMax")
-            object.setValue(item.teamBMax, forKey: "teamBMax")
-            object.setValue(item.distance, forKey: "distance")
-            object.setValue(item.duration, forKey: "duration")
-            object.setValue(item.fieldImageUrl, forKey: "fieldImageUrl")
-            object.setValue(item.shoeType, forKey: "shoeType")
-            object.setValue(item.fieldType, forKey: "fieldType")
-            object.setValue(item.hasParking, forKey: "hasParking")
-            object.setValue(item.extraInfo, forKey: "extraInfo")
-            object.setValue(encodePlayers(item.teamAPlayers), forKey: "teamAPlayersJSON")
-            object.setValue(encodePlayers(item.teamBPlayers), forKey: "teamBPlayersJSON")
-            object.setValue(encodeRules(item.rules), forKey: "rulesJSON")
-            object.setValue(item.matchStatus, forKey: "matchStatus")
-            object.setValue(Date(), forKey: "cachedAt")
+            for item in items {
+                guard let entity = NSEntityDescription.entity(forEntityName: entityName, in: context) else { continue }
+                let object = NSManagedObject(entity: entity, insertInto: context)
+                object.setValue(item.id, forKey: "id")
+                object.setValue(item.venueName, forKey: "venueName")
+                object.setValue(item.location, forKey: "location")
+                object.setValue(item.timeRange, forKey: "timeRange")
+                object.setValue(item.date, forKey: "date")
+                object.setValue(item.startDate, forKey: "startDate")
+                object.setValue(item.price, forKey: "price")
+                object.setValue(item.matchType, forKey: "matchType")
+                object.setValue(item.spotsLeft, forKey: "spotsLeft")
+                object.setValue(item.teamAMax, forKey: "teamAMax")
+                object.setValue(item.teamBMax, forKey: "teamBMax")
+                object.setValue(item.distance, forKey: "distance")
+                object.setValue(item.duration, forKey: "duration")
+                object.setValue(item.fieldImageUrl, forKey: "fieldImageUrl")
+                object.setValue(item.shoeType, forKey: "shoeType")
+                object.setValue(item.fieldType, forKey: "fieldType")
+                object.setValue(item.hasParking, forKey: "hasParking")
+                object.setValue(item.extraInfo, forKey: "extraInfo")
+                object.setValue(encodePlayers(item.teamAPlayers), forKey: "teamAPlayersJSON")
+                object.setValue(encodePlayers(item.teamBPlayers), forKey: "teamBPlayersJSON")
+                object.setValue(encodeRules(item.rules), forKey: "rulesJSON")
+                object.setValue(item.matchStatus, forKey: "matchStatus")
+                object.setValue(Date(), forKey: "cachedAt")
+            }
+
+            try context.save()
         }
-
-        try context.save()
     }
 
     // MARK: - Load
 
     func loadMatches() -> [MatchItem] {
-        let request = NSFetchRequest<NSManagedObject>(entityName: entityName)
-        request.sortDescriptors = [NSSortDescriptor(key: "startDate", ascending: true)]
-        guard let results = try? context.fetch(request) else { return [] }
-        return results.compactMap { mapToMatchItem($0) }
+        context.performAndWait {
+            let request = NSFetchRequest<NSManagedObject>(entityName: entityName)
+            request.sortDescriptors = [NSSortDescriptor(key: "startDate", ascending: true)]
+            guard let results = try? context.fetch(request) else { return [] }
+            return results.compactMap { mapToMatchItem($0) }
+        }
     }
 
     // MARK: - Clear
 
     func clearMatches() throws {
-        let request = NSFetchRequest<NSManagedObject>(entityName: entityName)
-        let existing = try context.fetch(request)
-        existing.forEach { context.delete($0) }
-        if context.hasChanges {
-            try context.save()
+        try context.performAndWait {
+            let request = NSFetchRequest<NSManagedObject>(entityName: entityName)
+            let existing = try context.fetch(request)
+            existing.forEach { context.delete($0) }
+            if context.hasChanges {
+                try context.save()
+            }
         }
     }
 
