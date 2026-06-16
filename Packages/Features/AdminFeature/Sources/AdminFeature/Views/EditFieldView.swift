@@ -16,7 +16,6 @@ struct EditFieldView: View {
     @State private var focusDescription = false
     @State private var focusExtra       = false
     @State private var showSuccessToast        = false
-    @State private var showLocationPicker      = false
     @State private var showLocationLinkedToast = false
 
     init(viewModel: @autoclosure @escaping () -> EditFieldViewModel, onUpdated: ((AdminFieldItem) -> Void)? = nil) {
@@ -41,7 +40,7 @@ struct EditFieldView: View {
             }
             .padding(.horizontal, 20)
             .padding(.top, 16)
-            .padding(.bottom, 8)
+            .padding(.bottom, 100)
         }
         .background(FMColors.background.ignoresSafeArea())
         .navigationBarBackButtonHidden(true)
@@ -63,6 +62,7 @@ struct EditFieldView: View {
                 action: { Task { await viewModel.save() } }
             )
         }
+        .task { await viewModel.fetchLocations() }
         .onChange(of: viewModel.updatedField) { updated in
             guard let updated else { return }
             showSuccessToast = true
@@ -74,12 +74,8 @@ struct EditFieldView: View {
         }
         .onChange(of: viewModel.locationLinked) { linked in
             guard linked else { return }
-            showLocationPicker = false
             showLocationLinkedToast = true
             viewModel.locationLinked = false
-        }
-        .sheet(isPresented: $showLocationPicker) {
-            LocationPickerSheet(viewModel: viewModel)
         }
         .fmToast("¡Cancha actualizada!", isPresented: $showSuccessToast, style: .success)
         .fmToast("¡Ubicación asignada!", isPresented: $showLocationLinkedToast, style: .success)
@@ -191,51 +187,74 @@ struct EditFieldView: View {
 
             if let location = viewModel.assignedLocation {
                 AssignedLocationPreview(location: location)
-                Button {
-                    Task { await viewModel.fetchLocations() }
-                    showLocationPicker = true
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "arrow.triangle.2.circlepath")
-                            .font(.system(size: 14))
-                        Text("Cambiar ubicación")
-                            .font(FMTypography.labelLarge)
-                    }
-                    .foregroundColor(FMColors.primary)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(
-                        RoundedRectangle(cornerRadius: 10)
-                            .stroke(FMColors.primary, lineWidth: 1)
-                    )
-                }
-                .contentShape(Rectangle())
+                locationMenu(label: changeLocationLabel)
             } else {
-                Button {
-                    Task { await viewModel.fetchLocations() }
-                    showLocationPicker = true
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "mappin.circle")
-                            .font(.system(size: 18))
-                        Text("Asignar ubicación")
-                            .font(FMTypography.labelLarge)
-                    }
-                    .foregroundColor(FMColors.primary)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .background(
-                        RoundedRectangle(cornerRadius: 10)
-                            .fill(FMColors.primaryContainer.opacity(0.3))
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10)
-                            .stroke(FMColors.primary.opacity(0.5), lineWidth: 1)
-                    )
-                }
-                .contentShape(Rectangle())
+                locationMenu(label: assignLocationLabel)
             }
         }
+    }
+
+    private func locationMenu<L: View>(label: L) -> some View {
+        Menu {
+            if viewModel.availableLocations.isEmpty {
+                Text(viewModel.isLoadingLocations ? "Cargando ubicaciones..." : "Sin ubicaciones disponibles")
+            } else {
+                ForEach(viewModel.availableLocations) { loc in
+                    Button(loc.address) {
+                        Task { await viewModel.assignLocation(loc) }
+                    }
+                }
+            }
+        } label: {
+            label
+        }
+        .disabled(viewModel.isLinkingLocation)
+    }
+
+    private var assignLocationLabel: some View {
+        HStack(spacing: 8) {
+            if viewModel.isLinkingLocation {
+                ProgressView().scaleEffect(0.85).tint(FMColors.primary)
+            } else {
+                Image(systemName: "mappin.circle")
+                    .font(.system(size: 18))
+            }
+            Text("Asignar ubicación")
+                .font(FMTypography.labelLarge)
+        }
+        .foregroundColor(FMColors.primary)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 14)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(FMColors.primaryContainer.opacity(0.3))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(FMColors.primary.opacity(0.5), lineWidth: 1)
+        )
+        .contentShape(Rectangle())
+    }
+
+    private var changeLocationLabel: some View {
+        HStack(spacing: 6) {
+            if viewModel.isLinkingLocation {
+                ProgressView().scaleEffect(0.85).tint(FMColors.primary)
+            } else {
+                Image(systemName: "arrow.triangle.2.circlepath")
+                    .font(.system(size: 14))
+            }
+            Text("Cambiar ubicación")
+                .font(FMTypography.labelLarge)
+        }
+        .foregroundColor(FMColors.primary)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(FMColors.primary, lineWidth: 1)
+        )
+        .contentShape(Rectangle())
     }
 
     // MARK: - Helpers
@@ -313,119 +332,4 @@ struct FieldLocationMiniMapView: UIViewRepresentable {
     }
 
     func updateUIView(_ mapView: MKMapView, context: Context) {}
-}
-
-// MARK: - Location Picker Sheet
-
-private struct LocationPickerSheet: View {
-    @ObservedObject var viewModel: EditFieldViewModel
-    @Environment(\.dismiss) private var dismiss
-    private let localizer = LocationLocalizer()
-
-    var body: some View {
-        NavigationStack {
-            Group {
-                if viewModel.isLoadingLocations && viewModel.availableLocations.isEmpty {
-                    VStack(spacing: 16) {
-                        ProgressView()
-                        Text("Cargando ubicaciones...")
-                            .font(FMTypography.bodySmall)
-                            .foregroundColor(FMColors.onSurfaceVariant)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else if viewModel.availableLocations.isEmpty {
-                    FMEmptyStateCard(
-                        icon: "mappin.slash",
-                        message: "No hay ubicaciones disponibles.\nCrea una desde el panel de administración."
-                    )
-                    .padding(.horizontal, 24)
-                    .padding(.top, 32)
-                } else {
-                    ScrollView {
-                        LazyVStack(spacing: 12) {
-                            ForEach(viewModel.availableLocations) { location in
-                                Button {
-                                    Task { await viewModel.assignLocation(location) }
-                                } label: {
-                                    LocationPickerRow(
-                                        location: location,
-                                        localizer: localizer,
-                                        isSelected: viewModel.assignedLocation?.id == location.id,
-                                        isLinking: viewModel.isLinkingLocation
-                                    )
-                                }
-                                .buttonStyle(.plain)
-                                .disabled(viewModel.isLinkingLocation)
-                            }
-                        }
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 16)
-                    }
-                }
-            }
-            .background(FMColors.background.ignoresSafeArea())
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .principal) {
-                    Text("Seleccionar Ubicación")
-                        .font(FMTypography.titleLarge)
-                        .foregroundColor(FMColors.onBackground)
-                }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Cerrar") { dismiss() }
-                        .font(FMTypography.labelLarge)
-                        .foregroundColor(FMColors.primary)
-                }
-            }
-        }
-    }
-}
-
-// MARK: - Location Picker Row
-
-private struct LocationPickerRow: View {
-    let location: AdminLocation
-    let localizer: LocationLocalizer
-    let isSelected: Bool
-    let isLinking: Bool
-
-    var body: some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(location.address)
-                    .font(FMTypography.titleSmall)
-                    .foregroundColor(FMColors.onSurface)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.leading)
-                Text("\(localizer.cityName(for: location.city)), \(localizer.countryName(for: location.country))")
-                    .font(FMTypography.bodySmall)
-                    .foregroundColor(FMColors.onSurfaceVariant)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-            if isSelected && isLinking {
-                ProgressView()
-                    .scaleEffect(0.85)
-                    .tint(FMColors.primary)
-            } else if isSelected {
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundColor(FMColors.primary)
-                    .font(.system(size: 22))
-            } else {
-                Image(systemName: "chevron.right")
-                    .foregroundColor(FMColors.onSurfaceVariant)
-                    .font(.system(size: 14))
-            }
-        }
-        .padding(14)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(isSelected ? FMColors.primaryContainer.opacity(0.3) : FMColors.surfaceContainerLowest)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(isSelected ? FMColors.primary.opacity(0.6) : FMColors.outlineVariant, lineWidth: 1)
-        )
-        .contentShape(Rectangle())
-    }
 }
