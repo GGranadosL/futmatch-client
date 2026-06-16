@@ -29,6 +29,11 @@ public struct AdminFieldItem: Identifiable, Equatable, Hashable {
     public let fieldType: FieldType?
     public let footwearType: FootwearType?
 
+    // MARK: - Location
+
+    public let locationId: String?
+    public let assignedLocation: AdminLocation?
+
     public init(
         id: String,
         name: String,
@@ -42,7 +47,9 @@ public struct AdminFieldItem: Identifiable, Equatable, Hashable {
         extraInfo: String? = nil,
         hasParking: Bool = false,
         fieldType: FieldType? = nil,
-        footwearType: FootwearType? = nil
+        footwearType: FootwearType? = nil,
+        locationId: String? = nil,
+        assignedLocation: AdminLocation? = nil
     ) {
         self.id = id
         self.name = name
@@ -57,6 +64,8 @@ public struct AdminFieldItem: Identifiable, Equatable, Hashable {
         self.hasParking = hasParking
         self.fieldType = fieldType
         self.footwearType = footwearType
+        self.locationId = locationId
+        self.assignedLocation = assignedLocation
     }
 
     /// Price formatted for display, e.g. "$38.00".

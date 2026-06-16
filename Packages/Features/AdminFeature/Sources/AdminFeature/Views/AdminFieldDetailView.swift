@@ -1,5 +1,6 @@
 import SwiftUI
 import FMDesignSystem
+import CoreData
 
 // MARK: - AdminFieldDetailView
 
@@ -13,6 +14,7 @@ struct AdminFieldDetailView: View {
     private let onFieldUpdated: ((AdminFieldItem) -> Void)?
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.managedObjectContext) private var context
     @State private var showEdit = false
     @State private var showSuccessToast = false
     /// Owns the image slots and persists uploads/replacements/deletions.
@@ -82,7 +84,7 @@ struct AdminFieldDetailView: View {
         }
         .navigationDestination(isPresented: $showEdit) {
             EditFieldView(
-                viewModel: factory.makeEditFieldViewModel(field: field),
+                viewModel: factory.makeEditFieldViewModel(field: field, context: context),
                 onUpdated: { updated in
                     field = updated
                     onFieldUpdated?(updated)

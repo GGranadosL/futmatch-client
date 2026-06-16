@@ -81,6 +81,16 @@ struct AdminFieldEntryDTO: Decodable {
 
     func toDomain() -> AdminFieldItem {
         let sortedImages = images.sorted { $0.position < $1.position }
+        let assignedLocation = field.location.map { loc in
+            AdminLocation(
+                id: loc.id,
+                address: loc.address,
+                country: loc.countryCode ?? "",
+                city: loc.cityCode ?? "",
+                latitude: loc.latitude ?? 0,
+                longitude: loc.longitude ?? 0
+            )
+        }
         return AdminFieldItem(
             id: field.id,
             name: field.name,
@@ -96,7 +106,9 @@ struct AdminFieldEntryDTO: Decodable {
             extraInfo: field.extraInfo,
             hasParking: field.hasParking ?? false,
             fieldType: field.fieldType.flatMap(FieldType.init(rawValue:)),
-            footwearType: field.footwearType.flatMap(FootwearType.init(rawValue:))
+            footwearType: field.footwearType.flatMap(FootwearType.init(rawValue:)),
+            locationId: field.location?.id,
+            assignedLocation: assignedLocation
         )
     }
 }

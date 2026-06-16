@@ -70,13 +70,17 @@ struct LocationDetailView: View {
                     .foregroundColor(FMColors.onBackground)
             }
             ToolbarItem(placement: .navigationBarTrailing) {
-                Button(role: .destructive) {
-                    showDeleteAlert = true
-                } label: {
-                    Image(systemName: "trash")
-                        .foregroundColor(FMColors.error)
+                if isDeleting {
+                    ProgressView()
+                        .tint(FMColors.error)
+                } else {
+                    Button(role: .destructive) {
+                        showDeleteAlert = true
+                    } label: {
+                        Image(systemName: "trash")
+                            .foregroundColor(FMColors.error)
+                    }
                 }
-                .disabled(isDeleting)
             }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {

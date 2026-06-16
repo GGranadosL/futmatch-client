@@ -186,9 +186,19 @@ struct FutMatchApp: App {
 
     var body: some Scene {
         WindowGroup {
+            // Composition root: build the feature factories here and inject the
+            // resulting use cases into RootView (never the factories themselves).
+            let onboardingFactory = OnboardingDependencyFactory(
+                persistenceContainer: persistenceController.container,
+                countryRepository: countryRepository,
+                dialCodeRepository: dialCodeRepository
+            )
+            let playerFactory = PlayerDependencyFactory()
             RootView(persistenceContainer: persistenceController.container,
                      countryRepository: countryRepository,
-                     dialCodeRepository: dialCodeRepository,
+                     fetchCountriesUseCase: onboardingFactory.makeFetchCountriesUseCase(),
+                     fetchDialCodesUseCase: onboardingFactory.makeFetchDialCodesUseCase(),
+                     updateFCMTokenUseCase: playerFactory.makeUpdateFCMTokenUseCase(),
                      onRequestNotificationPermission: {
                          appDelegate.requestNotificationAuthorization()
                      },
@@ -220,7 +230,12 @@ struct RootView: View {
     @EnvironmentObject var userSession: UserSession
     let persistenceContainer: NSPersistentContainer
     let countryRepository: any CountryRepositoryProtocol
-    let dialCodeRepository: any DialCodeRepositoryProtocol
+    /// Use cases injected from the app composition root. RootView never builds a
+    /// DependencyFactory itself — concrete wiring lives in the App struct
+    /// (Engineering Standards §3: zero uninjected dependencies).
+    let fetchCountriesUseCase: any FetchCountriesUseCaseProtocol
+    let fetchDialCodesUseCase: any FetchDialCodesUseCaseProtocol
+    let updateFCMTokenUseCase: any UpdateFCMTokenUseCaseProtocol
     var onRequestNotificationPermission: (() -> Void)?
     /// Invoked once an authenticated (non-demo) session is ready — subscribes to
     /// the regional matches push topic.
@@ -292,9 +307,8 @@ struct RootView: View {
         guard let token = KeychainManager.shared.fcmToken, !token.isEmpty else {
             return
         }
-        let useCase = PlayerDependencyFactory().makeUpdateFCMTokenUseCase()
         do {
-            try await useCase.execute(fcmToken: token)
+            try await updateFCMTokenUseCase.execute(fcmToken: token)
         } catch {
             // Best-effort FCM token sync — server errors (e.g. 500) must not
             // crash the app. The token will resync on the next session start.
@@ -307,14 +321,9 @@ struct RootView: View {
     
     @ViewBuilder
     private func makeLoginView() -> some View {
-        let factory = OnboardingDependencyFactory(
-            persistenceContainer: persistenceContainer,
-            countryRepository: countryRepository,
-            dialCodeRepository: dialCodeRepository
-        )
         LoginView(
-            fetchCountriesUseCase: factory.makeFetchCountriesUseCase(),
-            fetchDialCodesUseCase: factory.makeFetchDialCodesUseCase(),
+            fetchCountriesUseCase: fetchCountriesUseCase,
+            fetchDialCodesUseCase: fetchDialCodesUseCase,
             onLoginSuccess: { appState.isLoggedIn = true },
             firebaseSignIn: { token in
                 try await Auth.auth().signIn(withCustomToken: token)

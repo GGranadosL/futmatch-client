@@ -46,7 +46,7 @@ struct LocationListResponse: Decodable {
 
 // MARK: - Location Domain Model
 
-public struct AdminLocation: Identifiable, Equatable {
+public struct AdminLocation: Identifiable, Equatable, Hashable {
     public let id: String
     let address: String
     /// Country code (e.g. "MX"). Client-localized for display.

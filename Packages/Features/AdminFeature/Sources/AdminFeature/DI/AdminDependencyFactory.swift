@@ -54,8 +54,13 @@ public struct AdminDependencyFactory {
     }
 
     @MainActor
-    func makeEditFieldViewModel(field: AdminFieldItem) -> EditFieldViewModel {
-        EditFieldViewModel(field: field, updateFieldUseCase: makeUpdateFieldUseCase())
+    func makeEditFieldViewModel(field: AdminFieldItem, context: NSManagedObjectContext) -> EditFieldViewModel {
+        EditFieldViewModel(
+            field: field,
+            updateFieldUseCase: makeUpdateFieldUseCase(),
+            linkLocationUseCase: makeLinkLocationUseCase(),
+            fetchLocationsUseCase: makeFetchLocationsUseCase(context: context)
+        )
     }
 
     // MARK: - Field management (delete, link location, id-name catalog)

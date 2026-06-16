@@ -2,7 +2,7 @@ import Foundation
 
 // MARK: - Fetch Locations UseCase
 
-protocol FetchLocationsUseCaseProtocol {
+public protocol FetchLocationsUseCaseProtocol {
     /// Returns locally cached locations synchronously (empty if cache is cold).
     func executeCached() -> [AdminLocation]
     /// Fetches from the network, writes to cache, and returns the fresh list.

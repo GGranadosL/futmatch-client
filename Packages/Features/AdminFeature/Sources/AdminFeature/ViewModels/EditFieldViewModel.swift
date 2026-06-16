@@ -22,20 +22,38 @@ public final class EditFieldViewModel: ObservableObject {
 
     @Published public private(set) var isSaving: Bool = false
     @Published public var errorMessage: String?
-    /// Set on a successful update to the freshly-edited item, so the detail/list
-    /// screens can refresh their UI without waiting for a network round-trip.
+    /// Set on a successful update so the detail/list screens can refresh immediately.
     @Published public private(set) var updatedField: AdminFieldItem?
+
+    // MARK: - Location Assignment State
+
+    @Published public var assignedLocation: AdminLocation?
+    @Published public private(set) var availableLocations: [AdminLocation] = []
+    @Published public private(set) var isLoadingLocations = false
+    @Published public private(set) var isLinkingLocation = false
+    /// Flipped to `true` after a successful `assignLocation` call so the view can
+    /// show a toast and dismiss the picker sheet. Reset it back to `false` after handling.
+    @Published public var locationLinked = false
 
     private let originalField: AdminFieldItem
     private let updateFieldUseCase: UpdateFieldUseCaseProtocol
+    private let linkLocationUseCase: LinkLocationUseCaseProtocol
+    private let fetchLocationsUseCase: FetchLocationsUseCaseProtocol
 
     public static let nameMaxLength = NewFieldViewModel.nameMaxLength
 
     // MARK: - Init
 
-    public init(field: AdminFieldItem, updateFieldUseCase: UpdateFieldUseCaseProtocol) {
+    public init(
+        field: AdminFieldItem,
+        updateFieldUseCase: UpdateFieldUseCaseProtocol,
+        linkLocationUseCase: LinkLocationUseCaseProtocol,
+        fetchLocationsUseCase: FetchLocationsUseCaseProtocol
+    ) {
         self.originalField = field
         self.updateFieldUseCase = updateFieldUseCase
+        self.linkLocationUseCase = linkLocationUseCase
+        self.fetchLocationsUseCase = fetchLocationsUseCase
 
         // Pre-fill from existing field
         self.name         = field.name
@@ -49,6 +67,7 @@ public final class EditFieldViewModel: ObservableObject {
         self.extraInfo    = field.extraInfo ?? ""
         self.fieldType    = field.fieldType
         self.footwearType = field.footwearType
+        self.assignedLocation = field.assignedLocation
     }
 
     // MARK: - Validation (identical to NewFieldViewModel)
@@ -118,9 +137,6 @@ public final class EditFieldViewModel: ObservableObject {
         errorMessage = nil
         do {
             try await updateFieldUseCase.execute(fieldId: originalField.id, params)
-            // Build the updated item locally (the edit form leaves images/address
-            // untouched, so they carry over from the original) so the detail and
-            // list screens reflect the change immediately.
             updatedField = AdminFieldItem(
                 id: originalField.id,
                 name: trimmedName,
@@ -134,11 +150,42 @@ public final class EditFieldViewModel: ObservableObject {
                 extraInfo: trimmedExtra.isEmpty ? nil : trimmedExtra,
                 hasParking: hasParking,
                 fieldType: fieldType,
-                footwearType: footwearType
+                footwearType: footwearType,
+                locationId: assignedLocation?.id ?? originalField.locationId,
+                assignedLocation: assignedLocation ?? originalField.assignedLocation
             )
         } catch {
             errorMessage = error.apiErrorMessage ?? error.localizedDescription
         }
         isSaving = false
+    }
+
+    // MARK: - Location Assignment
+
+    public func fetchLocations() async {
+        let cached = fetchLocationsUseCase.executeCached().sorted { $0.address < $1.address }
+        if !cached.isEmpty {
+            availableLocations = cached
+        } else {
+            isLoadingLocations = true
+        }
+        do {
+            let fresh = try await fetchLocationsUseCase.execute().sorted { $0.address < $1.address }
+            availableLocations = fresh
+        } catch {}
+        isLoadingLocations = false
+    }
+
+    public func assignLocation(_ location: AdminLocation) async {
+        isLinkingLocation = true
+        errorMessage = nil
+        do {
+            try await linkLocationUseCase.execute(fieldId: originalField.id, locationId: location.id)
+            assignedLocation = location
+            locationLinked = true
+        } catch {
+            errorMessage = error.apiErrorMessage ?? error.localizedDescription
+        }
+        isLinkingLocation = false
     }
 }
