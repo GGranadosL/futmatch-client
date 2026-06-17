@@ -1,6 +1,7 @@
 import UIKit
 import UserNotifications
 import FirebaseCore
+import FirebaseAppCheck
 import FirebaseMessaging
 import PlayerFeature
 import PersistenceFramework
@@ -11,14 +12,22 @@ import IQKeyboardToolbarManager
 
 final class AppDelegate: NSObject, UIApplicationDelegate {
 
+    let adminRemoteConfig = AdminRemoteConfigRepository()
+
     func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
+        // App Check must be installed BEFORE FirebaseApp.configure() so the very
+        // first Firebase request carries an attestation token. Uses App Attest on
+        // capable devices, DeviceCheck as fallback, and a debug provider in DEBUG.
+        // Gated by Config.isAppCheckEnabled (off in DEBUG until a debug token is
+        // registered) so a failing token exchange can't stall Firebase at launch.
+        if Config.isAppCheckEnabled {
+            AppCheck.setAppCheckProviderFactory(FutMatchAppCheckProviderFactory())
+        }
         FirebaseApp.configure()
-        #if DEBUG
-        print("[🔔 FM-PUSH] FirebaseApp.configure() called")
-        #endif
+        Task { await adminRemoteConfig.fetchAndActivate() }
         IQKeyboardManager.shared.isEnabled = true
         IQKeyboardManager.shared.resignOnTouchOutside = true
         Messaging.messaging().delegate = self
@@ -26,9 +35,6 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         // Register for remote notifications silently at launch to get the APNs token
         // early — this does NOT show a permission dialog to the user.
         // The actual permission request (dialog) is deferred until after login.
-        #if DEBUG
-        print("[🔔 FM-PUSH] Registering for remote notifications at launch (silent)")
-        #endif
         UIApplication.shared.registerForRemoteNotifications()
         return true
     }
@@ -37,24 +43,34 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         _ application: UIApplication,
         didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
     ) {
-        let tokenHex = deviceToken.map { String(format: "%02x", $0) }.joined()
-        #if DEBUG
-        print("[🔔 FM-PUSH] APNs device token registered: \(tokenHex)")
-        print("[🔔 FM-PUSH] APNs environment (entitlement): development (sandbox)")
-        #endif
         Messaging.messaging().apnsToken = deviceToken
-        #if DEBUG
-        print("[🔔 FM-PUSH] APNs token handed to Firebase Messaging")
-        #endif
     }
 
+    // MARK: - Data-only Push (regional matches refresh)
+
+    /// Handles data-only pushes. Regional `matches_updated` payloads are routed
+    /// into the in-app notification that auto-refreshes the matches feed.
+    /// Fires in foreground and background (for `content-available` messages).
     func application(
         _ application: UIApplication,
-        didFailToRegisterForRemoteNotificationsWithError error: Error
-    ) {
-        #if DEBUG
-        print("[🔔 FM-PUSH] ❌ Failed to register for remote notifications: \(error)")
-        #endif
+        didReceiveRemoteNotification userInfo: [AnyHashable: Any]
+    ) async -> UIBackgroundFetchResult {
+        let handled = MatchPushRouter.handleRemoteNotification(userInfo)
+        return handled ? .newData : .noData
+    }
+
+    // MARK: - Match Topics
+
+    /// Subscribes to the regional matches topic so the app receives
+    /// `matches_updated` auto-refresh pushes. Safe to call repeatedly (FCM
+    /// de-dupes). Call once an authenticated session is ready.
+    func subscribeToMatchUpdates() {
+        Messaging.messaging().subscribe(toTopic: MatchRegion.default.topic)
+    }
+
+    /// Unsubscribes from the regional matches topic (called on logout).
+    func unsubscribeFromMatchUpdates() {
+        Messaging.messaging().unsubscribe(fromTopic: MatchRegion.default.topic)
     }
 
     // MARK: - Private
@@ -63,11 +79,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     func requestNotificationAuthorization() {
         UNUserNotificationCenter.current().requestAuthorization(
             options: [.alert, .badge, .sound]
-        ) { granted, error in
-            #if DEBUG
-            print("[🔔 FM-PUSH] Notification authorization — granted: \(granted), error: \(String(describing: error))")
-            #endif
-        }
+        ) { _, _ in }
     }
 }
 
@@ -76,52 +88,17 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
 extension AppDelegate: MessagingDelegate {
 
     func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
-        #if DEBUG
-        if let token = fcmToken {
-            print("[🔔 FM-PUSH] FCM registration token received: \(token)")
-        } else {
-            print("[🔔 FM-PUSH] ⚠️ FCM registration token is nil")
-        }
-        #endif
-
         guard let fcmToken else { return }
 
         // Always persist the token so syncFCMTokenIfNeeded() can find it after login.
-        do {
-            try KeychainManager.shared.save(fcmToken, for: .fcmToken)
-            #if DEBUG
-            print("[🔔 FM-PUSH] FCM token saved to Keychain ✓")
-            #endif
-        } catch {
-            #if DEBUG
-            print("[🔔 FM-PUSH] ❌ Failed to save FCM token to Keychain: \(error)")
-            #endif
-        }
+        try? KeychainManager.shared.save(fcmToken, for: .fcmToken)
 
         // Only sync with server when user is already authenticated.
-        guard KeychainManager.shared.isLoggedIn else {
-            #if DEBUG
-            print("[🔔 FM-PUSH] User not logged in — skipping FCM token sync with server (will sync after login)")
-            #endif
-            return
-        }
-
-        #if DEBUG
-        print("[🔔 FM-PUSH] User is logged in — syncing FCM token with server…")
-        #endif
+        guard KeychainManager.shared.isLoggedIn else { return }
 
         let useCase = PlayerDependencyFactory().makeUpdateFCMTokenUseCase()
         Task {
-            do {
-                try await useCase.execute(fcmToken: fcmToken)
-                #if DEBUG
-                print("[🔔 FM-PUSH] FCM token synced with server ✓")
-                #endif
-            } catch {
-                #if DEBUG
-                print("[🔔 FM-PUSH] ❌ FCM token sync with server failed: \(error)")
-                #endif
-            }
+            try? await useCase.execute(fcmToken: fcmToken)
         }
     }
 }

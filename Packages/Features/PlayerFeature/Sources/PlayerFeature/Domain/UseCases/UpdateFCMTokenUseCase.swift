@@ -25,11 +25,11 @@ public protocol UpdateFCMTokenUseCaseProtocol {
 
 public final class UpdateFCMTokenUseCase: UpdateFCMTokenUseCaseProtocol {
     private let deviceService: DeviceServiceProtocol
-    private let keychainManager: KeychainManager
+    private let keychainManager: KeychainManaging
 
     public init(
         deviceService: DeviceServiceProtocol,
-        keychainManager: KeychainManager = .shared
+        keychainManager: KeychainManaging = KeychainManager.shared
     ) {
         self.deviceService = deviceService
         self.keychainManager = keychainManager
@@ -37,9 +37,6 @@ public final class UpdateFCMTokenUseCase: UpdateFCMTokenUseCaseProtocol {
 
     public func execute(fcmToken: String) async throws {
         guard let deviceId = try? keychainManager.retrieve(for: .deviceId), !deviceId.isEmpty else {
-#if DEBUG
-            print("[FCM] No deviceId found in Keychain, cannot sync FCM token")
-#endif
             throw DeviceError.missingDeviceId
         }
 
@@ -59,13 +56,7 @@ public final class UpdateFCMTokenUseCase: UpdateFCMTokenUseCaseProtocol {
             appVersion: appVersion,
             osVersion: osVersion
         )
-#if DEBUG
-        print("[FCM] Sending FCM token to backend: deviceId=\(deviceId), fcmToken=\(fcmToken)")
-#endif
         try await deviceService.updateFCMToken(request)
-#if DEBUG
-        print("[FCM] FCM token successfully sent to backend")
-#endif
         try? keychainManager.save(fcmToken, for: .fcmToken)
     }
 }

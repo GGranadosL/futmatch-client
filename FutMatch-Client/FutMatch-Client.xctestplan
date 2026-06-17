@@ -1,0 +1,42 @@
+{
+  "configurations" : [
+    {
+      "id" : "B651E84A-7778-4E1F-91A8-5D411396BCEC",
+      "name" : "Test Scheme Action",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "performanceAntipatternCheckerEnabled" : true,
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:FutMatch-Client.xcodeproj",
+      "identifier" : "C070F9582F17506900E6003D",
+      "name" : "FutMatch-Client"
+    }
+  },
+  "testTargets" : [
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:FutMatch-Client.xcodeproj",
+        "identifier" : "C070F96A2F17506A00E6003D",
+        "name" : "FutMatch-ClientTests"
+      }
+    },
+    {
+      "parallelizable" : true,
+      "skippedTests" : [
+        "FutMatch_ClientUITests\/testExample()",
+        "FutMatch_ClientUITests\/testLaunchPerformance()"
+      ],
+      "target" : {
+        "containerPath" : "container:FutMatch-Client.xcodeproj",
+        "identifier" : "C070F9742F17506A00E6003D",
+        "name" : "FutMatch-ClientUITests"
+      }
+    }
+  ],
+  "version" : 1
+}

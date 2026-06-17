@@ -21,6 +21,9 @@ final class MatchDetailViewModel: ObservableObject {
 
     @Published private(set) var isJoining = false
     @Published private(set) var joinError: String?
+    /// API-provided error title for a failed join (e.g. "Inscripciones no abiertas").
+    /// `nil` for non-API errors, so callers fall back to a generic title.
+    @Published private(set) var joinErrorTitle: String?
     /// Set after a successful join call — holds the Stripe payment data.
     /// Also restored from Keychain when a reservation is found on app relaunch.
     @Published private(set) var joinData: JoinMatchData?
@@ -120,7 +123,8 @@ final class MatchDetailViewModel: ObservableObject {
                 isJoining = false
                 return
             }
-            joinError = error.localizedDescription
+            joinErrorTitle = error.apiErrorTitle
+            joinError = error.apiErrorMessage ?? error.localizedDescription
             currentUserReservedUntil = nil
         }
         isJoining = false
@@ -164,6 +168,7 @@ final class MatchDetailViewModel: ObservableObject {
 
     func clearJoinError() {
         joinError = nil
+        joinErrorTitle = nil
     }
 
     func clearCancelError() {

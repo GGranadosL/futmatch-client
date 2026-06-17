@@ -97,7 +97,10 @@ public struct FMGameCard: View {
         guard
             let urlString = fieldImageUrl,
             let url = URL(string: urlString)
-        else { return }
+        else {
+            cachedFieldImage = nil
+            return
+        }
 
         // Return immediately if already in the shared cache
         if let cached = FMImageCache.shared.image(for: urlString) {

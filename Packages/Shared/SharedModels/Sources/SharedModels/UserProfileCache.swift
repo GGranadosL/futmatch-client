@@ -14,80 +14,66 @@ public protocol UserProfileCacheProtocol {
 public final class UserProfileCoreDataRepository: UserProfileCacheProtocol {
 
     private let context: NSManagedObjectContext
-    private static let entityName = "UserProfileEntity"
 
     public init(context: NSManagedObjectContext) {
         self.context = context
     }
 
     public func save(_ user: User) throws {
-        // Keep only the latest profile — delete any existing entry first
-        let request = NSFetchRequest<NSManagedObject>(entityName: Self.entityName)
-        let existing = try context.fetch(request)
-        existing.forEach { context.delete($0) }
+        try context.performAndWait {
+            let existing = (try? self.context.fetch(UserProfileEntity.fetchRequest())) ?? []
+            existing.forEach { self.context.delete($0) }
 
-        guard let entity = NSEntityDescription.entity(forEntityName: Self.entityName, in: context) else { return }
-        let object = NSManagedObject(entity: entity, insertInto: context)
-        object.setValue(user.id, forKey: "id")
-        object.setValue(user.name, forKey: "name")
-        object.setValue(user.lastName, forKey: "lastName")
-        object.setValue(user.email, forKey: "email")
-        object.setValue(user.phone, forKey: "phone")
-        object.setValue(user.status.rawValue, forKey: "status")
-        object.setValue(user.country, forKey: "country")
-        object.setValue(user.birthDate, forKey: "birthDate")
-        object.setValue(user.gender?.rawValue, forKey: "gender")
-        object.setValue(user.playerPosition.rawValue, forKey: "playerPosition")
-        object.setValue(user.profilePic, forKey: "profilePic")
-        object.setValue(user.level.rawValue, forKey: "level")
-        object.setValue(user.userRole.rawValue, forKey: "userRole")
-        object.setValue(user.isEmailVerified, forKey: "isEmailVerified")
-        object.setValue(Date(), forKey: "cachedAt")
-        try context.save()
+            let entity = UserProfileEntity(context: self.context)
+            entity.id = user.id
+            entity.name = user.name
+            entity.lastName = user.lastName
+            entity.email = user.email
+            entity.phone = user.phone
+            entity.status = user.status.rawValue
+            entity.country = user.country
+            entity.birthDate = user.birthDate
+            entity.gender = user.gender?.rawValue ?? ""
+            entity.playerPosition = user.playerPosition.rawValue
+            entity.profilePic = user.profilePic
+            entity.level = user.level.rawValue
+            entity.userRole = user.userRole.rawValue
+            entity.isEmailVerified = user.isEmailVerified
+            entity.cachedAt = Date()
+            try self.context.save()
+        }
     }
 
     public func load() -> User? {
-        let request = NSFetchRequest<NSManagedObject>(entityName: Self.entityName)
-        request.fetchLimit = 1
-        guard let object = try? context.fetch(request).first else { return nil }
+        context.performAndWait {
+            let request = UserProfileEntity.fetchRequest()
+            request.fetchLimit = 1
+            guard let entity = try? self.context.fetch(request).first else { return nil }
 
-        guard
-            let id = object.value(forKey: "id") as? String,
-            let name = object.value(forKey: "name") as? String,
-            let lastName = object.value(forKey: "lastName") as? String,
-            let country = object.value(forKey: "country") as? String,
-            let positionRaw = object.value(forKey: "playerPosition") as? String,
-            let profilePic = object.value(forKey: "profilePic") as? String,
-            let levelRaw = object.value(forKey: "level") as? String
-        else { return nil }
-
-        let genderRaw = object.value(forKey: "gender") as? String
-        let gender = genderRaw.flatMap { Gender(rawValue: $0) }
-
-        return User(
-            id: id,
-            name: name,
-            lastName: lastName,
-            email: object.value(forKey: "email") as? String ?? "",
-            phone: object.value(forKey: "phone") as? String ?? "",
-            status: (object.value(forKey: "status") as? String).flatMap { UserStatus(rawValue: $0) } ?? .active,
-            country: country,
-            birthDate: object.value(forKey: "birthDate") as? Date ?? Date(),
-            gender: gender,
-            playerPosition: PlayerPosition(rawValue: positionRaw) ?? .midfielder,
-            profilePic: profilePic,
-            level: PlayerLevel(rawValue: levelRaw) ?? .beginner,
-            userRole: (object.value(forKey: "userRole") as? String).flatMap { UserRole(rawValue: $0) } ?? .player,
-            isEmailVerified: object.value(forKey: "isEmailVerified") as? Bool ?? false
-        )
+            return User(
+                id: entity.id,
+                name: entity.name,
+                lastName: entity.lastName,
+                email: entity.email,
+                phone: entity.phone,
+                status: UserStatus(rawValue: entity.status) ?? .active,
+                country: entity.country,
+                birthDate: entity.birthDate,
+                gender: entity.gender.isEmpty ? nil : Gender(rawValue: entity.gender),
+                playerPosition: PlayerPosition(rawValue: entity.playerPosition) ?? .midfielder,
+                profilePic: entity.profilePic,
+                level: PlayerLevel(rawValue: entity.level) ?? .beginner,
+                userRole: UserRole(rawValue: entity.userRole) ?? .player,
+                isEmailVerified: entity.isEmailVerified
+            )
+        }
     }
 
     public func clear() throws {
-        let request = NSFetchRequest<NSManagedObject>(entityName: Self.entityName)
-        let existing = try context.fetch(request)
-        existing.forEach { context.delete($0) }
-        if context.hasChanges {
-            try context.save()
+        try context.performAndWait {
+            let existing = (try? self.context.fetch(UserProfileEntity.fetchRequest())) ?? []
+            existing.forEach { self.context.delete($0) }
+            if self.context.hasChanges { try self.context.save() }
         }
     }
 }

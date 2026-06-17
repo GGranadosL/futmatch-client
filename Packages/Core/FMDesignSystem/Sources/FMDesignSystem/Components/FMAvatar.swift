@@ -5,7 +5,7 @@ public struct FMAvatar: View {
     let image: Image?
     let url: URL?
     /// Asset name to show when `image` is nil.
-    /// Pass `nil` to render a neutral person SF Symbol (used for "Other" gender).
+    /// Pass `nil` to render a neutral person SF Symbol.
     let defaultImageName: String?
     let size: CGFloat
     let showCameraBadge: Bool

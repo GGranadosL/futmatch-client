@@ -10,17 +10,17 @@ FutMatch is a native iOS app (Swift/SwiftUI) for creating, managing, and booking
 
 ```bash
 # Build (from repo root)
-xcodebuild build -scheme FutMatch-Client -destination 'platform=iOS Simulator,name=iPhone 16'
+xcodebuild build -scheme FutMatch-Client -destination 'platform=iOS Simulator,name=iPhone 17' -project FutMatch-Client/FutMatch-Client.xcodeproj
 
 # Run all tests
-xcodebuild test -scheme FutMatch-Client -destination 'platform=iOS Simulator,name=iPhone 16'
+xcodebuild test -scheme FutMatch-Client -destination 'platform=iOS Simulator,name=iPhone 17' -project FutMatch-Client/FutMatch-Client.xcodeproj
 
 # Run tests for a specific SPM package
 cd Packages/Core/NetworkFramework && swift test
 cd Packages/Features/OnboardingFeature && swift test
 
 # Clean build
-xcodebuild clean build -scheme FutMatch-Client
+xcodebuild clean build -scheme FutMatch-Client -project FutMatch-Client/FutMatch-Client.xcodeproj
 ```
 
 The main Xcode project is at `FutMatch-Client/FutMatch-Client.xcodeproj`. There is no lint config currently in place.
@@ -94,6 +94,35 @@ Token storage and retrieval goes through `KeychainManager.shared`.
 ## Localization
 
 OnboardingFeature supports English and Spanish via generated `L10n.swift` (using SwiftGen or similar). String keys live in `.strings` files inside the feature package's resources.
+
+### ⚠️ CRITICAL: No String Literals for User-Facing Text
+
+**Every string displayed to the user must use localization (L10n).** Never hardcode text literals unless it is purely internal logging or comments.
+
+❌ **Never do this:**
+```swift
+Text("Publicar Ahora")
+Button("Cancelar") { }
+FMConfirmationAlert(
+    title: "¿Publicar Partido?",
+    message: "Una vez creado..."
+)
+```
+
+✅ **Always do this:**
+```swift
+// 1. Add the key to Localizable.xcstrings in the feature's Resources folder
+// 2. Translate in both "en" and "es" localization sections
+// 3. Use L10n to reference:
+Text(L10n.FeatureName.publishButtonTitle)
+Button(L10n.Common.cancel) { }
+FMConfirmationAlert(
+    title: L10n.AdminFeature.publishMatchTitle,
+    message: L10n.AdminFeature.publishMatchMessage
+)
+```
+
+**Why:** The app supports English and Spanish. String literals break translation. Every view shown to users must be localizable.
 
 ## Minimum Deployment Target
 
@@ -210,3 +239,95 @@ final class FetchMatchesUseCaseTests: XCTestCase {
 ```
 
 Each test file lives in `Tests/[FeatureName]Tests/` inside the relevant SPM package.
+
+### 5. Text Fields — Always Use `FMTextField`
+
+**Never** use a raw SwiftUI `TextField` with manual `.padding()`, `.background()`, `.cornerRadius()`, and `.overlay(stroke(...))`. Always use `FMTextField` from `FMDesignSystem`:
+
+```swift
+// ❌ Never do this
+TextField("Dirección", text: $viewModel.address)
+    .padding(12)
+    .background(FMColors.surfaceContainerLowest)
+    .cornerRadius(8)
+    .overlay(RoundedRectangle(cornerRadius: 8).stroke(FMColors.outlineVariant, lineWidth: 1))
+
+// ✅ Always do this
+FMTextField(
+    label: "Dirección",
+    text: $viewModel.address,
+    autocapitalization: .sentences
+)
+```
+
+`FMTextField` supports: `label`, `placeholder`, `keyboardType`, `autocapitalization`, `errorMessage`, `trailingIcon`, `onTrailingIconTap`.
+
+For `Double` bindings (lat/lon), create a `Binding<String>` in the view:
+```swift
+private var latitudeBinding: Binding<String> {
+    Binding(
+        get: { viewModel.latitude == 0 ? "" : String(format: "%.6f", viewModel.latitude) },
+        set: { if let d = Double($0) { viewModel.latitude = d } }
+    )
+}
+```
+
+### 6. Loading States — Skeleton Placeholders, Not Spinners
+
+All list screens must show card-matched skeleton placeholders when loading with no cached data. **Never** use a bare `ProgressView()` as the sole loading state for a list.
+
+- Skeleton structs live in `Views/Components/[Screen]Skeleton.swift`
+- Use `FMSkeleton(cornerRadius:)` from `FMDesignSystem`, matching the card's proportions (same heights/widths as the real card)
+- Show skeleton only when **both** `isLoading == true` AND `items.isEmpty`; if there is cached data, show it while the network refreshes silently
+
+```swift
+// ✅ Correct pattern
+if isLoading && items.isEmpty {
+    skeletonList          // FMSkeleton placeholders, .disabled(true)
+} else if !isLoading && items.isEmpty {
+    FMEmptyStateCard(...) // nothing to show
+} else {
+    realList              // cached or fresh data; network refresh is silent
+}
+```
+
+Examples: `AdminFieldCardSkeleton`, `AdminLocationCardSkeleton`.
+
+### 7. ⚠️ CoreData — Every Context Access Goes Through `perform` — CRITICAL
+
+`NSManagedObjectContext` is **not thread-safe**. A context (including the main-queue `viewContext`) may only be touched from inside its own `perform` / `performAndWait` block. Repository methods are `async` or called from `Task { }` / `.task { }`, which run on background threads — so **every** `fetch`, `insert`, `delete`, `setValue`, `value(forKey:)`, `hasChanges`, and `save()` must be wrapped.
+
+Skipping this corrupts the context's internal object set and crashes with errors like:
+- `*** -[__NSCFSet addObject:]: attempt to insert nil`
+- `*** Collection <__NSCFSet: …> was mutated while being enumerated`
+
+These look like unrelated random crashes but are **all the same bug**: off-queue context access. Do not chase the symptom (batch-delete vs individual-delete, `representedClassName`, etc.) — wrap the access.
+
+❌ **Never do this:**
+```swift
+func saveItems(_ items: [Item]) throws {
+    let existing = try context.fetch(request)   // off-queue → crash
+    existing.forEach { context.delete($0) }
+    try context.save()
+}
+```
+
+✅ **Always do this:**
+```swift
+// async method (network precedes the cache write):
+try await context.perform {
+    let existing = try self.context.fetch(request)
+    existing.forEach { self.context.delete($0) }
+    try self.context.save()
+}
+
+// sync method that returns a value:
+func loadItems() -> [Item] {
+    context.performAndWait {
+        let results = (try? context.fetch(request)) ?? []
+        return results.compactMap { map($0) }
+    }
+}
+```
+
+Reference implementations: `LocationRepository`, `AdminFieldsCoreDataCacheRepository`, `MatchCoreDataCacheRepository`, `UserProfileCoreDataRepository`, `OnboardingRepository`. `performAndWait` is reentrant — safe to call whether or not you're already on the context's queue.

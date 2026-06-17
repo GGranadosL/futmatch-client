@@ -40,7 +40,7 @@ public struct HomeContainerView: View {
         let reservedCacheRepo: MatchCoreDataCacheRepository?
         if let ctx = managedObjectContext {
             cacheRepo = MatchCoreDataCacheRepository(context: ctx)
-            reservedCacheRepo = MatchCoreDataCacheRepository(context: ctx, entityName: "CachedReservedMatchEntity")
+            reservedCacheRepo = MatchCoreDataCacheRepository(context: ctx, entityClass: CachedReservedMatchEntity.self)
         } else {
             cacheRepo = nil
             reservedCacheRepo = nil
@@ -75,14 +75,20 @@ public struct HomeContainerView: View {
         .environmentObject(homeViewModel)
         .environmentObject(notificationsViewModel)
         .task {
-            // Prerasterize the default avatar placeholder at the same size as the real
-            // photo so the tab icon never jumps in size when the download completes.
+            await homeViewModel.load()
+            await reservedViewModel.load()
+            // Single initial badge fetch — subsequent refreshes happen on foreground.
+            await notificationsViewModel.loadUnreadCount()
+        }
+        // Prerasterize the default avatar placeholder at the same size as the real
+        // photo so the tab icon never jumps in size when the download completes.
+        // Keyed by gender: re-renders when the cached profile finishes loading,
+        // so a female user gets her avatar instead of the initial male fallback.
+        .task(id: userSession.currentUser?.gender) {
             let assetName = userSession.currentUser?.gender?.defaultAvatarAssetName ?? "defaultAvatar"
             if let raw = UIImage(named: assetName) {
                 defaultProfileTabImage = makeCircularIcon(from: raw, size: 30)
             }
-            await homeViewModel.load()
-            await notificationsViewModel.loadUnreadCount()
         }
         // Re-download whenever the URL changes from either source.
         // `.task(id:)` cancels + restarts when `effectiveProfileImageUrl` changes,
@@ -90,15 +96,8 @@ public struct HomeContainerView: View {
         .task(id: effectiveProfileImageUrl) {
             await loadProfileTabImage()
         }
-        .task {
-            while !Task.isCancelled {
-                await notificationsViewModel.loadUnreadCount()
-                try? await Task.sleep(for: .seconds(30))
-            }
-        }
         .onChange(of: scenePhase) { phase in
             guard phase == .active else { return }
-            notificationsViewModel.resetSeen()
             Task { await notificationsViewModel.loadUnreadCount() }
         }
     }
@@ -217,13 +216,6 @@ public struct HomeContainerView: View {
                 )
                 .id(profileImageUrl)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
-                #if DEBUG
-                .onAppear {
-                    print("[FMDEBUG] homeViewModel.profileImageUrl: \(String(homeViewModel.profileImageUrl ?? ""))")
-                    print("[FMDEBUG] userSession.currentUser?.profilePicURL: \(String(describing: userSession.currentUser?.profilePicURL?.absoluteString))")
-                    print("[FMDEBUG] profileImageUrl usado en TabBar: \(String(describing: profileImageUrl))")
-                }
-                #endif
             }
         }
         .animation(.easeInOut(duration: 0.25), value: isShowingDetail)
@@ -248,38 +240,22 @@ public struct HomeContainerView: View {
             let urlString = effectiveProfileImageUrl,
             let url = URL(string: urlString)
         else {
-            #if DEBUG
-            print("[FMDEBUG] profileTabImage: no URL available")
-            #endif
             profileTabImage = nil
             return
         }
         do {
             let (data, response) = try await URLSession.shared.data(from: url)
             if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
-                #if DEBUG
-                print("[FMDEBUG] profileTabImage HTTP \(http.statusCode) for \(url)")
-                #endif
                 return
             }
             guard let downloaded = UIImage(data: data) else {
-                #if DEBUG
-                print("[FMDEBUG] profileTabImage: \(data.count) bytes failed to decode")
-                #endif
                 return
             }
             // 30pt matches the visual weight of SF Symbols in the iOS 26 tab bar
             // (which have built-in padding). `UIScreen.main.scale` keeps the bitmap
             // retina (e.g. 90px on @3x) so the photo stays sharp.
             profileTabImage = makeCircularIcon(from: downloaded, size: 30)
-            #if DEBUG
-            print("[FMDEBUG] profileTabImage loaded ✅ (\(data.count) bytes)")
-            #endif
-        } catch {
-            #if DEBUG
-            print("[FMDEBUG] profileTabImage download failed: \(error.localizedDescription)")
-            #endif
-        }
+        } catch {}
     }
 
     /// Rasterizes a UIImage into a circular icon of the given size (alwaysOriginal).

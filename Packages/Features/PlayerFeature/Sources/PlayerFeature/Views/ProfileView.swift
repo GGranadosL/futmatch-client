@@ -141,7 +141,7 @@ struct ProfileView: View {
                 FMAvatar(
                     image: profileImage,
                     url: profilePicURL,
-                    defaultImageName: user?.gender?.defaultAvatarAssetName,
+                    defaultImageName: user?.gender?.defaultAvatarAssetName ?? "defaultAvatar",
                     size: 100,
                     showCameraBadge: false
                 )
@@ -221,7 +221,8 @@ struct ProfileView: View {
             Text(L10n.Profile.statistics)
                 .font(FMTypography.titleLarge)
                 .foregroundColor(FMColors.onBackground)
-            
+                .padding(.horizontal, 24)
+
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 12) {
                     FMStatCard(icon: "trophy.fill",       value: user?.stats?.mvpCount ?? 0,      label: L10n.Profile.mvp)
@@ -229,9 +230,9 @@ struct ProfileView: View {
                     FMStatCard(icon: "sportscourt",       value: user?.stats?.matchesPlayed ?? 0, label: L10n.Profile.played)
                     FMStatCard(icon: "soccerball",        value: user?.stats?.totalGoals ?? 0,    label: L10n.Profile.totalGoals)
                 }
+                .padding(.horizontal, 24)
             }
         }
-        .padding(.horizontal, 24)
     }
     
     // MARK: - Performance Section

@@ -72,6 +72,26 @@ private func formattedCountdown(_ seconds: Int) -> String {
     return String(format: "%d:%02d", minutes, secs)
 }
 
+/// Formats the time remaining until paid registration opens, using a granularity
+/// that shrinks as the match approaches:
+/// `2 d 05 h 14 min` → `7 h 08 min 12 s` → `18 min 09 s` → `42 s`.
+private func formattedJoinWindow(_ seconds: Int) -> String {
+    let total = max(0, seconds)
+    let days = total / 86_400
+    let hours = (total % 86_400) / 3_600
+    let minutes = (total % 3_600) / 60
+    let secs = total % 60
+    if days > 0 {
+        return String(format: "%d d %02d h %02d min", days, hours, minutes)
+    } else if hours > 0 {
+        return String(format: "%d h %02d min %02d s", hours, minutes, secs)
+    } else if minutes > 0 {
+        return String(format: "%d min %02d s", minutes, secs)
+    } else {
+        return String(format: "%d s", secs)
+    }
+}
+
 /// Match detail screen showing field image, lineup, field details, rules, and join CTA
 struct MatchDetailView: View {
     @Environment(\.dismiss) private var dismiss
@@ -115,6 +135,10 @@ struct MatchDetailView: View {
     @State private var showLeaveConfirm = false
     @State private var showLeaveNoRefund = false
     @State private var showLeaveSuccess = false
+    /// Per-second tick written by `joinWindowTimer` purely to re-render the countdown.
+    /// The displayed value reads `joinWindowRemaining` live, so it's always accurate.
+    @State private var joinWindowSeconds: Int = 0
+    @State private var joinWindowTimer: Timer? = nil
     /// True after the 5-min reservation expired locally but the backend hasn't
     /// yet removed the user from the team in Firebase. Hides the join button and
     /// shows the "reservation expired / processing cancellation" message.
@@ -127,6 +151,9 @@ struct MatchDetailView: View {
     @State private var shouldPresentPayment = false
     @State private var showPaymentSuccess = false
     @State private var showErrorOverlay = false
+    /// API-provided title/message for the error overlay. `nil` falls back to generic copy.
+    @State private var overlayErrorTitle: String?
+    @State private var overlayErrorMessage: String?
 
     private var normalizedMatchStatus: String {
         match.matchStatus.uppercased()
@@ -142,6 +169,27 @@ struct MatchDetailView: View {
 
     private var isClosedMatch: Bool {
         isCompletedMatch || isCanceledMatch
+    }
+
+    /// Backend `MATCH_JOIN_PAYMENT_WINDOW_HOURS` — paid registration only opens this
+    /// many hours before kickoff because Stripe won't hold a reservation any earlier.
+    /// Mirrors the server default so the client hides the Join CTA until then.
+    private static let joinPaymentWindowHours: Double = 120
+
+    /// Instant paid registration opens: `startDate - joinPaymentWindowHours`.
+    private var joinOpensAt: Date {
+        match.startDate.addingTimeInterval(-Self.joinPaymentWindowHours * 3_600)
+    }
+
+    /// Live seconds remaining until paid registration opens (clamped at 0).
+    private var joinWindowRemaining: Int {
+        max(0, Int(joinOpensAt.timeIntervalSinceNow))
+    }
+
+    /// True while the match is still outside the paid-registration window. In this
+    /// state the Join CTA and team join slots are hidden in favor of a countdown.
+    private var isBeforeJoinWindow: Bool {
+        !isClosedMatch && joinWindowRemaining > 0
     }
 
     private var completedGoalsBadgeColor: Color {
@@ -203,19 +251,35 @@ struct MatchDetailView: View {
                 .zIndex(1)
             }
             if showLeaveConfirm {
-                LeaveConfirmationOverlay(
-                    isLeaving: viewModel.isLeaving,
-                    onConfirm: { Task { await viewModel.leaveMatch() } },
-                    onCancel: { showLeaveConfirm = false }
+                FMConfirmationAlert(
+                    icon: "xmark.circle.fill",
+                    iconColor: FMColors.error,
+                    iconBackgroundColor: FMColors.errorContainer,
+                    title: L10n.MatchDetail.leaveMatchConfirmTitle,
+                    message: L10n.MatchDetail.leaveMatchConfirmMessage,
+                    primaryButtonTitle: L10n.MatchDetail.leaveMatchConfirm,
+                    primaryButtonColor: FMColors.error,
+                    secondaryButtonTitle: L10n.Common.cancel,
+                    isLoading: viewModel.isLeaving,
+                    onPrimaryAction: { Task { await viewModel.leaveMatch() } },
+                    onSecondaryAction: { showLeaveConfirm = false }
                 )
                 .transition(.opacity.combined(with: .move(edge: .bottom)))
                 .zIndex(2)
             }
             if showLeaveNoRefund {
-                LeaveNoRefundOverlay(
-                    isLeaving: viewModel.isLeaving,
-                    onConfirm: { Task { await viewModel.leaveMatch() } },
-                    onCancel: {
+                FMConfirmationAlert(
+                    icon: "info.circle.fill",
+                    iconColor: FMColors.error,
+                    iconBackgroundColor: FMColors.error.opacity(0.15),
+                    title: L10n.MatchDetail.leaveNoRefundTitle,
+                    message: L10n.MatchDetail.leaveNoRefundMessage,
+                    primaryButtonTitle: L10n.MatchDetail.leaveNoRefundConfirm,
+                    primaryButtonColor: FMColors.error,
+                    secondaryButtonTitle: L10n.MatchDetail.leaveNoRefundCancel,
+                    isLoading: viewModel.isLeaving,
+                    onPrimaryAction: { Task { await viewModel.leaveMatch() } },
+                    onSecondaryAction: {
                         withAnimation(.easeInOut(duration: 0.25)) {
                             showLeaveNoRefund = false
                         }
@@ -225,40 +289,63 @@ struct MatchDetailView: View {
                 .zIndex(2)
             }
             if showLeaveSuccess {
-                LeaveSuccessOverlay(onDismiss: {
-                    withAnimation(.easeInOut(duration: 0.25)) {
-                        showLeaveSuccess = false
+                FMSuccessAlert(
+                    title: L10n.MatchDetail.leaveSuccessTitle,
+                    message: L10n.MatchDetail.leaveSuccessMessage,
+                    buttonTitle: L10n.MatchDetail.leaveSuccessUnderstood,
+                    onDismiss: {
+                        withAnimation(.easeInOut(duration: 0.25)) {
+                            showLeaveSuccess = false
+                        }
+                        dismiss()
                     }
-                    dismiss()
-                })
+                )
                 .transition(.opacity.combined(with: .move(edge: .bottom)))
                 .zIndex(3)
             }
             if showPaymentSuccess {
-                PaymentSuccessOverlay(onDismiss: {
-                    withAnimation(.easeInOut(duration: 0.25)) {
-                        showPaymentSuccess = false
+                FMSuccessAlert(
+                    title: L10n.Payment.successTitle,
+                    message: L10n.Payment.successMessage,
+                    buttonTitle: L10n.Payment.understood,
+                    onDismiss: {
+                        withAnimation(.easeInOut(duration: 0.25)) {
+                            showPaymentSuccess = false
+                        }
                     }
-                })
+                )
                 .transition(.opacity.combined(with: .move(edge: .bottom)))
                 .zIndex(3)
             }
             if showErrorOverlay {
-                MatchErrorOverlay(onDismiss: {
-                    withAnimation(.easeInOut(duration: 0.25)) {
-                        showErrorOverlay = false
-                    }
-                })
+                FMConfirmationAlert(
+                    icon: "info.circle.fill",
+                    iconColor: FMColors.error,
+                    iconBackgroundColor: FMColors.error.opacity(0.15),
+                    title: overlayErrorTitle ?? L10n.ErrorOverlay.title,
+                    message: overlayErrorMessage ?? L10n.ErrorOverlay.message,
+                    primaryButtonTitle: L10n.ErrorOverlay.understood,
+                    primaryButtonColor: FMColors.primary,
+                    secondaryButtonTitle: nil,
+                    onPrimaryAction: {
+                        withAnimation(.easeInOut(duration: 0.25)) {
+                            showErrorOverlay = false
+                        }
+                        overlayErrorTitle = nil
+                        overlayErrorMessage = nil
+                    },
+                    onSecondaryAction: nil
+                )
                 .transition(.opacity.combined(with: .move(edge: .bottom)))
                 .zIndex(4)
             }
             if viewModel.isPollingPayment {
                 // Confirming payment — NOT joining (the user is already reserved).
-                SoccerBallLoaderOverlay(message: L10n.Payment.confirming)
+                FMLoaderAlert(message: L10n.Payment.confirming)
                     .transition(.opacity)
                     .zIndex(5)
             } else if viewModel.isJoining {
-                SoccerBallLoaderOverlay(message: L10n.MatchDetail.joiningMatch)
+                FMLoaderAlert(message: L10n.MatchDetail.joiningMatch)
                     .transition(.opacity)
                     .zIndex(5)
             }
@@ -337,11 +424,18 @@ struct MatchDetailView: View {
                 // clear the expired message so the user can join again.
                 if !inMatch { reservationExpired = false }
             }
+            .onAppear { startJoinWindowCountdown() }
+            .onDisappear { stopJoinWindowCountdown() }
             .onChange(of: scenePhase) { phase in
                 guard phase == .active, hasJoined, let expiry = countdownExpiry else { return }
                 let remaining = max(0, Int(expiry.timeIntervalSinceNow))
                 countdownSeconds = remaining
                 if remaining == 0 { cancelJoin() }
+            }
+            .onChange(of: scenePhase) { phase in
+                // Re-sync the join-window countdown across background/foreground so the
+                // timer doesn't drift while suspended.
+                if phase == .active { startJoinWindowCountdown() } else { stopJoinWindowCountdown() }
             }
             .onChange(of: paymentError) { error in
                 guard error != nil else { return }
@@ -366,6 +460,9 @@ struct MatchDetailView: View {
                 countdownExpiry = nil
                 pendingTeam = nil
                 paymentSheet = nil
+                // Capture the API-provided error text before clearing VM state so the overlay can show it.
+                overlayErrorTitle = viewModel.joinErrorTitle
+                overlayErrorMessage = viewModel.joinError
                 viewModel.clearJoinData()
                 viewModel.clearJoinError()
                 withAnimation(.easeInOut(duration: 0.25)) {
@@ -638,18 +735,20 @@ struct MatchDetailView: View {
                             )
                     }
                 }
-                
+
                 Spacer()
-                
+
                 Text(L10n.MatchDetail.playerCount(players.count, maxPlayers))
                     .font(FMTypography.bodySmall)
                     .foregroundColor(FMColors.onSurfaceVariant)
             }
-            
+            .padding(.horizontal, 16)
+
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 12) {
-                    // Join slot always first — hidden for finished/canceled matches or once joined
-                    if !isCompletedMatch && !isCanceledMatch {
+                    // Join slot always first — hidden for finished/canceled matches, once
+                    // joined, or while the match is still outside the join window.
+                    if !isCompletedMatch && !isCanceledMatch && !isBeforeJoinWindow {
                         joinSlot(for: team)
                     }
 
@@ -663,10 +762,11 @@ struct MatchDetailView: View {
                         emptySlot
                     }
                 }
+                .padding(.horizontal, 16)
                 .padding(.vertical, 4)
             }
         }
-        .padding(16)
+        .padding(.vertical, 16)
         .background(
             RoundedRectangle(cornerRadius: 12)
                 .fill(FMColors.surfaceContainerLowest)
@@ -1029,6 +1129,27 @@ struct MatchDetailView: View {
                 }
                 .background(FMColors.background, ignoresSafeAreaEdges: .bottom)
 
+            } else if isBeforeJoinWindow {
+                // BEFORE JOIN WINDOW: no CTA — only a countdown until registration opens
+                VStack(spacing: 0) {
+                    Divider()
+                    VStack(spacing: 6) {
+                        Text(L10n.MatchDetail.joinOpensCountdown(formattedJoinWindow(joinWindowRemaining)))
+                            .font(FMTypography.labelLarge)
+                            .foregroundColor(FMColors.onSurface)
+                            .multilineTextAlignment(.center)
+                            .monospacedDigit()
+                        Text(L10n.MatchDetail.joinNotOpenMessage)
+                            .font(FMTypography.bodySmall)
+                            .foregroundColor(FMColors.onSurfaceVariant)
+                            .multilineTextAlignment(.center)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 16)
+                }
+                .background(FMColors.background, ignoresSafeAreaEdges: .bottom)
+
             } else {
                 // NOT joined: sticky join button with gradient scrim
                 FMStickyActionBar(
@@ -1068,6 +1189,33 @@ struct MatchDetailView: View {
             }
             startCountdown()
         }
+    }
+
+    /// Starts (or restarts) the ticking countdown shown while the match is outside the
+    /// join window. No-ops once registration is already open, so the next body eval
+    /// falls through to the normal Join CTA.
+    private func startJoinWindowCountdown() {
+        joinWindowTimer?.invalidate()
+        joinWindowTimer = nil
+        let remaining = Int(joinOpensAt.timeIntervalSinceNow)
+        guard remaining > 0 else {
+            joinWindowSeconds = 0
+            return
+        }
+        joinWindowSeconds = remaining
+        joinWindowTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
+            let secondsLeft = max(0, Int(joinOpensAt.timeIntervalSinceNow))
+            joinWindowSeconds = secondsLeft
+            if secondsLeft == 0 {
+                joinWindowTimer?.invalidate()
+                joinWindowTimer = nil
+            }
+        }
+    }
+
+    private func stopJoinWindowCountdown() {
+        joinWindowTimer?.invalidate()
+        joinWindowTimer = nil
     }
 
     private func startCountdown() {
@@ -1206,375 +1354,7 @@ private struct MatchDetailModifiers: ViewModifier {
     }
 }
 
-// MARK: - Leave Confirmation Overlay
 
-private struct LeaveConfirmationOverlay: View {
-    let isLeaving: Bool
-    let onConfirm: () -> Void
-    let onCancel: () -> Void
-
-    var body: some View {
-        ZStack {
-            Color.black.opacity(0.5)
-                .ignoresSafeArea()
-                .onTapGesture { /* absorb taps */ }
-
-            VStack(spacing: 0) {
-                // Error icon
-                ZStack {
-                    Circle()
-                        .fill(FMColors.errorContainer)
-                        .frame(width: 72, height: 72)
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 44))
-                        .foregroundColor(FMColors.error)
-                }
-                .padding(.top, 28)
-                .padding(.bottom, 16)
-
-                // Title
-                Text(L10n.MatchDetail.leaveMatchConfirmTitle)
-                    .font(FMTypography.titleLarge)
-                    .foregroundColor(FMColors.onSurface)
-                    .bold()
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 24)
-
-                // Message
-                Text(L10n.MatchDetail.leaveMatchConfirmMessage)
-                    .font(FMTypography.bodySmall)
-                    .foregroundColor(FMColors.onSurfaceVariant)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 24)
-                    .padding(.top, 10)
-
-                // Confirm button
-                Button(action: onConfirm) {
-                    Group {
-                        if isLeaving {
-                            ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle(tint: FMColors.onError))
-                        } else {
-                            Text(L10n.MatchDetail.leaveMatchConfirm)
-                                .font(FMTypography.labelLarge)
-                                .foregroundColor(FMColors.onError)
-                        }
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(FMColors.error)
-                    )
-                }
-                .disabled(isLeaving)
-                .padding(.horizontal, 20)
-                .padding(.top, 24)
-
-                // Cancel button
-                Button(action: onCancel) {
-                    Text(L10n.Common.cancel)
-                        .font(FMTypography.labelLarge)
-                        .foregroundColor(FMColors.onSurfaceVariant)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                }
-                .disabled(isLeaving)
-                .padding(.horizontal, 20)
-                .padding(.top, 4)
-                .padding(.bottom, 12)
-            }
-            .background(
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(FMColors.surfaceContainerLowest)
-            )
-            .padding(.horizontal, 24)
-        }
-    }
-}
-
-// MARK: - Leave No Refund Overlay
-
-private struct LeaveNoRefundOverlay: View {
-    let isLeaving: Bool
-    let onConfirm: () -> Void
-    let onCancel: () -> Void
-
-    var body: some View {
-        ZStack {
-            Color.black.opacity(0.5)
-                .ignoresSafeArea()
-                .onTapGesture { /* absorb taps behind card */ }
-
-            VStack(spacing: 0) {
-                // Info icon
-                ZStack {
-                    Circle()
-                        .fill(FMColors.error.opacity(0.15))
-                        .frame(width: 72, height: 72)
-                    Image(systemName: "info.circle.fill")
-                        .font(.system(size: 44))
-                        .foregroundColor(FMColors.error)
-                }
-                .padding(.top, 28)
-                .padding(.bottom, 16)
-
-                // Title
-                Text(L10n.MatchDetail.leaveNoRefundTitle)
-                    .font(FMTypography.titleLarge)
-                    .foregroundColor(FMColors.onSurface)
-                    .bold()
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 24)
-
-                // Message
-                Text(L10n.MatchDetail.leaveNoRefundMessage)
-                    .font(FMTypography.bodySmall)
-                    .foregroundColor(FMColors.onSurfaceVariant)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 24)
-                    .padding(.top, 10)
-
-                // Confirm leave without refund
-                Button(action: onConfirm) {
-                    Group {
-                        if isLeaving {
-                            ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle(tint: FMColors.onError))
-                        } else {
-                            Text(L10n.MatchDetail.leaveNoRefundConfirm)
-                                .font(FMTypography.labelLarge)
-                                .foregroundColor(FMColors.onError)
-                        }
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(FMColors.error)
-                    )
-                }
-                .disabled(isLeaving)
-                .padding(.horizontal, 20)
-                .padding(.top, 24)
-
-                // Go back button
-                Button(action: onCancel) {
-                    Text(L10n.MatchDetail.leaveNoRefundCancel)
-                        .font(FMTypography.labelLarge)
-                        .foregroundColor(FMColors.onSurfaceVariant)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                }
-                .disabled(isLeaving)
-                .padding(.horizontal, 20)
-                .padding(.top, 4)
-                .padding(.bottom, 12)
-            }
-            .background(
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(FMColors.surfaceContainerLowest)
-            )
-            .padding(.horizontal, 24)
-        }
-    }
-}
-
-// MARK: - Leave Success Overlay
-
-private struct LeaveSuccessOverlay: View {
-    let onDismiss: () -> Void
-    @Environment(\.colorScheme) private var colorScheme
-
-    private var animationName: String {
-        colorScheme == .dark ? "success_dark" : "success"
-    }
-
-    var body: some View {
-        ZStack {
-            Color.black.opacity(0.5)
-                .ignoresSafeArea()
-                .onTapGesture { /* absorb taps behind card */ }
-
-            VStack(spacing: 0) {
-                // Lottie animation
-                LottieView(animation: .named(animationName, bundle: .module))
-                    .playing(loopMode: .playOnce)
-                    .resizable()
-                    .frame(width: 140, height: 140)
-                    .padding(.top, 12)
-                    .padding(.bottom, 0)
-
-                // Title
-                Text(L10n.MatchDetail.leaveSuccessTitle)
-                    .font(FMTypography.titleLarge)
-                    .foregroundColor(FMColors.onSurface)
-                    .bold()
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 24)
-
-                // Message
-                Text(L10n.MatchDetail.leaveSuccessMessage)
-                    .font(FMTypography.bodySmall)
-                    .foregroundColor(FMColors.onSurfaceVariant)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 24)
-                    .padding(.top, 10)
-
-                // Understood button
-                Button(action: onDismiss) {
-                    Text(L10n.MatchDetail.leaveSuccessUnderstood)
-                        .font(FMTypography.labelLarge)
-                        .foregroundColor(FMColors.onPrimary)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(FMColors.primary)
-                        )
-                }
-                .padding(.horizontal, 20)
-                .padding(.top, 24)
-                .padding(.bottom, 20)
-            }
-            .background(
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(FMColors.surfaceContainerLowest)
-            )
-            .padding(.horizontal, 24)
-        }
-    }
-}
-
-// MARK: - Payment Success Overlay
-
-private struct PaymentSuccessOverlay: View {
-    let onDismiss: () -> Void
-    @Environment(\.colorScheme) private var colorScheme
-
-    private var animationName: String {
-        colorScheme == .dark ? "success_dark" : "success"
-    }
-
-    var body: some View {
-        ZStack {
-            Color.black.opacity(0.5)
-                .ignoresSafeArea()
-                .onTapGesture { /* absorb taps behind card */ }
-
-            VStack(spacing: 0) {
-                // Lottie animation
-                LottieView(animation: .named(animationName, bundle: .module))
-                    .playing(loopMode: .playOnce)
-                    .resizable()
-                    .frame(width: 140, height: 140)
-                    .padding(.top, 12)
-
-                // Title
-                Text(L10n.Payment.successTitle)
-                    .font(FMTypography.titleLarge)
-                    .foregroundColor(FMColors.onSurface)
-                    .bold()
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 24)
-
-                // Message
-                Text(L10n.Payment.successMessage)
-                    .font(FMTypography.bodySmall)
-                    .foregroundColor(FMColors.onSurfaceVariant)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 24)
-                    .padding(.top, 10)
-
-                // Understood button
-                Button(action: onDismiss) {
-                    Text(L10n.Payment.understood)
-                        .font(FMTypography.labelLarge)
-                        .foregroundColor(FMColors.onPrimary)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(FMColors.primary)
-                        )
-                }
-                .padding(.horizontal, 20)
-                .padding(.top, 24)
-                .padding(.bottom, 20)
-            }
-            .background(
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(FMColors.surfaceContainerLowest)
-            )
-            .padding(.horizontal, 24)
-        }
-    }
-}
-
-// MARK: - Error Overlay
-
-private struct MatchErrorOverlay: View {
-    let onDismiss: () -> Void
-
-    var body: some View {
-        ZStack {
-            Color.black.opacity(0.5)
-                .ignoresSafeArea()
-                .onTapGesture { /* absorb taps behind card */ }
-
-            VStack(spacing: 0) {
-                // Error icon
-                ZStack {
-                    Circle()
-                        .fill(FMColors.error.opacity(0.15))
-                        .frame(width: 72, height: 72)
-                    Image(systemName: "info.circle.fill")
-                        .font(.system(size: 44))
-                        .foregroundColor(FMColors.error)
-                }
-                .padding(.top, 28)
-                .padding(.bottom, 16)
-
-                // Title
-                Text(L10n.ErrorOverlay.title)
-                    .font(FMTypography.titleLarge)
-                    .foregroundColor(FMColors.onSurface)
-                    .bold()
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 24)
-
-                // Message
-                Text(L10n.ErrorOverlay.message)
-                    .font(FMTypography.bodySmall)
-                    .foregroundColor(FMColors.onSurfaceVariant)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 24)
-                    .padding(.top, 10)
-
-                // Understood button
-                Button(action: onDismiss) {
-                    Text(L10n.ErrorOverlay.understood)
-                        .font(FMTypography.labelLarge)
-                        .foregroundColor(FMColors.onPrimary)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(FMColors.primary)
-                        )
-                }
-                .padding(.horizontal, 20)
-                .padding(.top, 24)
-                .padding(.bottom, 20)
-            }
-            .background(
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(FMColors.surfaceContainerLowest)
-            )
-            .padding(.horizontal, 24)
-        }
-    }
-}
 
 // MARK: - Join Confirmation Overlay
 
@@ -1663,45 +1443,6 @@ private struct JoinConfirmationOverlay: View {
                     .fill(FMColors.surfaceContainerLowest)
             )
             .padding(.horizontal, 24)
-        }
-    }
-}
-
-// MARK: - Soccer Ball Loader Overlay
-
-private struct SoccerBallLoaderOverlay: View {
-    let message: String
-    @State private var rotation: Double = 0
-
-    init(message: String = L10n.MatchDetail.joiningMatch) {
-        self.message = message
-    }
-
-    var body: some View {
-        ZStack {
-            Color.black.opacity(0.4)
-                .ignoresSafeArea()
-
-            VStack(spacing: 16) {
-                Image(systemName: "soccerball")
-                    .font(.system(size: 48))
-                    .foregroundColor(.white)
-                    .rotationEffect(.degrees(rotation))
-                    .onAppear {
-                        withAnimation(.linear(duration: 3).repeatForever(autoreverses: false)) {
-                            rotation = 360
-                        }
-                    }
-
-                Text(message)
-                    .font(FMTypography.bodyMedium)
-                    .foregroundColor(.white)
-            }
-            .padding(32)
-            .background(
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(.ultraThinMaterial)
-            )
         }
     }
 }
