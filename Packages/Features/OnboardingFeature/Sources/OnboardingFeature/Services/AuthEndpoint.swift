@@ -13,7 +13,7 @@ enum AuthEndpoint: APIEndpoint {
     case verifyResetMFA(VerifyResetMFARequest)
     case resetPassword(ResetPasswordRequest, resetToken: String)
     case refreshToken(RefreshTokenRequest)
-    case signOut(deviceId: String)
+    case signOut
     
     var path: String {
         switch self {
@@ -91,13 +91,10 @@ enum AuthEndpoint: APIEndpoint {
             return try? JSONEncoder().encode(request)
         case .resetPassword(let request, _):
             return try? JSONEncoder().encode(request)
-        case .refreshToken(let request):
-            // Only userId and deviceId in body; refreshToken goes in x-refresh-token header
-            let bodyPayload = ["userId": request.userId, "deviceId": request.deviceId]
-            return try? JSONEncoder().encode(bodyPayload)
-        case .signOut(let deviceId):
-            let signOutRequest = ["deviceId": deviceId]
-            return try? JSONEncoder().encode(signOutRequest)
+        case .refreshToken:
+            return try? JSONEncoder().encode([String: String]())
+        case .signOut:
+            return try? JSONEncoder().encode([String: String]())
         }
     }
     
@@ -107,6 +104,7 @@ enum AuthEndpoint: APIEndpoint {
             return false
         case .signOut:
             return true
+
         }
     }
     

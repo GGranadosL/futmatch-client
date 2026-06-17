@@ -2,19 +2,6 @@ import Foundation
 import UIKit
 import PersistenceFramework
 
-// MARK: - Error
-
-public enum DeviceError: LocalizedError {
-    case missingDeviceId
-
-    public var errorDescription: String? {
-        switch self {
-        case .missingDeviceId:
-            return "No se encontró el identificador del dispositivo."
-        }
-    }
-}
-
 // MARK: - Protocol
 
 public protocol UpdateFCMTokenUseCaseProtocol {
@@ -36,10 +23,6 @@ public final class UpdateFCMTokenUseCase: UpdateFCMTokenUseCaseProtocol {
     }
 
     public func execute(fcmToken: String) async throws {
-        guard let deviceId = try? keychainManager.retrieve(for: .deviceId), !deviceId.isEmpty else {
-            throw DeviceError.missingDeviceId
-        }
-
         let (deviceInfo, appVersion, osVersion) = await MainActor.run {
             let model = UIDevice.current.model
             let systemName = UIDevice.current.systemName
@@ -49,7 +32,6 @@ public final class UpdateFCMTokenUseCase: UpdateFCMTokenUseCaseProtocol {
         }
 
         let request = UpdateFCMTokenRequest(
-            deviceId: deviceId,
             platform: .ios,
             fcmToken: fcmToken,
             deviceInfo: deviceInfo,

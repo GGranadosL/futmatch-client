@@ -163,18 +163,14 @@ struct FutMatchApp: App {
             APIClient.shared.addInterceptor(AppCheckInterceptor(tokenProvider: appCheckTokenProvider))
         }
         APIClient.shared.unauthorizedHandler = {
-            guard
-                let userId = KeychainManager.shared.userId,
-                let deviceId = try? KeychainManager.shared.retrieve(for: .deviceId),
-                let refreshToken = try? KeychainManager.shared.retrieve(for: .refreshToken)
-            else {
+            guard let refreshToken = try? KeychainManager.shared.retrieve(for: .refreshToken) else {
                 throw APIError.invalidResponse
             }
             let refreshClient = APIClient()
             if Config.isAppCheckEnabled {
                 refreshClient.addInterceptor(AppCheckInterceptor(tokenProvider: appCheckTokenProvider))
             }
-            let response = try await AuthService(apiClient: refreshClient).refreshToken(userId: userId, deviceId: deviceId, refreshToken: refreshToken)
+            let response = try await AuthService(apiClient: refreshClient).refreshToken(refreshToken: refreshToken)
             let newAccessToken = response.data.authTokenResponse.accessToken
             try KeychainManager.shared.save(newAccessToken, for: .accessToken)
             if let newRefreshToken = response.data.authTokenResponse.refreshToken {

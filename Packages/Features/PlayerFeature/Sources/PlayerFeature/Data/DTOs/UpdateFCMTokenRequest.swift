@@ -10,7 +10,6 @@ public enum DevicePlatform: String, Encodable {
 // MARK: - Request DTO
 
 public struct UpdateFCMTokenRequest: Encodable {
-    public let deviceId: String
     public let platform: DevicePlatform
     public let fcmToken: String
     public let deviceInfo: String
@@ -18,14 +17,12 @@ public struct UpdateFCMTokenRequest: Encodable {
     public let osVersion: String
 
     public init(
-        deviceId: String,
         platform: DevicePlatform = .ios,
         fcmToken: String,
         deviceInfo: String,
         appVersion: String,
         osVersion: String
     ) {
-        self.deviceId = deviceId
         self.platform = platform
         self.fcmToken = fcmToken
         self.deviceInfo = deviceInfo
