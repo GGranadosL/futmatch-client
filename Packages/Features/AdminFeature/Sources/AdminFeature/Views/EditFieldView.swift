@@ -1,5 +1,4 @@
 import SwiftUI
-import MapKit
 import FMDesignSystem
 
 // MARK: - EditFieldView
@@ -15,8 +14,7 @@ struct EditFieldView: View {
     @State private var focusPrice       = false
     @State private var focusDescription = false
     @State private var focusExtra       = false
-    @State private var showSuccessToast        = false
-    @State private var showLocationLinkedToast = false
+    @State private var showSuccessToast = false
 
     init(viewModel: @autoclosure @escaping () -> EditFieldViewModel, onUpdated: ((AdminFieldItem) -> Void)? = nil) {
         _viewModel = StateObject(wrappedValue: viewModel())
@@ -31,7 +29,6 @@ struct EditFieldView: View {
                 rulesSection
                 fieldTypeSection
                 footwearSection
-                locationSection
                 if let error = viewModel.errorMessage {
                     Text(error)
                         .font(FMTypography.bodySmall)
@@ -49,7 +46,7 @@ struct EditFieldView: View {
                 FMBackButton { dismiss() }
             }
             ToolbarItem(placement: .principal) {
-                Text("Editar Cancha")
+                Text(L10n.EditField.title)
                     .font(FMTypography.titleLarge)
                     .foregroundColor(FMColors.onBackground)
             }
@@ -62,7 +59,6 @@ struct EditFieldView: View {
                 action: { Task { await viewModel.save() } }
             )
         }
-        .task { await viewModel.fetchLocations() }
         .onChange(of: viewModel.updatedField) { updated in
             guard let updated else { return }
             showSuccessToast = true
@@ -72,13 +68,7 @@ struct EditFieldView: View {
                 dismiss()
             }
         }
-        .onChange(of: viewModel.locationLinked) { linked in
-            guard linked else { return }
-            showLocationLinkedToast = true
-            viewModel.locationLinked = false
-        }
         .fmToast("¡Cancha actualizada!", isPresented: $showSuccessToast, style: .success)
-        .fmToast("¡Ubicación asignada!", isPresented: $showLocationLinkedToast, style: .success)
     }
 
     // MARK: - General Section
@@ -88,7 +78,7 @@ struct EditFieldView: View {
             sectionTitle("Información del general").padding(.bottom, 16)
 
             FMTextField(
-                label: "Nombre de la cancha",
+                label: L10n.NewField.fieldName,
                 text: $viewModel.name,
                 autocapitalization: .sentences,
                 errorMessage: viewModel.nameError,
@@ -102,7 +92,7 @@ struct EditFieldView: View {
             HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 0) {
                     FMTextField(
-                        label: "Capacidad",
+                        label: L10n.NewField.capacity,
                         text: $viewModel.capacityText,
                         keyboardType: .numberPad,
                         trailingIcon: viewModel.capacityText.isEmpty ? nil : Image(systemName: "xmark.circle.fill"),
@@ -114,7 +104,7 @@ struct EditFieldView: View {
                 }
                 VStack(alignment: .leading, spacing: 0) {
                     FMTextField(
-                        label: "Precio",
+                        label: L10n.NewField.price,
                         text: $viewModel.priceText,
                         keyboardType: .decimalPad,
                         trailingIcon: viewModel.priceText.isEmpty ? nil : Image(systemName: "xmark.circle.fill"),
@@ -134,7 +124,7 @@ struct EditFieldView: View {
 
     private var parkingToggle: some View {
         HStack {
-            Text("Estacionamiento")
+            Text(L10n.NewField.parking)
                 .font(FMTypography.titleMedium)
                 .foregroundColor(FMColors.onSurface)
             Spacer()
@@ -149,10 +139,10 @@ struct EditFieldView: View {
     private var fieldInfoSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             sectionTitle("Información del campo")
-            FMTextField(label: "Descripción", text: $viewModel.description, autocapitalization: .sentences)
+            FMTextField(label: L10n.NewField.description, text: $viewModel.description, autocapitalization: .sentences)
                 .focused($focusDescription)
                 .keyboardNavigation(hasPrevious: true, hasNext: true, onPrevious: { focusPrice = true }, onNext: { focusExtra = true })
-            FMTextField(label: "Información extra", text: $viewModel.extraInfo, autocapitalization: .sentences)
+            FMTextField(label: L10n.NewField.extraInfo, text: $viewModel.extraInfo, autocapitalization: .sentences)
                 .focused($focusExtra)
                 .keyboardNavigation(hasPrevious: true, hasNext: false, onPrevious: { focusDescription = true }, onNext: {})
         }
@@ -179,84 +169,6 @@ struct EditFieldView: View {
         }
     }
 
-    // MARK: - Location Section
-
-    private var locationSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            sectionTitle("Ubicación")
-
-            if let location = viewModel.assignedLocation {
-                AssignedLocationPreview(location: location)
-                locationMenu(label: changeLocationLabel)
-            } else {
-                locationMenu(label: assignLocationLabel)
-            }
-        }
-    }
-
-    private func locationMenu<L: View>(label: L) -> some View {
-        Menu {
-            if viewModel.availableLocations.isEmpty {
-                Text(viewModel.isLoadingLocations ? "Cargando ubicaciones..." : "Sin ubicaciones disponibles")
-            } else {
-                ForEach(viewModel.availableLocations) { loc in
-                    Button(loc.address) {
-                        Task { await viewModel.assignLocation(loc) }
-                    }
-                }
-            }
-        } label: {
-            label
-        }
-        .disabled(viewModel.isLinkingLocation)
-    }
-
-    private var assignLocationLabel: some View {
-        HStack(spacing: 8) {
-            if viewModel.isLinkingLocation {
-                ProgressView().scaleEffect(0.85).tint(FMColors.primary)
-            } else {
-                Image(systemName: "mappin.circle")
-                    .font(.system(size: 18))
-            }
-            Text("Asignar ubicación")
-                .font(FMTypography.labelLarge)
-        }
-        .foregroundColor(FMColors.primary)
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 14)
-        .background(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(FMColors.primaryContainer.opacity(0.3))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .stroke(FMColors.primary.opacity(0.5), lineWidth: 1)
-        )
-        .contentShape(Rectangle())
-    }
-
-    private var changeLocationLabel: some View {
-        HStack(spacing: 6) {
-            if viewModel.isLinkingLocation {
-                ProgressView().scaleEffect(0.85).tint(FMColors.primary)
-            } else {
-                Image(systemName: "arrow.triangle.2.circlepath")
-                    .font(.system(size: 14))
-            }
-            Text("Cambiar ubicación")
-                .font(FMTypography.labelLarge)
-        }
-        .foregroundColor(FMColors.primary)
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 12)
-        .background(
-            RoundedRectangle(cornerRadius: 10)
-                .stroke(FMColors.primary, lineWidth: 1)
-        )
-        .contentShape(Rectangle())
-    }
-
     // MARK: - Helpers
 
     private func sectionTitle(_ text: String) -> some View {
@@ -269,67 +181,3 @@ struct EditFieldView: View {
     }
 }
 
-// MARK: - Assigned Location Preview
-
-private struct AssignedLocationPreview: View {
-    let location: AdminLocation
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 6) {
-                Image(systemName: "mappin.circle.fill")
-                    .foregroundColor(FMColors.primary)
-                    .font(.system(size: 16))
-                Text(location.address)
-                    .font(FMTypography.bodyMedium)
-                    .foregroundColor(FMColors.onSurface)
-                    .lineLimit(2)
-            }
-
-            FieldLocationMiniMapView(latitude: location.latitude, longitude: location.longitude)
-                .frame(height: 140)
-                .cornerRadius(10)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10)
-                        .stroke(FMColors.outlineVariant, lineWidth: 1)
-                )
-        }
-        .padding(12)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(FMColors.surfaceContainerLowest)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(FMColors.outlineVariant, lineWidth: 1)
-        )
-    }
-}
-
-// MARK: - Mini Map (non-interactive, read-only)
-
-struct FieldLocationMiniMapView: UIViewRepresentable {
-    let latitude: Double
-    let longitude: Double
-
-    func makeUIView(context: Context) -> MKMapView {
-        let mapView = MKMapView()
-        mapView.isZoomEnabled = false
-        mapView.isScrollEnabled = false
-        mapView.isUserInteractionEnabled = false
-
-        let region = MKCoordinateRegion(
-            center: CLLocationCoordinate2D(latitude: latitude, longitude: longitude),
-            span: MKCoordinateSpan(latitudeDelta: 0.015, longitudeDelta: 0.015)
-        )
-        mapView.setRegion(region, animated: false)
-
-        let annotation = MKPointAnnotation()
-        annotation.coordinate = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
-        mapView.addAnnotation(annotation)
-
-        return mapView
-    }
-
-    func updateUIView(_ mapView: MKMapView, context: Context) {}
-}

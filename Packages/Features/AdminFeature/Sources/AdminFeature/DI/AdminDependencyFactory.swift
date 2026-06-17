@@ -54,12 +54,10 @@ public struct AdminDependencyFactory {
     }
 
     @MainActor
-    func makeEditFieldViewModel(field: AdminFieldItem, context: NSManagedObjectContext) -> EditFieldViewModel {
+    func makeEditFieldViewModel(field: AdminFieldItem) -> EditFieldViewModel {
         EditFieldViewModel(
             field: field,
-            updateFieldUseCase: makeUpdateFieldUseCase(),
-            linkLocationUseCase: makeLinkLocationUseCase(),
-            fetchLocationsUseCase: makeFetchLocationsUseCase(context: context)
+            updateFieldUseCase: makeUpdateFieldUseCase()
         )
     }
 
@@ -162,6 +160,37 @@ public struct AdminDependencyFactory {
             createLocationUseCase: makeCreateLocationUseCase(context: context),
             fetchCatalogUseCase: makeFetchLocationCatalogUseCase(),
             currentLocationProvider: CurrentLocationService()
+        )
+    }
+
+    // MARK: - Matches
+
+    func makeMatchAdminService() -> MatchAdminServiceProtocol {
+        MatchAdminService()
+    }
+
+    func makeAdminMatchRepository() -> AdminMatchRepositoryProtocol {
+        AdminMatchRepository(service: makeMatchAdminService())
+    }
+
+    func makeFetchAdminMatchesUseCase() -> FetchAdminMatchesUseCaseProtocol {
+        FetchAdminMatchesUseCase(repository: makeAdminMatchRepository())
+    }
+
+    func makeCreateMatchUseCase() -> CreateMatchUseCaseProtocol {
+        CreateMatchUseCase(repository: makeAdminMatchRepository())
+    }
+
+    @MainActor
+    func makeAdminMatchesViewModel() -> AdminMatchesViewModel {
+        AdminMatchesViewModel(fetchUseCase: makeFetchAdminMatchesUseCase())
+    }
+
+    @MainActor
+    func makeNewMatchViewModel() -> NewMatchViewModel {
+        NewMatchViewModel(
+            createMatchUseCase: makeCreateMatchUseCase(),
+            fetchFieldIdNamesUseCase: makeFetchFieldIdNamesUseCase()
         )
     }
 

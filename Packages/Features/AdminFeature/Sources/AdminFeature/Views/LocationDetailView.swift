@@ -38,34 +38,52 @@ struct LocationDetailView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                countryAndCitySection
-                mapSection
-                addressSearchSection
-                coordinatesSection
+        ZStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    countryAndCitySection
+                    mapSection
+                    addressSearchSection
+                    coordinatesSection
 
-                if let error = viewModel.errorMessage {
-                    Text(error)
-                        .font(FMTypography.bodySmall)
-                        .foregroundColor(FMColors.error)
-                        .padding(12)
-                        .background(FMColors.errorContainer)
-                        .cornerRadius(8)
+                    if let error = viewModel.errorMessage {
+                        Text(error)
+                            .font(FMTypography.bodySmall)
+                            .foregroundColor(FMColors.error)
+                            .padding(12)
+                            .background(FMColors.errorContainer)
+                            .cornerRadius(8)
+                    }
                 }
+                .padding(.horizontal, 20)
+                .padding(.top, 16)
+                .padding(.bottom, 8)
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 16)
-            .padding(.bottom, 8)
+            .background(FMColors.background.ignoresSafeArea())
+
+            if showDeleteAlert {
+                FMConfirmationAlert(
+                    icon: "trash.circle.fill",
+                    iconColor: FMColors.error,
+                    iconBackgroundColor: FMColors.error.opacity(0.15),
+                    title: L10n.Location.Delete.title,
+                    message: L10n.Location.Delete.message,
+                    primaryButtonTitle: L10n.Location.Delete.confirm,
+                    primaryButtonColor: FMColors.error,
+                    secondaryButtonTitle: L10n.Common.cancel,
+                    isLoading: isDeleting,
+                    onPrimaryAction: { Task { await deleteLocation() } },
+                    onSecondaryAction: { showDeleteAlert = false }
+                )
+            }
         }
-        .background(FMColors.background.ignoresSafeArea())
         .navigationBarBackButtonHidden(true)
         .toolbar {
             ToolbarItem(placement: .navigationBarLeading) {
                 FMBackButton { dismiss() }
             }
             ToolbarItem(placement: .principal) {
-                Text("Editar ubicación")
+                Text(L10n.EditLocation.title)
                     .font(FMTypography.titleLarge)
                     .foregroundColor(FMColors.onBackground)
             }
@@ -91,14 +109,6 @@ struct LocationDetailView: View {
                 action: { Task { await viewModel.save() } }
             )
         }
-        .alert("Eliminar ubicación", isPresented: $showDeleteAlert) {
-            Button("Cancelar", role: .cancel) { }
-            Button("Eliminar", role: .destructive) {
-                Task { await deleteLocation() }
-            }
-        } message: {
-            Text("¿Estás seguro de que deseas eliminar esta ubicación?")
-        }
         .onChange(of: viewModel.updatedLocation) { location in
             guard location != nil else { return }
             showUpdateToast = true
@@ -120,13 +130,15 @@ struct LocationDetailView: View {
         isDeleting = true
         do {
             try await factory.makeDeleteLocationUseCase(context: context).execute(id: locationId)
-            // Success: show the toast, then navigate back to the locations list.
+            // Success: close the alert, show the toast, then navigate back to the locations list.
+            showDeleteAlert = false
             showDeleteToast = true
             try? await Task.sleep(nanoseconds: 1_200_000_000)
             onDelete()
             dismiss()
         } catch {
-            // Failure: surface a visible error toast and stay so the user can retry.
+            // Failure: close the alert, surface a visible error toast and stay so the user can retry.
+            showDeleteAlert = false
             deleteErrorMessage = (error as? LocalizedError)?.errorDescription
                 ?? "No se pudo eliminar la ubicación"
             showDeleteErrorToast = true
@@ -233,15 +245,15 @@ struct LocationDetailView: View {
 
     private var addressSearchSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Buscar Dirección")
+            Text(L10n.NewLocation.searchAddress)
                 .font(FMTypography.headlineSmall)
                 .fontWeight(.bold)
                 .foregroundColor(FMColors.onBackground)
 
             FMTextField(
-                label: "Buscar dirección",
+                label: L10n.NewLocation.searchAddress,
                 text: $viewModel.searchQuery,
-                placeholder: "Calle, colonia, ciudad...",
+                placeholder: L10n.NewLocation.searchPlaceholder,
                 autocapitalization: .sentences,
                 trailingIcon: viewModel.searchQuery.isEmpty ? nil : Image(systemName: "xmark.circle.fill"),
                 onTrailingIconTap: { viewModel.searchQuery = "" }
@@ -277,7 +289,7 @@ struct LocationDetailView: View {
             if viewModel.isSearching {
                 HStack(spacing: 8) {
                     ProgressView().scaleEffect(0.8)
-                    Text("Buscando...")
+                    Text(L10n.NewLocation.searching)
                         .font(FMTypography.bodySmall)
                         .foregroundColor(FMColors.onSurfaceVariant)
                 }
@@ -288,25 +300,25 @@ struct LocationDetailView: View {
 
     private var coordinatesSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Información de Ubicación")
+            Text(L10n.NewLocation.locationInfo)
                 .font(FMTypography.headlineSmall)
                 .fontWeight(.bold)
                 .foregroundColor(FMColors.onBackground)
 
             FMTextField(
-                label: "Dirección",
+                label: L10n.NewLocation.address,
                 text: $viewModel.address,
                 autocapitalization: .sentences
             )
 
             HStack(spacing: 12) {
                 FMTextField(
-                    label: "Latitud",
+                    label: L10n.NewLocation.latitude,
                     text: latitudeBinding,
                     keyboardType: .decimalPad
                 )
                 FMTextField(
-                    label: "Longitud",
+                    label: L10n.NewLocation.longitude,
                     text: longitudeBinding,
                     keyboardType: .decimalPad
                 )

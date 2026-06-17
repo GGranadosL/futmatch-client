@@ -95,6 +95,35 @@ Token storage and retrieval goes through `KeychainManager.shared`.
 
 OnboardingFeature supports English and Spanish via generated `L10n.swift` (using SwiftGen or similar). String keys live in `.strings` files inside the feature package's resources.
 
+### ⚠️ CRITICAL: No String Literals for User-Facing Text
+
+**Every string displayed to the user must use localization (L10n).** Never hardcode text literals unless it is purely internal logging or comments.
+
+❌ **Never do this:**
+```swift
+Text("Publicar Ahora")
+Button("Cancelar") { }
+FMConfirmationAlert(
+    title: "¿Publicar Partido?",
+    message: "Una vez creado..."
+)
+```
+
+✅ **Always do this:**
+```swift
+// 1. Add the key to Localizable.xcstrings in the feature's Resources folder
+// 2. Translate in both "en" and "es" localization sections
+// 3. Use L10n to reference:
+Text(L10n.FeatureName.publishButtonTitle)
+Button(L10n.Common.cancel) { }
+FMConfirmationAlert(
+    title: L10n.AdminFeature.publishMatchTitle,
+    message: L10n.AdminFeature.publishMatchMessage
+)
+```
+
+**Why:** The app supports English and Spanish. String literals break translation. Every view shown to users must be localizable.
+
 ## Minimum Deployment Target
 
 - `PersistenceFramework`: iOS 14

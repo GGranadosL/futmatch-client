@@ -59,7 +59,7 @@ struct NewFieldView: View {
                 FMBackButton { dismiss() }
             }
             ToolbarItem(placement: .principal) {
-                Text("Nueva Cancha")
+                Text(L10n.NewField.title)
                     .font(FMTypography.titleLarge)
                     .foregroundColor(FMColors.onBackground)
             }
@@ -92,7 +92,7 @@ struct NewFieldView: View {
                 .padding(.bottom, 16)
 
             FMTextField(
-                label: "Nombre de la cancha",
+                label: L10n.NewField.fieldName,
                 text: $viewModel.name,
                 autocapitalization: .sentences,
                 errorMessage: viewModel.nameError,
@@ -110,7 +110,7 @@ struct NewFieldView: View {
             HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 0) {
                     FMTextField(
-                        label: "Capacidad",
+                        label: L10n.NewField.capacity,
                         text: $viewModel.capacityText,
                         keyboardType: .numberPad,
                         trailingIcon: viewModel.capacityText.isEmpty ? nil : Image(systemName: "xmark.circle.fill"),
@@ -127,7 +127,7 @@ struct NewFieldView: View {
 
                 VStack(alignment: .leading, spacing: 0) {
                     FMTextField(
-                        label: "Precio",
+                        label: L10n.NewField.price,
                         text: $viewModel.priceText,
                         keyboardType: .decimalPad,
                         trailingIcon: viewModel.priceText.isEmpty ? nil : Image(systemName: "xmark.circle.fill"),
@@ -154,7 +154,7 @@ struct NewFieldView: View {
 
     private var parkingToggle: some View {
         HStack {
-            Text("Estacionamiento")
+            Text(L10n.NewField.parking)
                 .font(FMTypography.titleMedium)
                 .foregroundColor(FMColors.onSurface)
             Spacer()
@@ -176,7 +176,7 @@ struct NewFieldView: View {
         VStack(alignment: .leading, spacing: 16) {
             sectionTitle("Información del campo")
 
-            FMTextField(label: "Descripción", text: $viewModel.description, autocapitalization: .sentences)
+            FMTextField(label: L10n.NewField.description, text: $viewModel.description, autocapitalization: .sentences)
                 .focused($focusDescription)
                 .keyboardNavigation(
                     hasPrevious: true, hasNext: true,
@@ -184,7 +184,7 @@ struct NewFieldView: View {
                     onNext: { focusExtra = true }
                 )
 
-            FMTextField(label: "Información extra", text: $viewModel.extraInfo, autocapitalization: .sentences)
+            FMTextField(label: L10n.NewField.extraInfo, text: $viewModel.extraInfo, autocapitalization: .sentences)
                 .focused($focusExtra)
                 .keyboardNavigation(
                     hasPrevious: true, hasNext: false,

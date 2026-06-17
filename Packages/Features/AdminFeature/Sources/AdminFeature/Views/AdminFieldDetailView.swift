@@ -1,4 +1,5 @@
 import SwiftUI
+import MapKit
 import FMDesignSystem
 import CoreData
 
@@ -17,6 +18,11 @@ struct AdminFieldDetailView: View {
     @Environment(\.managedObjectContext) private var context
     @State private var showEdit = false
     @State private var showSuccessToast = false
+    @State private var availableLocations: [AdminLocation] = []
+    @State private var isLoadingLocations = false
+    @State private var isLinkingLocation = false
+    @State private var showLocationLinkedToast = false
+    @State private var locationError: String?
     /// Owns the image slots and persists uploads/replacements/deletions.
     /// Slot count comes from Remote Config (`maxImages`, default 1).
     @StateObject private var imagesViewModel: FieldImagesViewModel
@@ -39,9 +45,12 @@ struct AdminFieldDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
                 imagesSection
-                priceSection
+                HStack(alignment: .top, spacing: 24) {
+                    parkingSection
+                    Spacer()
+                    priceSection
+                }
                 capacitySection
-                parkingSection
                 if let desc = field.description, !desc.isEmpty { descriptionSection(desc) }
                 if let rules = field.rules, !rules.isEmpty { rulesSection(rules) }
                 if let extra = field.extraInfo, !extra.isEmpty { extraInfoSection(extra) }
@@ -58,6 +67,24 @@ struct AdminFieldDetailView: View {
             // already has an image, which would cause a 400 from the server.
             await imagesViewModel.refreshImages(using: factory.makeFetchAdminFieldsUseCase())
         }
+        .task {
+            let useCase = factory.makeFetchLocationsUseCase(context: context)
+            let cached = useCase.executeCached().sorted { $0.address < $1.address }
+            if !cached.isEmpty { availableLocations = cached } else { isLoadingLocations = true }
+            do {
+                let fresh = try await useCase.execute().sorted { $0.address < $1.address }
+                availableLocations = fresh
+            } catch {}
+            isLoadingLocations = false
+        }
+        .onChange(of: showLocationLinkedToast) { showing in
+            guard showing else { return }
+            Task {
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                showLocationLinkedToast = false
+            }
+        }
+        .fmToast("¡Ubicación asignada!", isPresented: $showLocationLinkedToast, style: .success)
         .navigationBarBackButtonHidden(true)
         .toolbar {
             ToolbarItem(placement: .navigationBarLeading) {
@@ -84,7 +111,7 @@ struct AdminFieldDetailView: View {
         }
         .navigationDestination(isPresented: $showEdit) {
             EditFieldView(
-                viewModel: factory.makeEditFieldViewModel(field: field, context: context),
+                viewModel: factory.makeEditFieldViewModel(field: field),
                 onUpdated: { updated in
                     field = updated
                     onFieldUpdated?(updated)
@@ -145,7 +172,7 @@ struct AdminFieldDetailView: View {
 
     private var priceSection: some View {
         VStack(alignment: .leading, spacing: 6) {
-            sectionTitle("Precio por reserva")
+            sectionTitle("Precio")
             Text(field.formattedPrice)
                 .font(FMTypography.headlineSmall)
                 .fontWeight(.bold)
@@ -156,17 +183,26 @@ struct AdminFieldDetailView: View {
     // MARK: - Parking
 
     private var parkingSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            sectionTitle("Estacionamiento")
-            HStack(spacing: 10) {
-                Image(systemName: field.hasParking ? "checkmark.circle.fill" : "xmark.circle.fill")
-                    .font(.system(size: 20))
-                    .foregroundColor(field.hasParking ? FMColors.primary : FMColors.onSurfaceVariant)
-                Text(field.hasParking ? "Cuenta con estacionamiento" : "No cuenta con estacionamiento")
-                    .font(FMTypography.bodyMedium)
-                    .foregroundColor(field.hasParking ? FMColors.onSurface : FMColors.onSurfaceVariant)
-            }
+        HStack(spacing: 8) {
+            Image(systemName: "parkingsign")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundColor(.white)
+                .frame(width: 28, height: 28)
+                .background(Color(red: 0.45, green: 0.55, blue: 0.85))
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+            Text("Estacionamiento")
+                .font(FMTypography.bodyMedium)
+                .foregroundColor(FMColors.onSurface)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+            Image(systemName: field.hasParking ? "checkmark.circle.fill" : "xmark.circle.fill")
+                .font(.system(size: 16))
+                .foregroundColor(field.hasParking ? .green : .red)
         }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(FMColors.surfaceContainerLowest)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
     // MARK: - Capacity
@@ -226,27 +262,103 @@ struct AdminFieldDetailView: View {
         }
     }
 
-    // MARK: - Location placeholder
+    // MARK: - Location Section
 
     private var locationSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             sectionTitle("Ubicación")
-            ZStack {
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(FMColors.outlineVariant, lineWidth: 1)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 130)
-
-                VStack(spacing: 8) {
-                    Image(systemName: "mappin.circle")
-                        .font(.system(size: 30))
-                        .foregroundColor(FMColors.onSurfaceVariant)
-                    Text("Asignar ubicación")
-                        .font(FMTypography.bodyMedium)
-                        .foregroundColor(FMColors.onSurfaceVariant)
-                }
+            if let location = field.assignedLocation {
+                FieldAssignedLocationPreview(location: location)
+                locationMenu(label: changeLocationLabel)
+            } else {
+                locationMenu(label: assignLocationLabel)
+            }
+            if let err = locationError {
+                Text(err)
+                    .font(FMTypography.bodySmall)
+                    .foregroundColor(FMColors.error)
             }
         }
+    }
+
+    private func locationMenu<L: View>(label: L) -> some View {
+        Menu {
+            if availableLocations.isEmpty {
+                Text(isLoadingLocations ? "Cargando ubicaciones..." : "Sin ubicaciones disponibles")
+            } else {
+                ForEach(availableLocations) { loc in
+                    Button(loc.address) {
+                        Task { await assignLocation(loc) }
+                    }
+                }
+            }
+        } label: {
+            label
+        }
+        .disabled(isLinkingLocation)
+    }
+
+    private var assignLocationLabel: some View {
+        HStack(spacing: 8) {
+            if isLinkingLocation {
+                ProgressView().scaleEffect(0.85).tint(FMColors.primary)
+            } else {
+                Image(systemName: "mappin.circle").font(.system(size: 18))
+            }
+            Text("Asignar ubicación").font(FMTypography.labelLarge)
+        }
+        .foregroundColor(FMColors.primary)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 14)
+        .background(RoundedRectangle(cornerRadius: 10).fill(FMColors.primaryContainer.opacity(0.3)))
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(FMColors.primary.opacity(0.5), lineWidth: 1))
+        .contentShape(Rectangle())
+    }
+
+    private var changeLocationLabel: some View {
+        HStack(spacing: 6) {
+            if isLinkingLocation {
+                ProgressView().scaleEffect(0.85).tint(FMColors.primary)
+            } else {
+                Image(systemName: "arrow.triangle.2.circlepath").font(.system(size: 14))
+            }
+            Text("Cambiar ubicación").font(FMTypography.labelLarge)
+        }
+        .foregroundColor(FMColors.primary)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+        .background(RoundedRectangle(cornerRadius: 10).stroke(FMColors.primary, lineWidth: 1))
+        .contentShape(Rectangle())
+    }
+
+    private func assignLocation(_ location: AdminLocation) async {
+        isLinkingLocation = true
+        locationError = nil
+        do {
+            try await factory.makeLinkLocationUseCase().execute(fieldId: field.id, locationId: location.id)
+            field = AdminFieldItem(
+                id: field.id,
+                name: field.name,
+                priceInCents: field.priceInCents,
+                capacity: field.capacity,
+                imageUrl: field.imageUrl,
+                images: field.images,
+                address: field.address,
+                description: field.description,
+                rules: field.rules,
+                extraInfo: field.extraInfo,
+                hasParking: field.hasParking,
+                fieldType: field.fieldType,
+                footwearType: field.footwearType,
+                locationId: location.id,
+                assignedLocation: location
+            )
+            onFieldUpdated?(field)
+            showLocationLinkedToast = true
+        } catch {
+            locationError = error.localizedDescription
+        }
+        isLinkingLocation = false
     }
 
     // MARK: - Helpers
@@ -257,4 +369,56 @@ struct AdminFieldDetailView: View {
             .fontWeight(.bold)
             .foregroundColor(FMColors.onBackground)
     }
+}
+
+// MARK: - Assigned Location Preview
+
+private struct FieldAssignedLocationPreview: View {
+    let location: AdminLocation
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Image(systemName: "mappin.circle.fill")
+                    .foregroundColor(FMColors.primary)
+                    .font(.system(size: 16))
+                Text(location.address)
+                    .font(FMTypography.bodyMedium)
+                    .foregroundColor(FMColors.onSurface)
+                    .lineLimit(2)
+            }
+            FieldLocationMiniMapView(latitude: location.latitude, longitude: location.longitude)
+                .frame(height: 140)
+                .cornerRadius(10)
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(FMColors.outlineVariant, lineWidth: 1))
+        }
+        .padding(12)
+        .background(RoundedRectangle(cornerRadius: 12).fill(FMColors.surfaceContainerLowest))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(FMColors.outlineVariant, lineWidth: 1))
+    }
+}
+
+// MARK: - Mini Map (non-interactive)
+
+struct FieldLocationMiniMapView: UIViewRepresentable {
+    let latitude: Double
+    let longitude: Double
+
+    func makeUIView(context: Context) -> MKMapView {
+        let mapView = MKMapView()
+        mapView.isZoomEnabled = false
+        mapView.isScrollEnabled = false
+        mapView.isUserInteractionEnabled = false
+        let region = MKCoordinateRegion(
+            center: CLLocationCoordinate2D(latitude: latitude, longitude: longitude),
+            span: MKCoordinateSpan(latitudeDelta: 0.015, longitudeDelta: 0.015)
+        )
+        mapView.setRegion(region, animated: false)
+        let annotation = MKPointAnnotation()
+        annotation.coordinate = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+        mapView.addAnnotation(annotation)
+        return mapView
+    }
+
+    func updateUIView(_ mapView: MKMapView, context: Context) {}
 }

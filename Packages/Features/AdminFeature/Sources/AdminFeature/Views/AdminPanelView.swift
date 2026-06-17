@@ -17,6 +17,8 @@ public struct AdminPanelView: View {
     @State private var showFields = false
     @State private var showNewLocation = false
     @State private var showLocationsList = false
+    @State private var showNewMatch = false
+    @State private var showMatchesList = false
     @State private var locations: [AdminLocation] = []
 
     private let factory: AdminDependencyFactory
@@ -51,10 +53,30 @@ public struct AdminPanelView: View {
                     Task {
                         await viewModel.load()
                         showNewField = false
-                        // Small delay to ensure the dismiss animation completes before
-                        // the second navigation begins, avoiding state conflicts.
-                        try? await Task.sleep(nanoseconds: 300_000_000)
-                        showFields = true
+                    }
+                }
+            )
+            .modifier(HideTabBarModifier())
+        }
+        .navigationDestination(isPresented: $showNewLocation) {
+            NewLocationView(
+                viewModel: factory.makeNewLocationViewModel(context: context),
+                onCreated: {
+                    Task {
+                        await loadLocations()
+                        showNewLocation = false
+                    }
+                }
+            )
+            .modifier(HideTabBarModifier())
+        }
+        .navigationDestination(isPresented: $showNewMatch) {
+            NewMatchView(
+                viewModel: factory.makeNewMatchViewModel(),
+                onCreated: {
+                    Task {
+                        await viewModel.load()
+                        showNewMatch = false
                     }
                 }
             )
@@ -68,25 +90,16 @@ public struct AdminPanelView: View {
             )
             .modifier(HideTabBarModifier())
         }
-        .navigationDestination(isPresented: $showNewLocation) {
-            NewLocationView(
-                viewModel: factory.makeNewLocationViewModel(context: context),
-                onCreated: {
-                    Task {
-                        await loadLocations()
-                        showNewLocation = false
-                        // Small delay to ensure the dismiss animation completes before
-                        // the second navigation begins, avoiding state conflicts.
-                        try? await Task.sleep(nanoseconds: 300_000_000)
-                        showLocationsList = true
-                    }
-                }
-            )
-            .modifier(HideTabBarModifier())
-        }
         .navigationDestination(isPresented: $showLocationsList) {
             AdminLocationsListView(factory: factory, context: context)
                 .modifier(HideTabBarModifier())
+        }
+        .navigationDestination(isPresented: $showMatchesList) {
+            AdminMatchesListView(
+                viewModel: factory.makeAdminMatchesViewModel(),
+                factory: factory
+            )
+            .modifier(HideTabBarModifier())
         }
         .task {
             await viewModel.load()
@@ -142,10 +155,10 @@ public struct AdminPanelView: View {
 
     private var greetingSection: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text("ADMINISTRADOR")
+            Text(L10n.Admin.Panel.title)
                 .font(FMTypography.labelSmall)
                 .foregroundColor(FMColors.onSurfaceVariant)
-            Text("Hola, \(userSession.currentUser?.name ?? "")")
+            Text(L10n.Admin.Panel.greeting(userSession.currentUser?.name ?? ""))
                 .font(FMTypography.headlineMedium)
                 .foregroundColor(FMColors.onBackground)
         }
@@ -157,11 +170,13 @@ public struct AdminPanelView: View {
 
     private var actionsSection: some View {
         VStack(spacing: 12) {
-            AdminActionCard(icon: "soccerball", title: "Nuevo partido")
-            AdminActionCard(icon: "sportscourt.fill", title: "Nueva cancha") {
+            AdminActionCard(icon: "soccerball", title: L10n.Admin.ActionCard.Title.newMatch) {
+                showNewMatch = true
+            }
+            AdminActionCard(icon: "sportscourt.fill", title: L10n.Admin.ActionCard.Title.newField) {
                 showNewField = true
             }
-            AdminActionCard(icon: "mappin.and.ellipse", title: "Nueva ubicación") {
+            AdminActionCard(icon: "mappin.and.ellipse", title: L10n.Admin.ActionCard.Title.newLocation) {
                 showNewLocation = true
             }
         }
@@ -176,19 +191,21 @@ public struct AdminPanelView: View {
                 statCard(
                     icon: "calendar",
                     value: scheduledMatchesCount,
-                    label: "Partidos\nprogramados"
-                )
+                    label: L10n.Admin.Stats.upcomingMatches
+                ) {
+                    showMatchesList = true
+                }
                 statCard(
                     icon: "sportscourt.fill",
                     value: registeredVenuesCount,
-                    label: "Canchas\nregistradas"
+                    label: L10n.Admin.Stats.registeredFields
                 ) {
                     showFields = true
                 }
                 statCard(
                     icon: "mappin.circle.fill",
                     value: registeredLocationsCount,
-                    label: "Ubicaciones\nregistradas"
+                    label: L10n.Admin.Stats.registeredLocations
                 ) {
                     showLocationsList = true
                 }
@@ -244,14 +261,14 @@ public struct AdminPanelView: View {
     private var upcomingMatchesSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Próximos Partidos")
+                Text(L10n.Admin.UpcomingMatches.title)
                     .font(FMTypography.titleLarge)
                     .foregroundColor(FMColors.onBackground)
                 Spacer()
                 Button {
-                    // TODO: Navigate to the full admin matches list.
+                    showMatchesList = true
                 } label: {
-                    Text("Ver todos")
+                    Text(L10n.Admin.UpcomingMatches.viewAll)
                         .font(FMTypography.labelLarge)
                         .foregroundColor(FMColors.primary)
                 }

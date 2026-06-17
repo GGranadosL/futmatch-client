@@ -1,5 +1,6 @@
 import SwiftUI
 import FMDesignSystem
+import AdminFeature
 
 // MARK: - FieldRulesEditor
 
@@ -15,7 +16,7 @@ struct FieldRulesEditor: View {
             ForEach($rules) { $rule in
                 HStack(alignment: .top, spacing: 8) {
                     FMTextField(
-                        label: "Regla \(number(of: rule))",
+                        label: L10n.EditField.rule(number(of: rule)),
                         text: $rule.text,
                         autocapitalization: .sentences
                     )
@@ -39,7 +40,7 @@ struct FieldRulesEditor: View {
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "plus.circle.fill")
-                    Text("Agregar regla")
+                    Text(L10n.EditField.addRule)
                 }
                 .font(FMTypography.labelLarge)
                 .foregroundColor(FMColors.primary)

@@ -53,7 +53,7 @@ struct NewLocationView: View {
                 FMBackButton { dismiss() }
             }
             ToolbarItem(placement: .principal) {
-                Text("Nueva ubicación")
+                Text(L10n.NewLocation.title)
                     .font(FMTypography.titleLarge)
                     .foregroundColor(FMColors.onBackground)
             }
@@ -189,15 +189,15 @@ struct NewLocationView: View {
 
     private var addressSearchSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Buscar Dirección")
+            Text(L10n.NewLocation.searchAddress)
                 .font(FMTypography.headlineSmall)
                 .fontWeight(.bold)
                 .foregroundColor(FMColors.onBackground)
 
             FMTextField(
-                label: "Buscar dirección",
+                label: L10n.NewLocation.searchAddress,
                 text: $viewModel.searchQuery,
-                placeholder: "Calle, colonia, ciudad...",
+                placeholder: L10n.NewLocation.searchPlaceholder,
                 autocapitalization: .sentences,
                 trailingIcon: viewModel.searchQuery.isEmpty ? nil : Image(systemName: "xmark.circle.fill"),
                 onTrailingIconTap: { viewModel.searchQuery = "" }
@@ -235,7 +235,7 @@ struct NewLocationView: View {
                 HStack(spacing: 8) {
                     ProgressView()
                         .scaleEffect(0.8)
-                    Text("Buscando...")
+                    Text(L10n.NewLocation.searching)
                         .font(FMTypography.bodySmall)
                         .foregroundColor(FMColors.onSurfaceVariant)
                 }
@@ -246,19 +246,19 @@ struct NewLocationView: View {
 
     private var coordinatesSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Información de Ubicación")
+            Text(L10n.NewLocation.locationInfo)
                 .font(FMTypography.headlineSmall)
                 .fontWeight(.bold)
                 .foregroundColor(FMColors.onBackground)
 
             FMTextField(
-                label: "Dirección",
+                label: L10n.NewLocation.address,
                 text: $viewModel.address,
                 autocapitalization: .sentences
             )
 
             FMTextField(
-                label: "Número Exterior",
+                label: L10n.NewLocation.exteriorNumber,
                 text: $viewModel.exteriorNumber,
                 placeholder: "Ej: 15, 7B, 23-A (opcional)"
             )
@@ -268,13 +268,13 @@ struct NewLocationView: View {
 
             HStack(spacing: 12) {
                 FMTextField(
-                    label: "Latitud",
+                    label: L10n.NewLocation.latitude,
                     text: latitudeBinding,
                     keyboardType: .decimalPad
                 )
 
                 FMTextField(
-                    label: "Longitud",
+                    label: L10n.NewLocation.longitude,
                     text: longitudeBinding,
                     keyboardType: .decimalPad
                 )

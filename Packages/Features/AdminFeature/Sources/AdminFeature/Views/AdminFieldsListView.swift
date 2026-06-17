@@ -32,7 +32,7 @@ struct AdminFieldsListView: View {
                 FMBackButton { dismiss() }
             }
             ToolbarItem(placement: .principal) {
-                Text("Canchas")
+                Text(L10n.Fields.title)
                     .font(FMTypography.titleLarge)
                     .foregroundColor(FMColors.onBackground)
             }
@@ -106,10 +106,10 @@ struct AdminFieldsListView: View {
             VStack(alignment: .leading, spacing: 0) {
                 // Header
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Nuestras Canchas")
+                    Text(L10n.AdminFields.heading)
                         .font(FMTypography.headlineSmall)
                         .foregroundColor(FMColors.onBackground)
-                    Text("Gestiona y visualiza complejos deportivos")
+                    Text(L10n.AdminFields.description)
                         .font(FMTypography.bodySmall)
                         .foregroundColor(FMColors.onSurfaceVariant)
                 }
