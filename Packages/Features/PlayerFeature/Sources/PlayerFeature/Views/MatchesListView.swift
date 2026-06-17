@@ -325,6 +325,7 @@ struct MatchesListView: View {
             ),
             distance: match.distanceDisplay,
             fieldImageUrl: match.fieldImageUrl,
+            location: match.location,
             onTap: {
                 navigationPath.append(match)
             }

@@ -283,12 +283,14 @@ struct MatchLocationDTO: Decodable {
     let address: String?
     let city: String?
     let country: String?
+    let countryCode: String?
+    let cityCode: String?
     let latitude: Double?
     let longitude: Double?
 
     static func displayString(_ location: MatchLocationDTO?) -> String {
         guard let loc = location else { return "" }
-        return [loc.city, loc.country].compactMap { $0 }.joined(separator: ", ")
+        return loc.address ?? ""
     }
 }
 

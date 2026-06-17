@@ -16,7 +16,7 @@ public struct FMMatchTeam {
 
 /// Full match card used in the Matches listing
 /// Shows field image, venue, time, price, type, availability badge,
-/// team rosters with stacked avatars, and distance
+/// team rosters with stacked avatars, and location or distance
 public struct FMMatchCard: View {
     let venueName: String
     let timeRange: String
@@ -29,6 +29,7 @@ public struct FMMatchCard: View {
     let distance: String
     var fieldImageUrl: String?
     var fieldImage: Image?
+    var location: String?
     var onTap: (() -> Void)?
 
     /// Cached downloaded image — survives re-renders caused by parent state changes.
@@ -46,6 +47,7 @@ public struct FMMatchCard: View {
         distance: String,
         fieldImageUrl: String? = nil,
         fieldImage: Image? = nil,
+        location: String? = nil,
         onTap: (() -> Void)? = nil
     ) {
         self.venueName = venueName
@@ -59,6 +61,7 @@ public struct FMMatchCard: View {
         self.distance = distance
         self.fieldImageUrl = fieldImageUrl
         self.fieldImage = fieldImage
+        self.location = location
         self.onTap = onTap
     }
     
@@ -236,12 +239,11 @@ public struct FMMatchCard: View {
             Image(systemName: "mappin.and.ellipse")
                 .font(.system(size: 12))
                 .foregroundColor(FMColors.onSurfaceVariant)
-            
-            Text(distance)
+
+            Text(location ?? distance)
                 .font(FMTypography.labelSmall)
                 .foregroundColor(FMColors.onSurfaceVariant)
                 .lineLimit(1)
-                .fixedSize(horizontal: true, vertical: false)
         }
     }
     
