@@ -102,6 +102,7 @@ struct FutMatchApp: App {
     private let countryRepository = CountryRemoteConfigRepository()
     /// Shared dial-code Remote Config repository — single instance so cache is reused across features.
     private let dialCodeRepository = DialCodeRemoteConfigRepository()
+    private let appGateRepository = AppGateRemoteConfigRepository()
     @StateObject private var appState: AppState = {
         let state = AppState()
         state.onDidLogout = {
@@ -148,10 +149,12 @@ struct FutMatchApp: App {
         // server can verify the call comes from a genuine app instance. Gated by the
         // same flag as the provider factory — without a provider, token() would just
         // fail and waste the per-request timeout.
+        // forcingRefresh: true ensures expired tokens are refreshed, preventing
+        // "Invalid App Check token" 401s after the app sits idle for hours/days.
         let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "FutMatch", category: "AppCheck")
         let appCheckTokenProvider: () async throws -> String? = {
             do {
-                return try await AppCheck.appCheck().token(forcingRefresh: false).token
+                return try await AppCheck.appCheck().token(forcingRefresh: true).token
             } catch {
                 // Surfaces why requests go out without X-Firebase-AppCheck
                 // (e.g. unregistered debug token, attestation failure).
@@ -182,18 +185,20 @@ struct FutMatchApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootView(persistenceContainer: persistenceController.container,
-                     countryRepository: countryRepository,
-                     dialCodeRepository: dialCodeRepository,
-                     onRequestNotificationPermission: {
-                         appDelegate.requestNotificationAuthorization()
-                     },
-                     onAuthenticatedStart: {
-                         appDelegate.subscribeToMatchUpdates()
-                     })
-                .environment(\.managedObjectContext, persistenceController.container.viewContext)
-                .environmentObject(appState)
-                .environmentObject(userSession)
+            AppGateContainerView(viewModel: AppGateViewModel(repository: appGateRepository)) {
+                RootView(persistenceContainer: persistenceController.container,
+                         countryRepository: countryRepository,
+                         dialCodeRepository: dialCodeRepository,
+                         onRequestNotificationPermission: {
+                             appDelegate.requestNotificationAuthorization()
+                         },
+                         onAuthenticatedStart: {
+                             appDelegate.subscribeToMatchUpdates()
+                         })
+                    .environment(\.managedObjectContext, persistenceController.container.viewContext)
+                    .environmentObject(appState)
+                    .environmentObject(userSession)
+            }
         }
     }
 }

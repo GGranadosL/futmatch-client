@@ -57,7 +57,7 @@ public final class NewFieldViewModel: ObservableObject {
 
     /// Inline error for the name field (length over the backend limit).
     public var nameError: String? {
-        trimmedName.count > Self.nameMaxLength ? "Máximo \(Self.nameMaxLength) caracteres" : nil
+        trimmedName.count > Self.nameMaxLength ? L10n.Validation.fieldNameMaxLength(Self.nameMaxLength) : nil
     }
 
     /// True when every required field passes validation.

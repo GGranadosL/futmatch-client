@@ -8,6 +8,7 @@ struct NewMatchView: View {
     @Environment(\.dismiss) private var dismiss
 
     private let onCreated: (() -> Void)?
+    private let navSubtitle: String
 
     // Tracks which dropdown is currently open — only one at a time.
     @State private var activeDropdownId: String? = nil
@@ -24,8 +25,9 @@ struct NewMatchView: View {
 
     // MARK: - Init
 
-    init(viewModel: @autoclosure @escaping () -> NewMatchViewModel, onCreated: (() -> Void)? = nil) {
+    init(viewModel: @autoclosure @escaping () -> NewMatchViewModel, subtitle: String = "admin", onCreated: (() -> Void)? = nil) {
         _viewModel = StateObject(wrappedValue: viewModel())
+        self.navSubtitle = subtitle
         self.onCreated = onCreated
     }
 
@@ -72,9 +74,7 @@ struct NewMatchView: View {
                 FMBackButton { dismiss() }
             }
             ToolbarItem(placement: .principal) {
-                Text(L10n.NewMatch.title)
-                    .font(FMTypography.titleLarge)
-                    .foregroundColor(FMColors.onBackground)
+                AdminNavTitle(title: L10n.NewMatch.title, subtitle: navSubtitle)
             }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
@@ -220,6 +220,34 @@ struct NewMatchView: View {
             )
             .onChange(of: focusPrice) { isFocused in
                 if !isFocused { viewModel.formatPriceOnBlur() }
+            }
+
+            if let fieldCost = viewModel.fieldCostCents {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Costo de la cancha: $\(String(format: "%.2f", Double(fieldCost) / 100))")
+                        .font(FMTypography.bodySmall)
+                        .foregroundColor(FMColors.onSurfaceVariant)
+
+                    if let projected = viewModel.projectedRevenueCents, let minPlayers = viewModel.minPlayers {
+                        Text("Ingresos proyectados: $\(String(format: "%.2f", Double(projected) / 100)) (\(minPlayers) jugadores)")
+                            .font(FMTypography.bodySmall)
+                            .foregroundColor(viewModel.isRevenueSufficient ? FMColors.onSurfaceVariant : FMColors.error)
+                    }
+
+                    if let error = viewModel.insufficientRevenueError {
+                        HStack(spacing: 8) {
+                            Image(systemName: "exclamationmark.circle.fill")
+                                .font(.system(size: 14))
+                                .foregroundColor(FMColors.error)
+                            Text(error)
+                                .font(FMTypography.bodySmall)
+                                .foregroundColor(FMColors.error)
+                        }
+                        .padding(12)
+                        .background(RoundedRectangle(cornerRadius: 8).fill(FMColors.errorContainer))
+                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(FMColors.error.opacity(0.3), lineWidth: 1))
+                    }
+                }
             }
         }
         .padding(16)

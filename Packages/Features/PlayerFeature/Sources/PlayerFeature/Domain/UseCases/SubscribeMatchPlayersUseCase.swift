@@ -1,7 +1,7 @@
 // MARK: - Subscribe Match Players Use Case Protocol
 
 protocol SubscribeMatchPlayersUseCaseProtocol {
-    func execute(matchId: String) -> AsyncStream<MatchPlayersSnapshot>
+    func execute(matchId: String) -> AsyncThrowingStream<MatchPlayersSnapshot, Error>
 }
 
 // MARK: - Subscribe Match Players Use Case
@@ -13,7 +13,7 @@ final class SubscribeMatchPlayersUseCase: SubscribeMatchPlayersUseCaseProtocol {
         self.repository = repository
     }
 
-    func execute(matchId: String) -> AsyncStream<MatchPlayersSnapshot> {
+    func execute(matchId: String) -> AsyncThrowingStream<MatchPlayersSnapshot, Error> {
         repository.playerStream(matchId: matchId)
     }
 }

@@ -1,28 +1,6 @@
 import SwiftUI
 import FMDesignSystem
 
-// MARK: - Tab
-
-private enum AdminMatchTab: CaseIterable {
-    case upcoming, finished, canceled
-
-    func label() -> String {
-        switch self {
-        case .upcoming:  return "Próximos"
-        case .finished:  return "Finalizados"
-        case .canceled:  return "Cancelados"
-        }
-    }
-}
-
-// MARK: - Section Model
-
-private struct AdminMatchSection: Identifiable {
-    let id = UUID()
-    let title: String
-    let matches: [AdminMatch]
-}
-
 // MARK: - AdminMatchesListView
 
 struct AdminMatchesListView: View {
@@ -30,8 +8,9 @@ struct AdminMatchesListView: View {
     @Environment(\.dismiss) private var dismiss
 
     private let factory: AdminDependencyFactory
-    @State private var selectedTab: AdminMatchTab = .upcoming
+    @State private var selectedTab: AdminMatchListTab = .upcoming
     @State private var showNewMatch = false
+    @State private var selectedMatch: AdminMatch? = nil
 
     init(
         viewModel: @autoclosure @escaping () -> AdminMatchesViewModel,
@@ -54,9 +33,7 @@ struct AdminMatchesListView: View {
                 FMBackButton { dismiss() }
             }
             ToolbarItem(placement: .principal) {
-                Text(L10n.AdminMatches.title)
-                    .font(FMTypography.titleLarge)
-                    .foregroundColor(FMColors.onBackground)
+                AdminNavTitle(title: L10n.AdminMatches.title)
             }
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button { showNewMatch = true } label: {
@@ -76,6 +53,17 @@ struct AdminMatchesListView: View {
                 }
             )
         }
+        .navigationDestination(isPresented: Binding(
+            get: { selectedMatch != nil },
+            set: { if !$0 { selectedMatch = nil } }
+        )) {
+            if let match = selectedMatch {
+                AdminMatchDetailView(
+                    viewModel: factory.makeAdminMatchDetailViewModel(match: match),
+                    factory: factory
+                )
+            }
+        }
     }
 
     // MARK: - Content
@@ -88,12 +76,13 @@ struct AdminMatchesListView: View {
 
         case .loaded(let matches):
             VStack(spacing: 0) {
+                listHeader
                 FMSegmentedTabBar(
-                    tabs: AdminMatchTab.allCases,
+                    tabs: AdminMatchListTab.allCases,
                     selected: $selectedTab,
-                    labelFor: { $0.label() }
+                    labelFor: { $0.label }
                 )
-                let filtered = filteredMatches(matches, for: selectedTab)
+                let filtered = selectedTab.filter(matches)
                 if filtered.isEmpty {
                     emptyTab(for: selectedTab)
                 } else {
@@ -103,21 +92,22 @@ struct AdminMatchesListView: View {
 
         case .empty:
             VStack(spacing: 0) {
+                listHeader
                 FMSegmentedTabBar(
-                    tabs: AdminMatchTab.allCases,
+                    tabs: AdminMatchListTab.allCases,
                     selected: $selectedTab,
-                    labelFor: { $0.label() }
+                    labelFor: { $0.label }
                 )
-                FMEmptyStateCard(icon: "soccerball", message: "No hay partidos registrados")
+                FMEmptyStateCard(icon: "soccerball", message: L10n.AdminMatches.emptyAll)
                     .padding(.horizontal, 24)
                     .padding(.top, 32)
             }
 
         case .failed(let message):
             FMFullScreenError(
-                title: "Error",
+                title: L10n.Common.errorTitle,
                 message: message,
-                retryTitle: "Reintentar",
+                retryTitle: L10n.Common.retry,
                 onRetry: { Task { await viewModel.load() } }
             )
         }
@@ -126,20 +116,14 @@ struct AdminMatchesListView: View {
     // MARK: - Skeleton
 
     private var skeletonList: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                VStack(alignment: .leading, spacing: 8) {
-                    FMSkeleton(cornerRadius: 6).frame(width: 180, height: 24)
-                    FMSkeleton(cornerRadius: 4).frame(width: 260, height: 14)
-                }
-                .padding(.horizontal, 24)
-                .padding(.top, 16)
-                .padding(.bottom, 20)
-
+        VStack(spacing: 0) {
+            listHeader
+            ScrollView {
                 VStack(spacing: 16) {
                     ForEach(0..<4, id: \.self) { _ in AdminMatchRowSkeleton() }
                 }
                 .padding(.horizontal, 24)
+                .padding(.top, 16)
             }
         }
         .disabled(true)
@@ -148,18 +132,16 @@ struct AdminMatchesListView: View {
     // MARK: - Matches List
 
     private func matchesList(_ matches: [AdminMatch]) -> some View {
-        let ascending = selectedTab == .upcoming
-        let sections = groupByDate(matches, ascending: ascending)
+        let sections = AdminMatchListGrouping.sections(matches, tab: selectedTab)
 
         return ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                listHeader
                 LazyVStack(alignment: .leading, spacing: 0) {
                     ForEach(Array(sections.enumerated()), id: \.element.id) { index, section in
                         Section {
                             VStack(spacing: 12) {
                                 ForEach(section.matches) { match in
-                                    AdminMatchCard(match: match)
+                                    AdminMatchCard(match: match, onTap: { selectedMatch = match })
                                 }
                             }
                             .padding(.horizontal, 24)
@@ -185,6 +167,7 @@ struct AdminMatchesListView: View {
                 .font(FMTypography.bodySmall)
                 .foregroundColor(FMColors.onSurfaceVariant)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 24)
         .padding(.top, 16)
         .padding(.bottom, 12)
@@ -205,14 +188,14 @@ struct AdminMatchesListView: View {
 
     // MARK: - Empty Tab State
 
-    private func emptyTab(for tab: AdminMatchTab) -> some View {
+    private func emptyTab(for tab: AdminMatchListTab) -> some View {
         ScrollView {
             VStack(spacing: 12) {
                 Spacer(minLength: 80)
                 Image(systemName: "soccerball")
                     .font(.system(size: 40))
                     .foregroundColor(FMColors.onSurfaceVariant)
-                Text(emptyTitle(for: tab))
+                Text(tab.emptyMessage)
                     .font(FMTypography.titleLarge)
                     .foregroundColor(FMColors.onBackground)
                     .bold()
@@ -223,59 +206,5 @@ struct AdminMatchesListView: View {
             .padding(.horizontal, 32)
         }
         .refreshable { await viewModel.load() }
-    }
-
-    private func emptyTitle(for tab: AdminMatchTab) -> String {
-        switch tab {
-        case .upcoming:  return "No hay partidos próximos"
-        case .finished:  return "No hay partidos finalizados"
-        case .canceled:  return "No hay partidos cancelados"
-        }
-    }
-
-    // MARK: - Filtering
-
-    private func filteredMatches(_ matches: [AdminMatch], for tab: AdminMatchTab) -> [AdminMatch] {
-        switch tab {
-        case .upcoming:  return matches.filter { $0.status == .scheduled || $0.status == .inProgress }
-        case .finished:  return matches.filter { $0.status == .completed }
-        case .canceled:  return matches.filter { $0.status == .canceled }
-        }
-    }
-
-    // MARK: - Date Grouping
-
-    private func groupByDate(_ matches: [AdminMatch], ascending: Bool) -> [AdminMatchSection] {
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
-        guard let tomorrow = calendar.date(byAdding: .day, value: 1, to: today) else { return [] }
-
-        let fmt = DateFormatter()
-        fmt.locale = Locale(identifier: "es_MX")
-        fmt.dateFormat = "EEEE d"
-
-        var grouped: [Date: [AdminMatch]] = [:]
-        for match in matches {
-            grouped[calendar.startOfDay(for: match.startDate), default: []].append(match)
-        }
-
-        return grouped.keys
-            .sorted { ascending ? $0 < $1 : $0 > $1 }
-            .compactMap { day in
-                let dayMatches = (grouped[day] ?? []).sorted {
-                    ascending ? $0.startDate < $1.startDate : $0.startDate > $1.startDate
-                }
-                guard !dayMatches.isEmpty else { return nil }
-
-                let title: String
-                if calendar.isDate(day, inSameDayAs: today) {
-                    title = "Hoy"
-                } else if calendar.isDate(day, inSameDayAs: tomorrow) {
-                    title = "Mañana"
-                } else {
-                    title = fmt.string(from: day).capitalized
-                }
-                return AdminMatchSection(title: title, matches: dayMatches)
-            }
     }
 }

@@ -20,6 +20,7 @@ public struct AdminPanelView: View {
     @State private var showNewMatch = false
     @State private var showMatchesList = false
     @State private var locations: [AdminLocation] = []
+    @State private var selectedMatch: AdminMatch? = nil
 
     private let factory: AdminDependencyFactory
 
@@ -101,6 +102,18 @@ public struct AdminPanelView: View {
             )
             .modifier(HideTabBarModifier())
         }
+        .navigationDestination(isPresented: Binding(
+            get: { selectedMatch != nil },
+            set: { if !$0 { selectedMatch = nil } }
+        )) {
+            if let match = selectedMatch {
+                AdminMatchDetailView(
+                    viewModel: factory.makeAdminMatchDetailViewModel(match: match),
+                    factory: factory
+                )
+                .modifier(HideTabBarModifier())
+            }
+        }
         .task {
             await viewModel.load()
             await loadLocations()
@@ -117,19 +130,24 @@ public struct AdminPanelView: View {
     // MARK: - Header
 
     private var headerBar: some View {
-        HStack {
-            FMBrandLogo()
-
-            Spacer()
-
-            if #available(iOS 26.0, *) {
-                GlassEffectContainer(spacing: 8) {
+        ZStack {
+            HStack {
+                FMBrandLogo()
+                Spacer()
+                if #available(iOS 26.0, *) {
+                    GlassEffectContainer(spacing: 8) {
+                        playerButton
+                            .glassEffect(.regular.interactive(), in: .circle)
+                    }
+                } else {
                     playerButton
-                        .glassEffect(.regular.interactive(), in: .circle)
                 }
-            } else {
-                playerButton
             }
+
+            Text("admin")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundColor(FMColors.primary)
+                .kerning(1.5)
         }
         .padding(.horizontal, 24)
         .padding(.top, 8)
@@ -278,13 +296,14 @@ public struct AdminPanelView: View {
             if upcomingMatches.isEmpty {
                 FMEmptyStateCard(
                     icon: "soccerball",
-                    message: "No hay partidos programados"
+                    message: L10n.AdminPanel.emptyOngoingMatches
                 )
                 .padding(.horizontal, 24)
             } else {
                 LazyVStack(spacing: 12) {
-                    ForEach(upcomingMatches) { match in
-                        AdminMatchRow(match: match)
+                    ForEach(upcomingMatches) { upcomingMatch in
+                        let fullMatch = ongoingFullMatches.first { $0.id == upcomingMatch.id }
+                        AdminMatchRow(match: upcomingMatch, onTap: fullMatch.map { m in { selectedMatch = m } })
                     }
                 }
                 .padding(.horizontal, 24)
@@ -303,6 +322,7 @@ public struct AdminPanelView: View {
     private var registeredVenuesCount: Int { dashboard?.registeredVenuesCount ?? 0 }
     private var registeredLocationsCount: Int { locations.count }
     private var upcomingMatches: [AdminUpcomingMatch] { dashboard?.upcomingMatches ?? [] }
+    private var ongoingFullMatches: [AdminMatch] { dashboard?.ongoingFullMatches ?? [] }
 }
 
 // MARK: - Hide Tab Bar Modifier

@@ -203,6 +203,7 @@ public struct FMDropdownField<Option: FMDropdownOption>: View {
             HStack {
                 Text(option.displayName)
                     .font(FMTypography.inputText)
+                    .fontWeight(.regular)
                     .foregroundColor(FMColors.onSurface)
                 
                 Spacer()

@@ -98,7 +98,11 @@ public struct HomeContainerView: View {
         }
         .onChange(of: scenePhase) { phase in
             guard phase == .active else { return }
-            Task { await notificationsViewModel.loadUnreadCount() }
+            Task {
+                await notificationsViewModel.loadUnreadCount()
+                await homeViewModel.load()
+                await reservedViewModel.load()
+            }
         }
     }
     

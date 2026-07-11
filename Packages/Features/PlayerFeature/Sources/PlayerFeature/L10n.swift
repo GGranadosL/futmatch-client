@@ -342,6 +342,21 @@ public enum L10n {
         public static var joinNotOpenMessage: String {
             NSLocalizedString("matchDetail.joinNotOpenMessage", bundle: .module, comment: "")
         }
+        public static var openInMapsTitle: String {
+            NSLocalizedString("matchDetail.openInMapsTitle", bundle: .module, comment: "")
+        }
+        public static var openAppleMaps: String {
+            NSLocalizedString("matchDetail.openAppleMaps", bundle: .module, comment: "")
+        }
+        public static var openGoogleMaps: String {
+            NSLocalizedString("matchDetail.openGoogleMaps", bundle: .module, comment: "")
+        }
+        public static var playersLoadError: String {
+            NSLocalizedString("matchDetail.playersLoadError", bundle: .module, comment: "")
+        }
+        public static var paymentReusedNotice: String {
+            NSLocalizedString("matchDetail.paymentReusedNotice", bundle: .module, comment: "")
+        }
     }
 
     // MARK: - Settings

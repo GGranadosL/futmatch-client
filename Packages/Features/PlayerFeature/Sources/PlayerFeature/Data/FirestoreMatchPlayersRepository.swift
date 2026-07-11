@@ -5,11 +5,16 @@ import FirebaseFirestore
 final class FirestoreMatchPlayersRepository: MatchPlayersListenerProtocol {
     private let db = Firestore.firestore()
 
-    func playerStream(matchId: String) -> AsyncStream<MatchPlayersSnapshot> {
-        AsyncStream { continuation in
+    func playerStream(matchId: String) -> AsyncThrowingStream<MatchPlayersSnapshot, Error> {
+        AsyncThrowingStream { continuation in
             let listener = db.collection("match_players")
                 .document(matchId)
-                .addSnapshotListener { snapshot, _ in
+                .addSnapshotListener { snapshot, error in
+                    if let error {
+                        continuation.finish(throwing: error)
+                        return
+                    }
+
                     guard let data = snapshot?.data(),
                           let rawPlayers = data["players"] as? [[String: Any]] else {
                         return

@@ -121,6 +121,104 @@ final class MockAdminFieldsRepository: AdminFieldsRepositoryProtocol {
     }
 }
 
+// MARK: - MockAdminMatchRepository
+
+final class MockAdminMatchRepository: AdminMatchRepositoryProtocol {
+    var fetchMatchesResult: Result<[AdminMatch], Error> = .success([])
+    func fetchMatches() async throws -> [AdminMatch] { try fetchMatchesResult.get() }
+
+    var createMatchResult: Result<AdminMatch, Error> = .success(.stub())
+    func createMatch(_ params: CreateMatchParams) async throws -> AdminMatch { try createMatchResult.get() }
+
+    var updateMatchResult: Result<AdminMatch, Error> = .success(.stub())
+    func updateMatch(_ params: UpdateMatchParams) async throws -> AdminMatch { try updateMatchResult.get() }
+
+    var cancelMatchResult: Result<Void, Error> = .success(())
+    private(set) var cancelMatchCallCount = 0
+    private(set) var lastCancelMatchId: String?
+    private(set) var lastCancelReason: String?
+    func cancelMatch(matchId: String, reason: String) async throws {
+        cancelMatchCallCount += 1
+        lastCancelMatchId = matchId
+        lastCancelReason = reason
+        try cancelMatchResult.get()
+    }
+
+    var completeMatchResult: Result<Void, Error> = .success(())
+    func completeMatch(params: CompleteMatchParams) async throws { try completeMatchResult.get() }
+
+    var fetchMatchPlayersResult: Result<(teamA: [AdminMatchPlayer], teamB: [AdminMatchPlayer]), Error> = .success(([], []))
+    private(set) var fetchMatchPlayersCallCount = 0
+    private(set) var lastFetchMatchPlayersId: String?
+    func fetchMatchPlayers(matchId: String) async throws -> (teamA: [AdminMatchPlayer], teamB: [AdminMatchPlayer]) {
+        fetchMatchPlayersCallCount += 1
+        lastFetchMatchPlayersId = matchId
+        return try fetchMatchPlayersResult.get()
+    }
+
+    var rebalanceTeamsResult: Result<Void, Error> = .success(())
+    func rebalanceTeams(matchId: String, assignments: [(userId: String, team: String)]) async throws {
+        try rebalanceTeamsResult.get()
+    }
+}
+
+// MARK: - MockFetchAdminMatchPlayersUseCase
+
+final class MockFetchAdminMatchPlayersUseCase: FetchAdminMatchPlayersUseCaseProtocol {
+    var result: Result<(teamA: [AdminMatchPlayer], teamB: [AdminMatchPlayer]), Error> = .success(([], []))
+    private(set) var callCount = 0
+    private(set) var lastMatchId: String?
+    func execute(matchId: String) async throws -> (teamA: [AdminMatchPlayer], teamB: [AdminMatchPlayer]) {
+        callCount += 1
+        lastMatchId = matchId
+        return try result.get()
+    }
+}
+
+// MARK: - MockSubscribeAdminMatchPlayersUseCase
+
+final class MockSubscribeAdminMatchPlayersUseCase: SubscribeAdminMatchPlayersUseCaseProtocol {
+    var snapshotsToEmit: [AdminMatchPlayersSnapshot] = []
+    private(set) var callCount = 0
+    func execute(matchId: String) -> AsyncThrowingStream<AdminMatchPlayersSnapshot, Error> {
+        callCount += 1
+        let snapshots = snapshotsToEmit
+        return AsyncThrowingStream { continuation in
+            for s in snapshots { continuation.yield(s) }
+            continuation.finish()
+        }
+    }
+}
+
+// MARK: - MockCancelAdminMatchUseCase
+
+final class MockCancelAdminMatchUseCase: CancelAdminMatchUseCaseProtocol {
+    var result: Result<Void, Error> = .success(())
+    private(set) var callCount = 0
+    private(set) var lastMatchId: String?
+    private(set) var lastReason: String?
+    func execute(matchId: String, reason: String) async throws {
+        callCount += 1
+        lastMatchId = matchId
+        lastReason = reason
+        try result.get()
+    }
+}
+
+// MARK: - MockFetchAdminFieldsUseCase
+
+final class MockFetchAdminFieldsUseCase: FetchAdminFieldsUseCaseProtocol {
+    var result: Result<[AdminFieldItem], Error> = .success([])
+    public func execute() async throws -> [AdminFieldItem] { try result.get() }
+}
+
+// MARK: - MockRebalanceTeamsUseCase
+
+final class MockRebalanceTeamsUseCase: RebalanceTeamsUseCaseProtocol {
+    var result: Result<Void, Error> = .success(())
+    func execute(matchId: String, assignments: [(userId: String, team: String)]) async throws { try result.get() }
+}
+
 // MARK: - MockAdminDashboardRepository
 
 final class MockAdminDashboardRepository: AdminDashboardRepositoryProtocol {

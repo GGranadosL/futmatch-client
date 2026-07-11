@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 // MARK: - NotificationSection
 
@@ -109,7 +110,9 @@ final class NotificationsViewModel: ObservableObject {
                 guard !remaining.isEmpty else { return nil }
                 return NotificationSection(title: section.title, notifications: remaining)
             }
-            state = updated.isEmpty ? .empty : .loaded(updated)
+            withAnimation(.easeInOut(duration: 0.3)) {
+                state = updated.isEmpty ? .empty : .loaded(updated)
+            }
         }
         // Fire-and-forget — if it fails the item is already gone visually (matches common app patterns)
         try? await notificationService.deleteNotification(id: id)

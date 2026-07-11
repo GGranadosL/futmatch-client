@@ -183,7 +183,7 @@ final class MatchesViewModel: ObservableObject {
 
         let fmt = DateFormatter()
         fmt.locale = Locale(identifier: "es_MX")
-        fmt.dateFormat = "EEEE d"
+        fmt.dateFormat = "EEEE d 'de' MMMM"
 
         return grouped.keys.sorted().compactMap { day in
             let dayMatches = grouped[day] ?? []

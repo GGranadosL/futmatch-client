@@ -83,9 +83,7 @@ struct LocationDetailView: View {
                 FMBackButton { dismiss() }
             }
             ToolbarItem(placement: .principal) {
-                Text(L10n.EditLocation.title)
-                    .font(FMTypography.titleLarge)
-                    .foregroundColor(FMColors.onBackground)
+                AdminNavTitle(title: L10n.EditLocation.title)
             }
             ToolbarItem(placement: .navigationBarTrailing) {
                 if isDeleting {

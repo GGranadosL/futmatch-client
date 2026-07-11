@@ -32,9 +32,7 @@ struct AdminFieldsListView: View {
                 FMBackButton { dismiss() }
             }
             ToolbarItem(placement: .principal) {
-                Text(L10n.Fields.title)
-                    .font(FMTypography.titleLarge)
-                    .foregroundColor(FMColors.onBackground)
+                AdminNavTitle(title: L10n.Fields.title)
             }
         }
         .task { await viewModel.load() }

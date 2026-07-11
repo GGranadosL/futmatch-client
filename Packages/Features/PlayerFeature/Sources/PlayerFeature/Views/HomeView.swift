@@ -16,6 +16,7 @@ struct HomeContentView: View {
 
     @State private var showNotifications = false
     @State private var showAdmin = false
+    @State private var showOrganizer = false
 
     /// `ADMIN` and `ORGANIZER` users see the admin-panel button next to the bell,
     /// unless `admin_feature_enabled` Remote Config flag is set to false.
@@ -23,6 +24,10 @@ struct HomeContentView: View {
         guard AdminRemoteConfig().isAdminFeatureEnabled else { return false }
         let role = userSession.currentUser?.userRole
         return role == .administrator || role == .organizer
+    }
+
+    private var isOrganizer: Bool {
+        userSession.currentUser?.userRole == .organizer
     }
 
     private var nextMatch: MatchItem? { reservedViewModel.nextMatch }
@@ -77,6 +82,23 @@ struct HomeContentView: View {
         .navigationDestination(isPresented: $showAdmin) {
             AdminPanelView()
         }
+        .navigationDestination(isPresented: $showOrganizer) {
+            OrganizerHomeView()
+        }
+        .onChange(of: showAdmin) { isShowing in
+            guard !isShowing else { return }
+            Task {
+                await homeViewModel.load()
+                await reservedViewModel.load()
+            }
+        }
+        .onChange(of: showOrganizer) { isShowing in
+            guard !isShowing else { return }
+            Task {
+                await homeViewModel.load()
+                await reservedViewModel.load()
+            }
+        }
     }
 
     // MARK: - Header
@@ -120,7 +142,7 @@ struct HomeContentView: View {
 
     private var adminButton: some View {
         Button {
-            showAdmin = true
+            if isOrganizer { showOrganizer = true } else { showAdmin = true }
         } label: {
             Image("admin_panel_settings", bundle: .main)
                 .renderingMode(.template)

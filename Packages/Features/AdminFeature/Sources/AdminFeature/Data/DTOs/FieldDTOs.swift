@@ -153,6 +153,11 @@ struct FieldImageMutationResponse: Decodable {
 struct FieldIdNameDTO: Decodable {
     let id: String
     let name: String
+    let priceInCents: Int?
+
+    func toDomain() -> FieldIdName {
+        FieldIdName(id: id, name: name, priceInCents: priceInCents ?? 0)
+    }
 }
 
 struct FieldDTO: Decodable {

@@ -121,7 +121,7 @@ public final class EditLocationViewModel: ObservableObject {
 
         cityValidationError = isCityValid(latitude: latitude, longitude: longitude)
             ? nil
-            : "La dirección está fuera de \(selectedCityName). Elige un punto dentro de la ciudad seleccionada."
+            : L10n.Validation.addressOutOfCity(selectedCityName)
 
         Task { await fetchAddressFromCoordinates(latitude, longitude) }
     }
@@ -163,7 +163,7 @@ public final class EditLocationViewModel: ObservableObject {
 
         cityValidationError = isCityValid(latitude: result.latitude, longitude: result.longitude)
             ? nil
-            : "La dirección está fuera de \(selectedCityName). Elige una dentro de la ciudad seleccionada."
+            : L10n.Validation.addressOutOfCity(selectedCityName)
     }
 
     // MARK: - Save

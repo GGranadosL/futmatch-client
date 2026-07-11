@@ -46,7 +46,7 @@ struct AdminMatchRow: View {
                     .foregroundColor(FMColors.onSurfaceVariant)
 
                     if match.isIncomplete {
-                        Text("Incompleto")
+                        Text(L10n.AdminMatches.incomplete)
                             .font(FMTypography.bodySmall)
                             .foregroundColor(FMColors.onSurfaceVariant)
                     }

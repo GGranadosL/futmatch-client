@@ -10,6 +10,17 @@ struct AdminFieldCard: View {
 
     @State private var cachedImage: UIImage? = nil
 
+    init(field: AdminFieldItem, onTap: (() -> Void)? = nil) {
+        self.field = field
+        self.onTap = onTap
+        // Seed from the cache so a recreated card (list refresh, LazyVStack
+        // recycling) renders the image on its first frame instead of flashing
+        // the placeholder while `.task` re-fetches it.
+        _cachedImage = State(
+            initialValue: field.imageUrl.flatMap { FMImageCache.shared.image(for: $0) }
+        )
+    }
+
     var body: some View {
         Button { onTap?() } label: {
             VStack(alignment: .leading, spacing: 0) {

@@ -14,9 +14,9 @@ public enum MatchGender: String, Codable, CaseIterable, Identifiable, Hashable, 
 
     public var displayName: String {
         switch self {
-        case .mixed:      return "Mixto"
-        case .maleOnly:   return "Solo hombres"
-        case .femaleOnly: return "Solo mujeres"
+        case .mixed:      return L10n.MatchGender.mixed
+        case .maleOnly:   return L10n.MatchGender.maleOnly
+        case .femaleOnly: return L10n.MatchGender.femaleOnly
         }
     }
 
@@ -46,10 +46,10 @@ public enum MatchPlayerLevel: String, Codable, CaseIterable, Identifiable, Hasha
 
     public var displayName: String {
         switch self {
-        case .beginner:     return "Principiante"
-        case .intermediate: return "Intermedio"
-        case .advanced:     return "Avanzado"
-        case .any:          return "Cualquier nivel"
+        case .beginner:     return L10n.MatchPlayerLevel.beginner
+        case .intermediate: return L10n.MatchPlayerLevel.intermediate
+        case .advanced:     return L10n.MatchPlayerLevel.advanced
+        case .any:          return L10n.MatchPlayerLevel.any
         }
     }
 
@@ -65,12 +65,24 @@ public enum AdminMatchStatus: String, Equatable {
     case completed  = "COMPLETED"
     case canceled   = "CANCELED"
 
+    /// The backend emits both spellings for cancellation ("CANCELED"/"CANCELLED"),
+    /// so raw-value decoding alone would misfile those matches under `.scheduled`.
+    public init(backend value: String) {
+        switch value.uppercased() {
+        case "IN_PROGRESS": self = .inProgress
+        case "COMPLETED":   self = .completed
+        case "CANCELED",
+             "CANCELLED":   self = .canceled
+        default:            self = .scheduled
+        }
+    }
+
     public var displayName: String {
         switch self {
-        case .scheduled:  return "Programado"
-        case .inProgress: return "En curso"
-        case .completed:  return "Finalizado"
-        case .canceled:   return "Cancelado"
+        case .scheduled:  return L10n.AdminMatchStatus.scheduled
+        case .inProgress: return L10n.AdminMatchStatus.inProgress
+        case .completed:  return L10n.AdminMatchStatus.completed
+        case .canceled:   return L10n.AdminMatchStatus.canceled
         }
     }
 }

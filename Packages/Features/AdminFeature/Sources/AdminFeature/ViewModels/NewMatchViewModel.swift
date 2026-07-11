@@ -68,6 +68,27 @@ public final class NewMatchViewModel: ObservableObject {
         return Int((amount * 100).rounded())
     }
 
+    public var fieldCostCents: Int? {
+        guard let field = selectedField else { return nil }
+        return field.priceInCents
+    }
+
+    public var projectedRevenueCents: Int? {
+        guard let price = priceInCents, let minPlayers = minPlayers else { return nil }
+        return price * minPlayers
+    }
+
+    public var isRevenueSufficient: Bool {
+        guard let revenue = projectedRevenueCents, let cost = fieldCostCents else { return false }
+        return revenue >= cost
+    }
+
+    public var insufficientRevenueError: String? {
+        guard let cost = fieldCostCents, let price = priceInCents, !isRevenueSufficient else { return nil }
+        let minRequired = (cost + 99) / 100 // Round up to nearest dollar
+        return L10n.Validation.minimumPrice("\(minRequired).00", String(format: "%.2f", Double(cost) / 100))
+    }
+
     public var isValid: Bool {
         guard let minPlayers = minPlayers,
               let maxPlayers = maxPlayers else { return false }
@@ -76,6 +97,7 @@ public final class NewMatchViewModel: ObservableObject {
             && priceInCents != nil
             && selectedGender != nil
             && selectedLevel != nil
+            && isRevenueSufficient
     }
 
     // MARK: - Price Formatting

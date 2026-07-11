@@ -28,7 +28,7 @@ struct AdminLocationsListView: View {
             } else if !isLoading && locations.isEmpty {
                 FMEmptyStateCard(
                     icon: "mappin.circle.fill",
-                    message: "No hay ubicaciones registradas"
+                    message: L10n.AdminLocations.emptyList
                 )
                 .padding(.horizontal, 24)
                 .padding(.top, 32)
@@ -74,9 +74,7 @@ struct AdminLocationsListView: View {
                 FMBackButton { dismiss() }
             }
             ToolbarItem(placement: .principal) {
-                Text("Ubicaciones")
-                    .font(FMTypography.titleLarge)
-                    .foregroundColor(FMColors.onBackground)
+                AdminNavTitle(title: "Ubicaciones")
             }
         }
         .task { await loadLocations() }

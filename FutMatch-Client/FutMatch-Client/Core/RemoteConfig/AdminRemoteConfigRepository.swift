@@ -15,12 +15,14 @@ final class AdminRemoteConfigRepository: AdminRemoteConfigProtocol {
 
     // MARK: - Keys (must match Firebase Console exactly)
 
-    private static let maxImagesKey      = "admin_field_max_images"
-    private static let featureEnabledKey = "admin_feature_enabled"
+    private static let maxImagesKey               = "admin_field_max_images"
+    private static let featureEnabledKey          = "admin_feature_enabled"
+    private static let cancelPaidThresholdHoursKey = "match_cancel_paid_threshold_hours"
 
     // UserDefaults keys (namespaced to avoid collisions)
-    private static let cachedMaxImagesKey      = AdminRemoteConfig.maxImagesKey
-    private static let cachedFeatureEnabledKey = AdminRemoteConfig.featureEnabledKey
+    private static let cachedMaxImagesKey                = AdminRemoteConfig.maxImagesKey
+    private static let cachedFeatureEnabledKey           = AdminRemoteConfig.featureEnabledKey
+    private static let cachedCancelPaidThresholdHoursKey = AdminRemoteConfig.cancelPaidThresholdHoursKey
 
     private static let fetchInterval: TimeInterval = 3_600   // 1 hour in production
 
@@ -62,6 +64,11 @@ final class AdminRemoteConfigRepository: AdminRemoteConfigProtocol {
         (defaults.object(forKey: Self.cachedFeatureEnabledKey) as? Bool) ?? true
     }
 
+    var cancelMatchPaidThresholdHours: Int {
+        let stored = defaults.integer(forKey: Self.cachedCancelPaidThresholdHoursKey)
+        return stored > 0 ? stored : 6
+    }
+
     // MARK: - Fetch & Activate
 
     /// Call once at app launch (after `FirebaseApp.configure()`).
@@ -92,6 +99,13 @@ final class AdminRemoteConfigRepository: AdminRemoteConfigProtocol {
         let raw = remoteConfig.configValue(forKey: Self.featureEnabledKey)
         if raw.source != .static {
             defaults.set(raw.boolValue, forKey: Self.cachedFeatureEnabledKey)
+        }
+
+        let cancelHours = remoteConfig
+            .configValue(forKey: Self.cancelPaidThresholdHoursKey)
+            .numberValue.intValue
+        if cancelHours > 0 {
+            defaults.set(cancelHours, forKey: Self.cachedCancelPaidThresholdHoursKey)
         }
     }
 }

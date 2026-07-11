@@ -7,6 +7,12 @@ enum L10n {
         static var cancel: String {
             NSLocalizedString("common.cancel", bundle: .module, comment: "")
         }
+        static var errorTitle: String {
+            NSLocalizedString("common.errorTitle", bundle: .module, comment: "")
+        }
+        static var retry: String {
+            NSLocalizedString("common.retry", bundle: .module, comment: "")
+        }
     }
     enum Admin {
         enum ActionCard {
@@ -118,9 +124,6 @@ enum L10n {
         }
         static var address: String {
             NSLocalizedString("newLocation.address", bundle: .module, comment: "")
-        }
-        static var exteriorNumber: String {
-            NSLocalizedString("newLocation.exteriorNumber", bundle: .module, comment: "")
         }
         static var latitude: String {
             NSLocalizedString("newLocation.latitude", bundle: .module, comment: "")
@@ -299,6 +302,36 @@ enum L10n {
         static var description: String {
             NSLocalizedString("adminMatches.description", bundle: .module, comment: "")
         }
+        static var tabUpcoming: String {
+            NSLocalizedString("adminMatches.tabUpcoming", bundle: .module, comment: "")
+        }
+        static var tabFinished: String {
+            NSLocalizedString("adminMatches.tabFinished", bundle: .module, comment: "")
+        }
+        static var tabCanceled: String {
+            NSLocalizedString("adminMatches.tabCanceled", bundle: .module, comment: "")
+        }
+        static var sectionToday: String {
+            NSLocalizedString("adminMatches.sectionToday", bundle: .module, comment: "")
+        }
+        static var sectionTomorrow: String {
+            NSLocalizedString("adminMatches.sectionTomorrow", bundle: .module, comment: "")
+        }
+        static var emptyAll: String {
+            NSLocalizedString("adminMatches.emptyAll", bundle: .module, comment: "")
+        }
+        static var emptyUpcoming: String {
+            NSLocalizedString("adminMatches.emptyUpcoming", bundle: .module, comment: "")
+        }
+        static var emptyFinished: String {
+            NSLocalizedString("adminMatches.emptyFinished", bundle: .module, comment: "")
+        }
+        static var emptyCanceled: String {
+            NSLocalizedString("adminMatches.emptyCanceled", bundle: .module, comment: "")
+        }
+        static var incomplete: String {
+            NSLocalizedString("adminMatches.incomplete", bundle: .module, comment: "")
+        }
     }
 
     enum AdminFields {
@@ -307,6 +340,260 @@ enum L10n {
         }
         static var description: String {
             NSLocalizedString("adminFields.description", bundle: .module, comment: "")
+        }
+    }
+
+    enum EditMatch {
+        static var title: String {
+            NSLocalizedString("editMatch.title", bundle: .module, comment: "")
+        }
+        static var saveChanges: String {
+            NSLocalizedString("editMatch.saveChanges", bundle: .module, comment: "")
+        }
+        static var confirmTitle: String {
+            NSLocalizedString("editMatch.confirmTitle", bundle: .module, comment: "")
+        }
+        static var confirmMessage: String {
+            NSLocalizedString("editMatch.confirmMessage", bundle: .module, comment: "")
+        }
+        static var confirmButton: String {
+            NSLocalizedString("editMatch.confirmButton", bundle: .module, comment: "")
+        }
+        static var successMessage: String {
+            NSLocalizedString("editMatch.successMessage", bundle: .module, comment: "")
+        }
+    }
+
+    enum CancelMatch {
+        static var title: String {
+            NSLocalizedString("cancelMatch.title", bundle: .module, comment: "")
+        }
+        static var noPayMessage: String {
+            NSLocalizedString("cancelMatch.noPayMessage", bundle: .module, comment: "")
+        }
+        static var withPayMessage: String {
+            NSLocalizedString("cancelMatch.withPayMessage", bundle: .module, comment: "")
+        }
+        static var confirmButton: String {
+            NSLocalizedString("cancelMatch.confirmButton", bundle: .module, comment: "")
+        }
+        static var backButton: String {
+            NSLocalizedString("cancelMatch.backButton", bundle: .module, comment: "")
+        }
+        static var reasonTitle: String {
+            NSLocalizedString("cancelMatch.reasonTitle", bundle: .module, comment: "")
+        }
+        static var reasonSubtitle: String {
+            NSLocalizedString("cancelMatch.reasonSubtitle", bundle: .module, comment: "")
+        }
+        static var reasonMinPlayers: String {
+            NSLocalizedString("cancelMatch.reasonMinPlayers", bundle: .module, comment: "")
+        }
+        static var reasonWeather: String {
+            NSLocalizedString("cancelMatch.reasonWeather", bundle: .module, comment: "")
+        }
+        static var reasonFieldUnavailable: String {
+            NSLocalizedString("cancelMatch.reasonFieldUnavailable", bundle: .module, comment: "")
+        }
+        static var reasonOther: String {
+            NSLocalizedString("cancelMatch.reasonOther", bundle: .module, comment: "")
+        }
+        static var reasonOtherLabel: String {
+            NSLocalizedString("cancelMatch.reasonOtherLabel", bundle: .module, comment: "")
+        }
+        static var invalidReason: String {
+            NSLocalizedString("cancelMatch.invalidReason", bundle: .module, comment: "")
+        }
+        static var canceledSuccess: String {
+            NSLocalizedString("cancelMatch.canceledSuccess", bundle: .module, comment: "")
+        }
+    }
+
+    enum MatchSupervision {
+        static var title: String {
+            NSLocalizedString("matchSupervision.title", bundle: .module, comment: "")
+        }
+        static var bestPlayer: String {
+            NSLocalizedString("matchSupervision.bestPlayer", bundle: .module, comment: "")
+        }
+        static var bestPlayerPlaceholder: String {
+            NSLocalizedString("matchSupervision.bestPlayerPlaceholder", bundle: .module, comment: "")
+        }
+        static var goalsPerPlayer: String {
+            NSLocalizedString("matchSupervision.goalsPerPlayer", bundle: .module, comment: "")
+        }
+        static var externalPlayer: String {
+            NSLocalizedString("matchSupervision.externalPlayer", bundle: .module, comment: "")
+        }
+        static var finalizeButton: String {
+            NSLocalizedString("matchSupervision.finalizeButton", bundle: .module, comment: "")
+        }
+        static var finalizeTitle: String {
+            NSLocalizedString("matchSupervision.finalizeTitle", bundle: .module, comment: "")
+        }
+        static var bestPlayerRequired: String {
+            NSLocalizedString("matchSupervision.bestPlayerRequired", bundle: .module, comment: "")
+        }
+        static var completedSuccess: String {
+            NSLocalizedString("matchSupervision.completedSuccess", bundle: .module, comment: "")
+        }
+        static var playersLoadError: String {
+            NSLocalizedString("matchSupervision.playersLoadError", bundle: .module, comment: "")
+        }
+    }
+
+    enum OrganizerHome {
+        static var roleBadge: String {
+            NSLocalizedString("organizerHome.roleBadge", bundle: .module, comment: "")
+        }
+        static func greeting(_ name: String) -> String {
+            String(format: NSLocalizedString("organizerHome.greeting", bundle: .module, comment: ""), name)
+        }
+        static var matchesTitle: String {
+            NSLocalizedString("organizerHome.matchesTitle", bundle: .module, comment: "")
+        }
+    }
+
+    enum AdminMatchDetail {
+        static var currentLineup: String {
+            NSLocalizedString("adminMatchDetail.currentLineup", bundle: .module, comment: "")
+        }
+        static var teamA: String {
+            NSLocalizedString("adminMatchDetail.teamA", bundle: .module, comment: "")
+        }
+        static var teamB: String {
+            NSLocalizedString("adminMatchDetail.teamB", bundle: .module, comment: "")
+        }
+        static var emptySlot: String {
+            NSLocalizedString("adminMatchDetail.emptySlot", bundle: .module, comment: "")
+        }
+        static func spotsLeft(_ count: Int) -> String {
+            String(format: NSLocalizedString("adminMatchDetail.spotsLeft", bundle: .module, comment: ""), count)
+        }
+        static var fieldDetails: String {
+            NSLocalizedString("adminMatchDetail.fieldDetails", bundle: .module, comment: "")
+        }
+        static var shoeType: String {
+            NSLocalizedString("adminMatchDetail.shoeType", bundle: .module, comment: "")
+        }
+        static var fieldType: String {
+            NSLocalizedString("adminMatchDetail.fieldType", bundle: .module, comment: "")
+        }
+        static var parking: String {
+            NSLocalizedString("adminMatchDetail.parking", bundle: .module, comment: "")
+        }
+        static var yes: String {
+            NSLocalizedString("adminMatchDetail.yes", bundle: .module, comment: "")
+        }
+        static var no: String {
+            NSLocalizedString("adminMatchDetail.no", bundle: .module, comment: "")
+        }
+        static var rules: String {
+            NSLocalizedString("adminMatchDetail.rules", bundle: .module, comment: "")
+        }
+        static var extraInfo: String {
+            NSLocalizedString("adminMatchDetail.extraInfo", bundle: .module, comment: "")
+        }
+        static var openInMapsTitle: String {
+            NSLocalizedString("adminMatchDetail.openInMapsTitle", bundle: .module, comment: "")
+        }
+        static var openAppleMaps: String {
+            NSLocalizedString("adminMatchDetail.openAppleMaps", bundle: .module, comment: "")
+        }
+        static var openGoogleMaps: String {
+            NSLocalizedString("adminMatchDetail.openGoogleMaps", bundle: .module, comment: "")
+        }
+        static var playerCount: (_ current: Int, _ total: Int) -> String {
+            { current, total in
+                String(format: NSLocalizedString("adminMatchDetail.playerCount", bundle: .module, comment: ""), current, total)
+            }
+        }
+        static var playersLoadError: String {
+            NSLocalizedString("adminMatchDetail.playersLoadError", bundle: .module, comment: "")
+        }
+        static var rebalanceError: String {
+            NSLocalizedString("adminMatchDetail.rebalanceError", bundle: .module, comment: "")
+        }
+    }
+
+    enum MatchGender {
+        static var mixed: String {
+            NSLocalizedString("matchGender.mixed", bundle: .module, comment: "")
+        }
+        static var maleOnly: String {
+            NSLocalizedString("matchGender.maleOnly", bundle: .module, comment: "")
+        }
+        static var femaleOnly: String {
+            NSLocalizedString("matchGender.femaleOnly", bundle: .module, comment: "")
+        }
+    }
+
+    enum MatchPlayerLevel {
+        static var beginner: String {
+            NSLocalizedString("matchPlayerLevel.beginner", bundle: .module, comment: "")
+        }
+        static var intermediate: String {
+            NSLocalizedString("matchPlayerLevel.intermediate", bundle: .module, comment: "")
+        }
+        static var advanced: String {
+            NSLocalizedString("matchPlayerLevel.advanced", bundle: .module, comment: "")
+        }
+        static var any: String {
+            NSLocalizedString("matchPlayerLevel.any", bundle: .module, comment: "")
+        }
+    }
+
+    enum AdminMatchStatus {
+        static var scheduled: String {
+            NSLocalizedString("adminMatchStatus.scheduled", bundle: .module, comment: "")
+        }
+        static var inProgress: String {
+            NSLocalizedString("adminMatchStatus.inProgress", bundle: .module, comment: "")
+        }
+        static var completed: String {
+            NSLocalizedString("adminMatchStatus.completed", bundle: .module, comment: "")
+        }
+        static var canceled: String {
+            NSLocalizedString("adminMatchStatus.canceled", bundle: .module, comment: "")
+        }
+    }
+
+    enum Validation {
+        static func fieldNameMaxLength(_ length: Int) -> String {
+            String(format: NSLocalizedString("validation.fieldNameMaxLength", bundle: .module, comment: ""), length)
+        }
+        static func addressOutOfCity(_ city: String) -> String {
+            String(format: NSLocalizedString("validation.addressOutOfCity", bundle: .module, comment: ""), city)
+        }
+        static func minimumPrice(_ fieldCost: String, _ totalRevenue: String) -> String {
+            String(format: NSLocalizedString("validation.minimumPrice", bundle: .module, comment: ""), fieldCost, totalRevenue)
+        }
+    }
+
+    enum FieldImages {
+        static var uploadError: String {
+            NSLocalizedString("fieldImages.uploadError", bundle: .module, comment: "")
+        }
+        static var uploadSuccess: String {
+            NSLocalizedString("fieldImages.uploadSuccess", bundle: .module, comment: "")
+        }
+        static var updateSuccess: String {
+            NSLocalizedString("fieldImages.updateSuccess", bundle: .module, comment: "")
+        }
+        static var deleteSuccess: String {
+            NSLocalizedString("fieldImages.deleteSuccess", bundle: .module, comment: "")
+        }
+    }
+
+    enum AdminPanel {
+        static var emptyOngoingMatches: String {
+            NSLocalizedString("admin.emptyOngoingMatches", bundle: .module, comment: "")
+        }
+    }
+
+    enum AdminLocations {
+        static var emptyList: String {
+            NSLocalizedString("admin.emptyLocations", bundle: .module, comment: "")
         }
     }
 }

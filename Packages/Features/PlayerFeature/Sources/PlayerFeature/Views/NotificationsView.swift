@@ -67,6 +67,7 @@ struct NotificationsView: View {
             LazyVStack(alignment: .leading, spacing: 0, pinnedViews: []) {
                 ForEach(sections) { section in
                     sectionHeader(section.title)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
                     ForEach(section.notifications) { item in
                         NotificationRowView(item: item) {
                             Task { await viewModel.handleTap(item) }
@@ -75,6 +76,12 @@ struct NotificationsView: View {
                         }
                         .padding(.horizontal, 16)
                         .padding(.bottom, 10)
+                        .transition(
+                            .asymmetric(
+                                insertion: .opacity,
+                                removal: .opacity.combined(with: .move(edge: .trailing))
+                            )
+                        )
                     }
                 }
             }

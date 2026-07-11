@@ -23,7 +23,10 @@ final class AdminMatchesViewModel: ObservableObject {
         if case .loaded = state { /* silent refresh — keep showing data */ } else { state = .loading }
         do {
             let matches = try await fetchUseCase.execute()
-            state = matches.isEmpty ? .empty : .loaded(matches)
+            let newState: State = matches.isEmpty ? .empty : .loaded(matches)
+            // Skip identical publishes: a silent refresh with unchanged data
+            // would otherwise re-render the whole list for nothing.
+            if newState != state { state = newState }
         } catch {
             if case .loaded = state { return }
             state = .failed(error.localizedDescription)

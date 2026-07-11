@@ -53,9 +53,7 @@ struct NewLocationView: View {
                 FMBackButton { dismiss() }
             }
             ToolbarItem(placement: .principal) {
-                Text(L10n.NewLocation.title)
-                    .font(FMTypography.titleLarge)
-                    .foregroundColor(FMColors.onBackground)
+                AdminNavTitle(title: L10n.NewLocation.title)
             }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
@@ -256,15 +254,6 @@ struct NewLocationView: View {
                 text: $viewModel.address,
                 autocapitalization: .sentences
             )
-
-            FMTextField(
-                label: L10n.NewLocation.exteriorNumber,
-                text: $viewModel.exteriorNumber,
-                placeholder: "Ej: 15, 7B, 23-A (opcional)"
-            )
-            .onChange(of: viewModel.exteriorNumber) { _ in
-                viewModel.rebuildAddress()
-            }
 
             HStack(spacing: 12) {
                 FMTextField(

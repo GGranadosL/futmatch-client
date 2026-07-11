@@ -100,7 +100,7 @@ struct FieldService: FieldServiceProtocol {
     func fetchFieldIdNames() async throws -> [FieldIdName] {
         struct Response: Decodable { let data: [FieldIdNameDTO] }
         let response: Response = try await apiClient.request(endpoint: FieldEndpoint.idName)
-        return response.data.map { FieldIdName(id: $0.id, name: $0.name) }
+        return response.data.map { $0.toDomain() }
     }
 
     func downloadFieldImage(imageName: String) async throws -> Data {

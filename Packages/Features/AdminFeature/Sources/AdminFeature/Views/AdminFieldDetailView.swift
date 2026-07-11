@@ -91,10 +91,7 @@ struct AdminFieldDetailView: View {
                 FMBackButton { dismiss() }
             }
             ToolbarItem(placement: .principal) {
-                Text(field.name)
-                    .font(FMTypography.titleLarge)
-                    .foregroundColor(FMColors.onBackground)
-                    .lineLimit(1)
+                AdminNavTitle(title: field.name)
             }
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button { showEdit = true } label: {

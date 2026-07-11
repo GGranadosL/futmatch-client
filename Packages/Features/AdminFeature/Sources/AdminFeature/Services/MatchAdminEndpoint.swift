@@ -16,6 +16,10 @@ enum MatchAdminEndpoint: APIEndpoint {
     case cancel(matchId: String)
     /// `POST /match/admin/{matchId}/complete`
     case complete(matchId: String)
+    /// `GET /match/{matchId}`
+    case fetchDetail(matchId: String)
+    /// `POST /match/admin/{matchId}/rebalance-teams`
+    case rebalanceTeams(matchId: String)
 
     var path: String {
         switch self {
@@ -31,14 +35,18 @@ enum MatchAdminEndpoint: APIEndpoint {
             return "/match/admin/cancel/\(matchId)"
         case let .complete(matchId):
             return "/match/admin/\(matchId)/complete"
+        case let .fetchDetail(matchId):
+            return "/match/\(matchId)"
+        case let .rebalanceTeams(matchId):
+            return "/match/admin/\(matchId)/rebalance-teams"
         }
     }
 
     var method: HTTPMethod {
         switch self {
-        case .fetchAll, .fetchByField:
+        case .fetchAll, .fetchByField, .fetchDetail:
             return .get
-        case .create, .complete:
+        case .create, .complete, .rebalanceTeams:
             return .post
         case .update:
             return .put
