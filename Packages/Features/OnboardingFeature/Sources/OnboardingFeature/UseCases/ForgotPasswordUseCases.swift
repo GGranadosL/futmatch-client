@@ -21,18 +21,18 @@ public final class ForgotPasswordUseCase: ForgotPasswordUseCaseProtocol {
 // MARK: - Verify Reset MFA Use Case
 
 public protocol VerifyResetMFAUseCaseProtocol {
-    func execute(userId: String, code: String) async throws -> VerifyResetMFAResponse
+    func execute(email: String, code: String) async throws -> VerifyResetMFAResponse
 }
 
 public final class VerifyResetMFAUseCase: VerifyResetMFAUseCaseProtocol {
     private let authService: AuthServiceProtocol
-    
+
     public init(authService: AuthServiceProtocol) {
         self.authService = authService
     }
-    
-    public func execute(userId: String, code: String) async throws -> VerifyResetMFAResponse {
-        return try await authService.verifyResetMFA(userId: userId, code: code)
+
+    public func execute(email: String, code: String) async throws -> VerifyResetMFAResponse {
+        return try await authService.verifyResetMFA(email: email, code: code)
     }
 }
 

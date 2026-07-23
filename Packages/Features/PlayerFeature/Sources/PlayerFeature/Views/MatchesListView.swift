@@ -161,7 +161,7 @@ struct MatchItem: Identifiable, Hashable {
 }
 
 struct MatchSection: Identifiable {
-    let id = UUID()
+    let id: Date
     let title: String
     let matches: [MatchItem]
 }

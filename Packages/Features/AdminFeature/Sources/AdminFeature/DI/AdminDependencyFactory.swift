@@ -193,8 +193,39 @@ public struct AdminDependencyFactory {
     func makeNewMatchViewModel() -> NewMatchViewModel {
         NewMatchViewModel(
             createMatchUseCase: makeCreateMatchUseCase(),
-            fetchFieldIdNamesUseCase: makeFetchFieldIdNamesUseCase()
+            fetchFieldIdNamesUseCase: makeFetchFieldIdNamesUseCase(),
+            fetchOrganizersUseCase: makeFetchOrganizersUseCase(),
+            fetchPricingEstimateUseCase: makeFetchPricingEstimateUseCase(),
+            fetchCustomPricingUseCase: makeFetchCustomPricingUseCase()
         )
+    }
+
+    // MARK: - Organizers
+
+    func makeUserService() -> UserServiceProtocol {
+        UserService()
+    }
+
+    func makeOrganizerRepository() -> OrganizerRepositoryProtocol {
+        OrganizerRepository(service: makeUserService())
+    }
+
+    public func makeFetchOrganizersUseCase() -> FetchOrganizersUseCaseProtocol {
+        FetchOrganizersUseCase(repository: makeOrganizerRepository())
+    }
+
+    // MARK: - Pricing
+
+    private func makePricingRepository() -> PricingRepositoryProtocol {
+        PricingRepository(service: PricingService())
+    }
+
+    public func makeFetchPricingEstimateUseCase() -> FetchPricingEstimateUseCaseProtocol {
+        FetchPricingEstimateUseCase(repository: makePricingRepository())
+    }
+
+    public func makeFetchCustomPricingUseCase() -> FetchCustomPricingUseCaseProtocol {
+        FetchCustomPricingUseCase(repository: makePricingRepository())
     }
 
     // MARK: - Match Detail

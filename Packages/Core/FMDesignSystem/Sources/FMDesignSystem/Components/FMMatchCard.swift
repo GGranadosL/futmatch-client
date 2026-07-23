@@ -34,7 +34,7 @@ public struct FMMatchCard: View {
 
     /// Cached downloaded image — survives re-renders caused by parent state changes.
     @State private var cachedFieldImage: UIImage? = nil
-    
+
     public init(
         venueName: String,
         timeRange: String,
@@ -63,6 +63,12 @@ public struct FMMatchCard: View {
         self.fieldImage = fieldImage
         self.location = location
         self.onTap = onTap
+        // Seed from the cache so a recreated card (list refresh, LazyVStack
+        // recycling) renders the image on its first frame instead of flashing
+        // the placeholder while `.task` re-fetches it.
+        _cachedFieldImage = State(
+            initialValue: fieldImageUrl.flatMap { FMImageCache.shared.image(for: $0) }
+        )
     }
     
     public var body: some View {

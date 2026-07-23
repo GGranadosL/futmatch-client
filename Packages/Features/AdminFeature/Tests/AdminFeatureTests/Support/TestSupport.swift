@@ -101,9 +101,10 @@ extension FieldIdName {
     static func stub(
         id: String = "field-1",
         name: String = "Cancha Central",
-        priceInCents: Int = 50_000
+        priceInCents: Int = 50_000,
+        maxPlayersAllowed: Int = 14
     ) -> FieldIdName {
-        FieldIdName(id: id, name: name, priceInCents: priceInCents)
+        FieldIdName(id: id, name: name, priceInCents: priceInCents, maxPlayersAllowed: maxPlayersAllowed)
     }
 }
 

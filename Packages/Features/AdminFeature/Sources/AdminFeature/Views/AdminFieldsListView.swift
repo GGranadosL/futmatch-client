@@ -25,6 +25,7 @@ struct AdminFieldsListView: View {
         VStack(spacing: 0) {
             content
         }
+        .frame(maxHeight: .infinity)
         .background(FMColors.background.ignoresSafeArea())
         .navigationBarBackButtonHidden(true)
         .toolbar {
@@ -61,9 +62,13 @@ struct AdminFieldsListView: View {
         case .loaded(let fields):
             fieldsList(fields)
         case .empty:
-            FMEmptyStateCard(icon: "sportscourt.fill", message: "No hay canchas registradas")
-                .padding(.horizontal, 24)
-                .padding(.top, 32)
+            VStack {
+                Spacer()
+                FMEmptyStateCard(icon: "sportscourt.fill", message: "No hay canchas registradas")
+                    .padding(.horizontal, 24)
+                Spacer()
+            }
+            .frame(maxHeight: .infinity)
         case .failed(let message):
             FMFullScreenError(
                 title: "Error",

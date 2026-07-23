@@ -23,6 +23,9 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
+        let s = "Cab is a rab"
+        
+        var array = Array(s.filter { $0.isLetter || $0.isNumber }.lowercased())
         // App Check must be installed BEFORE FirebaseApp.configure() so the very
         // first Firebase request carries an attestation token. Uses App Attest on
         // capable devices, DeviceCheck as fallback, and a debug provider in DEBUG.

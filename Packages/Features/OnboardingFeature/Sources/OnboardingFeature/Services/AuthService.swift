@@ -11,7 +11,7 @@ public protocol AuthServiceProtocol {
     func mfaSend(challengeToken: String) async throws -> MFASendResponse
     func mfaVerify(challengeToken: String, code: String) async throws -> MFAVerifyResponse
     func forgotPassword(email: String) async throws -> ForgotPasswordResponse
-    func verifyResetMFA(userId: String, code: String) async throws -> VerifyResetMFAResponse
+    func verifyResetMFA(email: String, code: String) async throws -> VerifyResetMFAResponse
     func resetPassword(newPassword: String, resetToken: String) async throws -> ResetPasswordResponse
     func refreshToken(refreshToken: String) async throws -> RefreshTokenResponse
     func signOut() async throws -> SignOutResponse
@@ -88,8 +88,8 @@ public class AuthService: AuthServiceProtocol {
         return response
     }
     
-    public func verifyResetMFA(userId: String, code: String) async throws -> VerifyResetMFAResponse {
-        let request = VerifyResetMFARequest(userId: userId, code: code)
+    public func verifyResetMFA(email: String, code: String) async throws -> VerifyResetMFAResponse {
+        let request = VerifyResetMFARequest(email: email, code: code)
         let endpoint = AuthEndpoint.verifyResetMFA(request)
         let response: VerifyResetMFAResponse = try await apiClient.request(endpoint: endpoint)
         return response

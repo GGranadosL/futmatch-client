@@ -7,8 +7,8 @@ import Foundation
 /// are handled on the receive side via `genderFromBackend(_:)`.
 public enum MatchGender: String, Codable, CaseIterable, Identifiable, Hashable, CustomStringConvertible {
     case mixed      = "MIXED"
-    case maleOnly   = "MALE"
-    case femaleOnly = "FEMALE"
+    case maleOnly   = "MALE_ONLY"
+    case femaleOnly = "FEMALE_ONLY"
 
     public var id: String { rawValue }
 

@@ -167,11 +167,11 @@ public struct ForgotPasswordResponse: Codable {
 // MARK: - Verify Reset MFA Models
 
 public struct VerifyResetMFARequest: Codable {
-    public let userId: String
+    public let email: String
     public let code: String
-    
-    public init(userId: String, code: String) {
-        self.userId = userId
+
+    public init(email: String, code: String) {
+        self.email = email
         self.code = code
     }
 }

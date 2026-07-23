@@ -56,7 +56,7 @@ struct CreateMatchRequestDTO: Encodable {
     static func from(_ params: CreateMatchParams) -> CreateMatchRequestDTO {
         CreateMatchRequestDTO(
             fieldId: params.fieldId,
-            supervisorId: nil,
+            supervisorId: params.organizerId,
             dateTime: combinedEpochMs(date: params.date, time: params.startTime),
             dateTimeEnd: combinedEpochMs(date: params.date, time: params.endTime),
             maxPlayers: params.maxPlayers,

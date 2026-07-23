@@ -166,6 +166,12 @@ enum L10n {
             static var max: String {
                 NSLocalizedString("newMatch.players.max", bundle: .module, comment: "")
             }
+            static func fieldMax(_ count: Int) -> String {
+                String(format: NSLocalizedString("newMatch.players.fieldMax", bundle: .module, comment: ""), count)
+            }
+            static func exceedsFieldMax(_ count: Int) -> String {
+                String(format: NSLocalizedString("newMatch.players.exceedsFieldMax", bundle: .module, comment: ""), count)
+            }
         }
 
         enum Section {
@@ -201,6 +207,14 @@ enum L10n {
                     NSLocalizedString("newMatch.section.cost.description", bundle: .module, comment: "")
                 }
             }
+            enum Organizer {
+                static var title: String {
+                    NSLocalizedString("newMatch.section.organizer", bundle: .module, comment: "")
+                }
+                static var description: String {
+                    NSLocalizedString("newMatch.section.organizer.description", bundle: .module, comment: "")
+                }
+            }
             enum Gender {
                 static var title: String {
                     NSLocalizedString("newMatch.section.gender", bundle: .module, comment: "")
@@ -234,6 +248,9 @@ enum L10n {
         static var priceLabel: String {
             NSLocalizedString("newMatch.price.label", bundle: .module, comment: "")
         }
+        static var organizerLabel: String {
+            NSLocalizedString("newMatch.organizer.label", bundle: .module, comment: "")
+        }
         static var genderLabel: String {
             NSLocalizedString("newMatch.gender.label", bundle: .module, comment: "")
         }
@@ -242,6 +259,102 @@ enum L10n {
         }
         static var loadingFields: String {
             NSLocalizedString("newMatch.loadingFields", bundle: .module, comment: "")
+        }
+        static var loadingOrganizers: String {
+            NSLocalizedString("newMatch.loadingOrganizers", bundle: .module, comment: "")
+        }
+    }
+
+    enum Pricing {
+        static var title: String {
+            NSLocalizedString("pricing.title", bundle: .module, comment: "")
+        }
+        static var confirm: String {
+            NSLocalizedString("pricing.confirm", bundle: .module, comment: "")
+        }
+        static var change: String {
+            NSLocalizedString("pricing.change", bundle: .module, comment: "")
+        }
+        static var notSelected: String {
+            NSLocalizedString("pricing.notSelected", bundle: .module, comment: "")
+        }
+        static var selectPrice: String {
+            NSLocalizedString("pricing.selectPrice", bundle: .module, comment: "")
+        }
+        static var minToStart: String {
+            NSLocalizedString("pricing.minToStart", bundle: .module, comment: "")
+        }
+        static var breakEven: String {
+            NSLocalizedString("pricing.breakEven", bundle: .module, comment: "")
+        }
+        static var profitMin: String {
+            NSLocalizedString("pricing.profitMin", bundle: .module, comment: "")
+        }
+        static var profitFull: String {
+            NSLocalizedString("pricing.profitFull", bundle: .module, comment: "")
+        }
+        static func breakdownTitle(_ players: Int) -> String {
+            String(format: NSLocalizedString("pricing.breakdownTitle", bundle: .module, comment: ""), players)
+        }
+        static var breakdownHint: String {
+            NSLocalizedString("pricing.breakdownHint", bundle: .module, comment: "")
+        }
+        static var customHint: String {
+            NSLocalizedString("pricing.customHint", bundle: .module, comment: "")
+        }
+        static var loading: String {
+            NSLocalizedString("pricing.loading", bundle: .module, comment: "")
+        }
+        static var recalculating: String {
+            NSLocalizedString("pricing.recalculating", bundle: .module, comment: "")
+        }
+        static var currentSelection: String {
+            NSLocalizedString("pricing.currentSelection", bundle: .module, comment: "")
+        }
+        static var perPlayer: String {
+            NSLocalizedString("pricing.perPlayer", bundle: .module, comment: "")
+        }
+        static var minToStartHint: String {
+            NSLocalizedString("pricing.minToStartHint", bundle: .module, comment: "")
+        }
+        static var viable: String {
+            NSLocalizedString("pricing.viable", bundle: .module, comment: "")
+        }
+        static var notViable: String {
+            NSLocalizedString("pricing.notViable", bundle: .module, comment: "")
+        }
+        static var notViableHint: String {
+            NSLocalizedString("pricing.notViableHint", bundle: .module, comment: "")
+        }
+        static var recommended: String {
+            NSLocalizedString("pricing.recommended", bundle: .module, comment: "")
+        }
+        static var grossRevenue: String {
+            NSLocalizedString("pricing.grossRevenue", bundle: .module, comment: "")
+        }
+        static var stripeFixed: String {
+            NSLocalizedString("pricing.stripeFixed", bundle: .module, comment: "")
+        }
+        static var stripePct: String {
+            NSLocalizedString("pricing.stripePct", bundle: .module, comment: "")
+        }
+        static var totalStripe: String {
+            NSLocalizedString("pricing.totalStripe", bundle: .module, comment: "")
+        }
+        static var netAfterStripe: String {
+            NSLocalizedString("pricing.netAfterStripe", bundle: .module, comment: "")
+        }
+        static var fieldCost: String {
+            NSLocalizedString("pricing.fieldCost", bundle: .module, comment: "")
+        }
+        static var organizerFee: String {
+            NSLocalizedString("pricing.organizerFee", bundle: .module, comment: "")
+        }
+        static var estimatedProfit: String {
+            NSLocalizedString("pricing.estimatedProfit", bundle: .module, comment: "")
+        }
+        static var pricePerPlayer: String? {
+            NSLocalizedString("pricing.pricePerPlayer", bundle: .module, comment: "")
         }
     }
 

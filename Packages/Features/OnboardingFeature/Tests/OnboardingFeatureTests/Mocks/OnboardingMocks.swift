@@ -66,10 +66,10 @@ final class MockAuthService: AuthServiceProtocol {
 
     // verifyResetMFA
     var verifyResetMFAResult: Result<VerifyResetMFAResponse, Error> = .success(.stub())
-    private(set) var lastVerifyResetUserId: String?
+    private(set) var lastVerifyResetEmail: String?
     private(set) var lastVerifyResetCode: String?
-    func verifyResetMFA(userId: String, code: String) async throws -> VerifyResetMFAResponse {
-        lastVerifyResetUserId = userId
+    func verifyResetMFA(email: String, code: String) async throws -> VerifyResetMFAResponse {
+        lastVerifyResetEmail = email
         lastVerifyResetCode = code
         return try verifyResetMFAResult.get()
     }

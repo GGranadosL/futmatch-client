@@ -130,12 +130,12 @@ extension VerifyResetMFARequest {
     /// Validates all fields according to backend rules
     /// - Throws: RequestValidationError if any field is invalid
     public func validate() throws {
-        // Validate userId
-        let userIdResult = FieldValidator.validateUUID(userId)
-        guard userIdResult.isValid else {
-            throw RequestValidationError.invalidField("userId", userIdResult.errorMessage ?? "Invalid userId")
+        // Validate email
+        let emailResult = FieldValidator.validateEmail(email)
+        guard emailResult.isValid else {
+            throw RequestValidationError.invalidField("email", emailResult.errorMessage ?? "Invalid email")
         }
-        
+
         // Validate code
         let codeResult = FieldValidator.validateCode(code)
         guard codeResult.isValid else {

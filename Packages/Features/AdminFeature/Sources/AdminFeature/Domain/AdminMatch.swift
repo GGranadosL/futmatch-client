@@ -138,6 +138,7 @@ public struct CreateMatchParams {
     /// Display name of the field — used locally to populate the domain model
     /// returned from `createMatch` (the create response omits `fieldName`).
     public let fieldName: String
+    public let organizerId: String
     public let date: Date
     public let startTime: Date
     public let endTime: Date
@@ -150,6 +151,7 @@ public struct CreateMatchParams {
     public init(
         fieldId: String,
         fieldName: String,
+        organizerId: String,
         date: Date,
         startTime: Date,
         endTime: Date,
@@ -161,6 +163,7 @@ public struct CreateMatchParams {
     ) {
         self.fieldId = fieldId
         self.fieldName = fieldName
+        self.organizerId = organizerId
         self.date = date
         self.startTime = startTime
         self.endTime = endTime

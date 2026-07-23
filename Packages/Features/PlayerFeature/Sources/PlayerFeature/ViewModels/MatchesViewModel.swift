@@ -174,7 +174,6 @@ final class MatchesViewModel: ObservableObject {
     private static func groupByDateStatic(_ matches: [MatchItem]) -> [MatchSection] {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
-        guard let tomorrow = calendar.date(byAdding: .day, value: 1, to: today) else { return [] }
 
         var grouped: [Date: [MatchItem]] = [:]
         for match in matches {
@@ -182,21 +181,30 @@ final class MatchesViewModel: ObservableObject {
         }
 
         let fmt = DateFormatter()
-        fmt.locale = Locale(identifier: "es_MX")
-        fmt.dateFormat = "EEEE d 'de' MMMM"
+        fmt.setLocalizedDateFormatFromTemplate("EEEEdMMMM")
 
-        return grouped.keys.sorted().compactMap { day in
-            let dayMatches = grouped[day] ?? []
+        // Sort days: today first, then future days ascending
+        let sortedDays = grouped.keys.sorted { a, b in
+            if calendar.isDate(a, inSameDayAs: today) { return true }
+            if calendar.isDate(b, inSameDayAs: today) { return false }
+            return a < b
+        }
+
+        return sortedDays.compactMap { day in
+            let dayMatches = (grouped[day] ?? []).sorted { $0.startDate < $1.startDate }
             guard !dayMatches.isEmpty else { return nil }
+
             let title: String
             if calendar.isDate(day, inSameDayAs: today) {
                 title = L10n.Matches.today
-            } else if calendar.isDate(day, inSameDayAs: tomorrow) {
+            } else if let tomorrow = calendar.date(byAdding: .day, value: 1, to: today),
+                      calendar.isDate(day, inSameDayAs: tomorrow) {
                 title = L10n.Matches.tomorrow
             } else {
-                title = fmt.string(from: day).capitalized
+                let label = fmt.string(from: day)
+                title = label.prefix(1).localizedUppercase + label.dropFirst()
             }
-            return MatchSection(title: title, matches: dayMatches)
+            return MatchSection(id: day, title: title, matches: dayMatches)
         }
     }
 }

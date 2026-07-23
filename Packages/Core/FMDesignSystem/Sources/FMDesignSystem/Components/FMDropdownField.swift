@@ -81,25 +81,32 @@ public struct FMDropdownField<Option: FMDropdownOption>: View {
     }
     
     public var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            mainField
+        // The option list is flowed in-line (not overlaid) so it pushes
+        // surrounding content out of the way instead of floating on top of
+        // it — an absolutely-positioned overlay would overlap whatever
+        // section comes next in the enclosing VStack, and z-order across
+        // VStack siblings isn't reliably enforced by `zIndex`, causing the
+        // sections behind to bleed through the list.
+        VStack(alignment: .leading, spacing: 0) {
+            if opensUpward {
+                dropdownList
+                mainField
+            } else {
+                mainField
+                dropdownList
+            }
             errorMessageView
         }
-        .zIndex(isExpanded ? 999 : 0)
     }
-    
+
     // MARK: - Subviews
-    
+
     private var mainField: some View {
         ZStack(alignment: .leading) {
             fieldBorder
             floatingLabel
             selectionRow
         }
-        .overlay(alignment: .top) {
-            dropdownList
-        }
-        .zIndex(isExpanded ? 999 : 0)
     }
     
     private var fieldBorder: some View {
@@ -158,9 +165,6 @@ public struct FMDropdownField<Option: FMDropdownOption>: View {
             let maxVisibleItems = 5
             let visibleItems = min(options.count, maxVisibleItems)
             let listHeight = CGFloat(visibleItems) * itemHeight
-            // Downward: clear the 56-pt field border + 4-pt gap.
-            // Upward: position the list bottom flush with the field top, minus a 4-pt gap.
-            let yOffset: CGFloat = opensUpward ? -(listHeight + 4) : 60
 
             ScrollView {
                 LazyVStack(spacing: 0) {
@@ -187,7 +191,8 @@ public struct FMDropdownField<Option: FMDropdownOption>: View {
                 x: 0,
                 y: opensUpward ? -4 : 4
             )
-            .offset(y: yOffset)
+            .padding(opensUpward ? .bottom : .top, 4)
+            .zIndex(1)
         }
     }
     
@@ -228,6 +233,7 @@ public struct FMDropdownField<Option: FMDropdownOption>: View {
                 .font(FMTypography.caption)
                 .foregroundColor(FMColors.error)
                 .padding(.leading, 12)
+                .padding(.top, 4)
         }
     }
 }
