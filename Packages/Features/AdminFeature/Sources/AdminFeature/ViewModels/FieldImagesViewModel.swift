@@ -111,7 +111,7 @@ public final class FieldImagesViewModel: ObservableObject {
             maxDimension: maxImageDimension,
             compressionQuality: compressionQuality
         ) else {
-            errorMessage = "No se pudo procesar la imagen."
+            errorMessage = L10n.FieldImages.uploadError
             return
         }
         let data = normalized.data
@@ -131,7 +131,7 @@ public final class FieldImagesViewModel: ObservableObject {
             }
             slots[index].imageId = newId
             slots[index].remoteURL = nil   // the local image is now the source of truth
-            successMessage = isReplace ? "Imagen actualizada" : "Imagen guardada"
+            successMessage = isReplace ? L10n.FieldImages.updateSuccess : L10n.FieldImages.uploadSuccess
         } catch {
             slots[index].localImage = previousLocal   // revert optimistic preview
             errorMessage = error.apiErrorMessage ?? error.localizedDescription
@@ -158,7 +158,7 @@ public final class FieldImagesViewModel: ObservableObject {
             slots[index].imageId = nil
             slots[index].remoteURL = nil
             slots[index].localImage = nil
-            successMessage = "Imagen eliminada"
+            successMessage = L10n.FieldImages.deleteSuccess
         } catch {
             errorMessage = error.apiErrorMessage ?? error.localizedDescription
         }

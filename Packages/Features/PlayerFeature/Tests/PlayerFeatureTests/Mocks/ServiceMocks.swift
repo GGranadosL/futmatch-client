@@ -176,17 +176,77 @@ final class MockDeviceService: DeviceServiceProtocol {
     }
 }
 
+// MARK: - MockFetchMatchDetailUseCase
+
+final class MockFetchMatchDetailUseCase: FetchMatchDetailUseCaseProtocol {
+    var result: Result<MatchItem, Error> = .success(.stub())
+    func execute(matchId: String) async throws -> MatchItem { try result.get() }
+}
+
+// MARK: - MockJoinMatchUseCase
+
+final class MockJoinMatchUseCase: JoinMatchUseCaseProtocol {
+    var result: Result<JoinMatchData, Error> = .success(.stub())
+    private(set) var callCount = 0
+    func execute(matchId: String, team: String?) async throws -> JoinMatchData {
+        callCount += 1
+        return try result.get()
+    }
+}
+
+// MARK: - MockPollPaymentStatusUseCase
+
+final class MockPollPaymentStatusUseCase: PollPaymentStatusUseCaseProtocol {
+    var result: PaymentPollResult = .timeout
+    func execute(matchId: String) async -> PaymentPollResult { result }
+}
+
+// MARK: - MockSubscribeMatchPlayersUseCase
+
+final class MockSubscribeMatchPlayersUseCase: SubscribeMatchPlayersUseCaseProtocol {
+    var snapshotsToEmit: [MatchPlayersSnapshot] = []
+    private(set) var callCount = 0
+    func execute(matchId: String) -> AsyncThrowingStream<MatchPlayersSnapshot, Error> {
+        callCount += 1
+        let snapshots = snapshotsToEmit
+        return AsyncThrowingStream { continuation in
+            for s in snapshots { continuation.yield(s) }
+            continuation.finish()
+        }
+    }
+}
+
+// MARK: - MockCancelMatchUseCase
+
+final class MockCancelMatchUseCase: CancelMatchUseCaseProtocol {
+    var result: Result<Void, Error> = .success(())
+    func execute(matchId: String) async throws { try result.get() }
+}
+
+// MARK: - MockLeaveMatchUseCase
+
+final class MockLeaveMatchUseCase: LeaveMatchUseCaseProtocol {
+    var result: Result<Void, Error> = .success(())
+    func execute(matchId: String) async throws { try result.get() }
+}
+
 // MARK: - MockMatchPlayersListener
 
 final class MockMatchPlayersListener: MatchPlayersListenerProtocol {
     var snapshotsToEmit: [MatchPlayersSnapshot] = []
+    var errorToThrow: Error?
     private(set) var lastMatchId: String?
-    func playerStream(matchId: String) -> AsyncStream<MatchPlayersSnapshot> {
+    func playerStream(matchId: String) -> AsyncThrowingStream<MatchPlayersSnapshot, Error> {
         lastMatchId = matchId
         let snapshots = snapshotsToEmit
-        return AsyncStream { continuation in
-            for snapshot in snapshots { continuation.yield(snapshot) }
-            continuation.finish()
+        let error = errorToThrow
+        return AsyncThrowingStream { continuation in
+            if let error {
+                continuation.finish(throwing: error)
+            } else {
+                for snapshot in snapshots { continuation.yield(snapshot) }
+                continuation.finish()
+            }
         }
     }
 }

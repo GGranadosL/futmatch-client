@@ -1,4 +1,5 @@
 import SwiftUI
+import CoreLocation
 import FMDesignSystem
 
 // MARK: - Player Status
@@ -77,6 +78,8 @@ struct MatchItem: Identifiable, Hashable {
     let teamAScore: Int?
     let teamBScore: Int?
     let winnerTeam: String?
+    let latitude: Double?
+    let longitude: Double?
 
     init(
         id: String = UUID().uuidString,
@@ -104,7 +107,9 @@ struct MatchItem: Identifiable, Hashable {
         matchStatus: String = "UPCOMING",
         teamAScore: Int? = nil,
         teamBScore: Int? = nil,
-        winnerTeam: String? = nil
+        winnerTeam: String? = nil,
+        latitude: Double? = nil,
+        longitude: Double? = nil
     ) {
         self.id = id
         self.venueName = venueName
@@ -132,10 +137,19 @@ struct MatchItem: Identifiable, Hashable {
         self.teamAScore = teamAScore
         self.teamBScore = teamBScore
         self.winnerTeam = winnerTeam
+        self.latitude = latitude
+        self.longitude = longitude
     }
 
     static func == (lhs: MatchItem, rhs: MatchItem) -> Bool { lhs.id == rhs.id }
     func hash(into hasher: inout Hasher) { hasher.combine(id) }
+
+    /// Map coordinate for the venue, present only when the backend supplied a
+    /// valid (non-zero) lat/long pair. Used to open the location in Maps.
+    var coordinate: CLLocationCoordinate2D? {
+        guard let latitude, let longitude, !(latitude == 0 && longitude == 0) else { return nil }
+        return CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+    }
 
     /// Distance to show on the card, falling back to a localized "no location"
     /// label when the backend doesn't provide a distance/location.
@@ -147,7 +161,7 @@ struct MatchItem: Identifiable, Hashable {
 }
 
 struct MatchSection: Identifiable {
-    let id = UUID()
+    let id: Date
     let title: String
     let matches: [MatchItem]
 }
@@ -325,6 +339,7 @@ struct MatchesListView: View {
             ),
             distance: match.distanceDisplay,
             fieldImageUrl: match.fieldImageUrl,
+            location: match.location,
             onTap: {
                 navigationPath.append(match)
             }

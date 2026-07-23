@@ -55,14 +55,19 @@ public struct AdminDashboard: Equatable {
     public let scheduledMatchesCount: Int
     public let registeredVenuesCount: Int
     public let upcomingMatches: [AdminUpcomingMatch]
+    /// Full `AdminMatch` objects for the same ongoing matches — used for navigation to detail.
+    /// Sorted: `inProgress` first, then `scheduled` ascending by start time.
+    public let ongoingFullMatches: [AdminMatch]
 
     public init(
         scheduledMatchesCount: Int,
         registeredVenuesCount: Int,
-        upcomingMatches: [AdminUpcomingMatch]
+        upcomingMatches: [AdminUpcomingMatch],
+        ongoingFullMatches: [AdminMatch] = []
     ) {
         self.scheduledMatchesCount = scheduledMatchesCount
         self.registeredVenuesCount = registeredVenuesCount
         self.upcomingMatches = upcomingMatches
+        self.ongoingFullMatches = ongoingFullMatches
     }
 }

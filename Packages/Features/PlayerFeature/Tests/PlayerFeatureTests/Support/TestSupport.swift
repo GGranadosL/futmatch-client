@@ -31,15 +31,17 @@ extension MatchItem {
 
 extension JoinMatchData {
     static func stub(
-        clientSecret: String = "secret",
+        clientSecret: String? = "secret",
         paymentId: String = "pay-1",
         provider: String = "stripe",
         amountInCents: Int = 15_000,
         currency: String = "mxn",
-        customer: String = "cus_1",
-        customerSessionClientSecret: String = "css_1",
-        publishableKey: String = "pk_test",
-        reservationTtlMs: Int = 600_000
+        customer: String? = "cus_1",
+        customerSessionClientSecret: String? = "css_1",
+        publishableKey: String? = "pk_test",
+        reservationTtlMs: Int = 600_000,
+        reusedExistingPayment: Bool = false,
+        existingPaymentStatus: String? = nil
     ) -> JoinMatchData {
         JoinMatchData(
             clientSecret: clientSecret,
@@ -50,7 +52,9 @@ extension JoinMatchData {
             customer: customer,
             customerSessionClientSecret: customerSessionClientSecret,
             publishableKey: publishableKey,
-            reservationTtlMs: reservationTtlMs
+            reservationTtlMs: reservationTtlMs,
+            reusedExistingPayment: reusedExistingPayment,
+            existingPaymentStatus: existingPaymentStatus
         )
     }
 }

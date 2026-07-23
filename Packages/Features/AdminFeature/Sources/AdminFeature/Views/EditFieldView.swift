@@ -46,9 +46,7 @@ struct EditFieldView: View {
                 FMBackButton { dismiss() }
             }
             ToolbarItem(placement: .principal) {
-                Text(L10n.EditField.title)
-                    .font(FMTypography.titleLarge)
-                    .foregroundColor(FMColors.onBackground)
+                AdminNavTitle(title: L10n.EditField.title)
             }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {

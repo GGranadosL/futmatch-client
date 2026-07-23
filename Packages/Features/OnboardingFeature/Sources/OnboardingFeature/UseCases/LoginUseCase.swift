@@ -4,22 +4,20 @@ import PersistenceFramework
 // MARK: - Protocol
 public protocol LoginUseCaseProtocol {
     func execute(email: String, password: String) async throws -> LoginResult
-    func sendMFACode(userId: String, deviceId: String) async throws -> MFAResult
-    func verifyMFACode(userId: String, deviceId: String, code: String) async throws -> LoginResult
+    func sendMFACode(challengeToken: String) async throws -> MFAResult
+    func verifyMFACode(challengeToken: String, code: String) async throws -> LoginResult
 }
 
 // MARK: - Result
 public struct LoginResult {
-    public let userId: String
-    public let deviceId: String
     public let requiresMFA: Bool
     public let resendCodeTimeInSeconds: Int
-    
-    public init(userId: String, deviceId: String, requiresMFA: Bool = false, resendCodeTimeInSeconds: Int = 0) {
-        self.userId = userId
-        self.deviceId = deviceId
+    public let challengeToken: String?
+
+    public init(requiresMFA: Bool = false, resendCodeTimeInSeconds: Int = 0, challengeToken: String? = nil) {
         self.requiresMFA = requiresMFA
         self.resendCodeTimeInSeconds = resendCodeTimeInSeconds
+        self.challengeToken = challengeToken
     }
 }
 
@@ -27,7 +25,7 @@ public struct MFAResult {
     public let newCodeSent: Bool
     public let expiresInSeconds: Int
     public let resendCodeTimeInSeconds: Int
-    
+
     public init(newCodeSent: Bool, expiresInSeconds: Int, resendCodeTimeInSeconds: Int) {
         self.newCodeSent = newCodeSent
         self.expiresInSeconds = expiresInSeconds
@@ -47,68 +45,57 @@ public final class LoginUseCase: LoginUseCaseProtocol {
         self.authService = authService
         self.keychainManager = keychainManager
     }
-    
+
     public func execute(email: String, password: String) async throws -> LoginResult {
-        // Get existing deviceId if available (for re-login on same device)
         let existingDeviceId = try? keychainManager.retrieve(for: .deviceId)
-        
-        // Call sign in API
+
         let response = try await authService.signIn(
             email: email,
             password: password,
             deviceId: existingDeviceId
         )
-        
-        // Check if MFA is required
+
         if response.requiresMFA {
-            // Send MFA code
-            let mfaResponse = try await authService.mfaSend(
-                userId: response.data.userId,
-                deviceId: response.data.deviceId
-            )
-            
+            guard let challengeToken = response.data.challengeToken else {
+                throw AuthError.missingChallengeToken
+            }
+            let mfaResponse = try await authService.mfaSend(challengeToken: challengeToken)
             return LoginResult(
-                userId: response.data.userId,
-                deviceId: response.data.deviceId,
                 requiresMFA: true,
-                resendCodeTimeInSeconds: mfaResponse.data.resendCodeTimeInSeconds
+                resendCodeTimeInSeconds: mfaResponse.data.resendCodeTimeInSeconds,
+                challengeToken: challengeToken
             )
         }
-        
-        // No MFA required - save tokens
-        guard let tokens = response.data.authTokenResponse else {
+
+        guard let tokens = response.data.authTokenResponse,
+              let userId = response.data.userId,
+              let deviceId = response.data.deviceId else {
             throw AuthError.invalidCredentials
         }
-        
+
         try keychainManager.saveAuthTokens(
             accessToken: tokens.accessToken,
             refreshToken: tokens.refreshToken,
-            userId: response.data.userId,
-            deviceId: response.data.deviceId,
+            userId: userId,
+            deviceId: deviceId,
             firebaseToken: response.data.firebaseToken
         )
-        
-        return LoginResult(
-            userId: response.data.userId,
-            deviceId: response.data.deviceId,
-            requiresMFA: false
-        )
+
+        return LoginResult(requiresMFA: false)
     }
-    
-    public func sendMFACode(userId: String, deviceId: String) async throws -> MFAResult {
-        let response = try await authService.mfaSend(userId: userId, deviceId: deviceId)
-        
+
+    public func sendMFACode(challengeToken: String) async throws -> MFAResult {
+        let response = try await authService.mfaSend(challengeToken: challengeToken)
         return MFAResult(
             newCodeSent: response.data.newCodeSent,
             expiresInSeconds: response.data.expiresInSeconds,
             resendCodeTimeInSeconds: response.data.resendCodeTimeInSeconds
         )
     }
-    
-    public func verifyMFACode(userId: String, deviceId: String, code: String) async throws -> LoginResult {
-        let response = try await authService.mfaVerify(userId: userId, deviceId: deviceId, code: code)
-        
-        // Save tokens to Keychain
+
+    public func verifyMFACode(challengeToken: String, code: String) async throws -> LoginResult {
+        let response = try await authService.mfaVerify(challengeToken: challengeToken, code: code)
+
         try keychainManager.saveAuthTokens(
             accessToken: response.data.authTokenResponse.accessToken,
             refreshToken: response.data.authTokenResponse.refreshToken,
@@ -116,11 +103,7 @@ public final class LoginUseCase: LoginUseCaseProtocol {
             deviceId: response.data.deviceId,
             firebaseToken: response.data.firebaseToken
         )
-        
-        return LoginResult(
-            userId: response.data.userId,
-            deviceId: response.data.deviceId,
-            requiresMFA: false
-        )
+
+        return LoginResult(requiresMFA: false)
     }
 }

@@ -5,8 +5,8 @@ import SwiftUI
 
 public enum ForgotPasswordFlowState {
     case email
-    case verification(userId: String, email: String)
-    case newPassword(userId: String, resetToken: String)
+    case verification(email: String)
+    case newPassword(resetToken: String)
     case success
 }
 
@@ -43,22 +43,22 @@ public final class ForgotPasswordCoordinatorViewModel: ObservableObject {
         do {
             let response = try await forgotPasswordUseCase.execute(email: email)
             resendCodeTimeInSeconds = response.data.resendCodeTimeInSeconds
-            currentState = .verification(userId: response.data.userId ?? "", email: email)
+            currentState = .verification(email: email)
         } catch {
             self.error = error
         }
-        
+
         isLoading = false
     }
-    
-    public func verifyCode(_ code: String, userId: String) async {
+
+    public func verifyCode(_ code: String, email: String) async {
         isLoading = true
         error = nil
-        
+
         do {
-            let response = try await verifyResetMFAUseCase.execute(userId: userId, code: code)
+            let response = try await verifyResetMFAUseCase.execute(email: email, code: code)
             let resetToken = response.data.resetToken
-            currentState = .newPassword(userId: userId, resetToken: resetToken)
+            currentState = .newPassword(resetToken: resetToken)
         } catch {
             self.error = error
         }

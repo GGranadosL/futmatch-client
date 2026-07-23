@@ -11,11 +11,15 @@ let package = Package(
             name: "FMDesignSystem",
             targets: ["FMDesignSystem"])
     ],
-    dependencies: [],
+    dependencies: [
+        .package(url: "https://github.com/airbnb/lottie-spm.git", from: "4.5.0"),
+    ],
     targets: [
         .target(
             name: "FMDesignSystem",
-            dependencies: [],
+            dependencies: [
+                .product(name: "Lottie", package: "lottie-spm"),
+            ],
             resources: [
                 .process("Resources")
             ]

@@ -5,4 +5,6 @@ import Foundation
 public struct FieldIdName: Identifiable, Equatable, Hashable {
     public let id: String
     public let name: String
+    public let priceInCents: Int
+    public let maxPlayersAllowed: Int
 }

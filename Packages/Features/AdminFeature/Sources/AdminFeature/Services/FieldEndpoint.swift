@@ -21,6 +21,10 @@ enum FieldEndpoint: APIEndpoint {
     case deleteImage(fieldId: String, imageId: String)
     /// 2.4 Fetch authenticated image data (redirects to signed Cloudinary URL).
     case getImage(imageName: String)
+    /// 3.1 Get pricing estimate for a field given max players.
+    case pricingEstimate(fieldId: String)
+    /// 3.2 Get pricing estimate for a custom price.
+    case pricingCustom(fieldId: String)
 
     var path: String {
         switch self {
@@ -41,6 +45,10 @@ enum FieldEndpoint: APIEndpoint {
             return "/fields/delete/image/\(fieldId)/\(imageId)"
         case let .getImage(imageName):
             return "/fields/image/\(imageName)"
+        case let .pricingEstimate(fieldId):
+            return "/fields/\(fieldId)/pricing-estimate"
+        case let .pricingCustom(fieldId):
+            return "/fields/\(fieldId)/pricing-custom"
         }
     }
 
@@ -56,6 +64,8 @@ enum FieldEndpoint: APIEndpoint {
         case .updateImage:      return .post
         case .deleteImage:      return .delete
         case .getImage:         return .get
+        case .pricingEstimate:  return .post
+        case .pricingCustom:    return .post
         }
     }
 }

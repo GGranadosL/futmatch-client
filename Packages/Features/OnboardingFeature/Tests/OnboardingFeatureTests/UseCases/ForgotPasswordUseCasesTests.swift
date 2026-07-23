@@ -40,9 +40,9 @@ final class VerifyResetMFAUseCaseTests: XCTestCase {
         auth.verifyResetMFAResult = .success(.stub(resetToken: "tok-123"))
         let sut = VerifyResetMFAUseCase(authService: auth)
 
-        let result = try await sut.execute(userId: "u-1", code: "654321")
+        let result = try await sut.execute(email: "john.doe@example.com", code: "654321")
 
-        XCTAssertEqual(auth.lastVerifyResetUserId, "u-1")
+        XCTAssertEqual(auth.lastVerifyResetEmail, "john.doe@example.com")
         XCTAssertEqual(auth.lastVerifyResetCode, "654321")
         XCTAssertEqual(result.data.resetToken, "tok-123")
     }
@@ -53,7 +53,7 @@ final class VerifyResetMFAUseCaseTests: XCTestCase {
         let sut = VerifyResetMFAUseCase(authService: auth)
 
         do {
-            _ = try await sut.execute(userId: "u-1", code: "0")
+            _ = try await sut.execute(email: "john.doe@example.com", code: "0")
             XCTFail("Expected error to be thrown")
         } catch {
             XCTAssertEqual(error as? TestError, .boom)

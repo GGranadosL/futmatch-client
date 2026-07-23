@@ -145,7 +145,7 @@ struct ReservedView: View {
 
         let fmt = DateFormatter()
         fmt.locale = Locale(identifier: "es_MX")
-        fmt.dateFormat = "EEEE d"
+        fmt.dateFormat = "EEEE d 'de' MMMM"
 
         var grouped: [Date: [MatchItem]] = [:]
         for match in matches {
@@ -216,6 +216,7 @@ struct ReservedView: View {
             ),
             distance: match.distanceDisplay,
             fieldImageUrl: match.fieldImageUrl,
+            location: match.location,
             onTap: { navigationPath.append(match) }
         )
         .overlay {

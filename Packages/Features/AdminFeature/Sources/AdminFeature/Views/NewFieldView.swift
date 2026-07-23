@@ -59,9 +59,7 @@ struct NewFieldView: View {
                 FMBackButton { dismiss() }
             }
             ToolbarItem(placement: .principal) {
-                Text(L10n.NewField.title)
-                    .font(FMTypography.titleLarge)
-                    .foregroundColor(FMColors.onBackground)
+                AdminNavTitle(title: L10n.NewField.title)
             }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {

@@ -15,5 +15,9 @@
 	</array>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Usamos tu ubicación para centrar el mapa al crear canchas y ubicaciones cerca de ti.</string>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>comgooglemaps</string>
+	</array>
 </dict>
 </plist>

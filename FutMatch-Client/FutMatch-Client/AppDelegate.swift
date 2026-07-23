@@ -7,6 +7,11 @@ import PlayerFeature
 import PersistenceFramework
 import IQKeyboardManagerSwift
 import IQKeyboardToolbarManager
+#if DEBUG
+import Pulse
+import PulseUI
+import SwiftUI
+#endif
 
 // MARK: - AppDelegate
 
@@ -18,16 +23,27 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
+        let s = "Cab is a rab"
+        
+        var array = Array(s.filter { $0.isLetter || $0.isNumber }.lowercased())
         // App Check must be installed BEFORE FirebaseApp.configure() so the very
         // first Firebase request carries an attestation token. Uses App Attest on
         // capable devices, DeviceCheck as fallback, and a debug provider in DEBUG.
         // Gated by Config.isAppCheckEnabled (off in DEBUG until a debug token is
         // registered) so a failing token exchange can't stall Firebase at launch.
         if Config.isAppCheckEnabled {
+            #if DEBUG
+            // Pin a fixed debug token so it only needs to be registered in Firebase console once.
+            // Register this UUID at: Firebase console → App Check → Apps → [app] → Manage debug tokens
+            setenv("FIRAAppCheckDebugToken", "D2B4A26E-8370-4485-9C52-7A47AE44FEB2", 1)
+            #endif
             AppCheck.setAppCheckProviderFactory(FutMatchAppCheckProviderFactory())
         }
         FirebaseApp.configure()
         Task { await adminRemoteConfig.fetchAndActivate() }
+        #if DEBUG
+        print("[🔔 FM-PUSH] FirebaseApp.configure() called")
+        #endif
         IQKeyboardManager.shared.isEnabled = true
         IQKeyboardManager.shared.resignOnTouchOutside = true
         Messaging.messaging().delegate = self
@@ -115,3 +131,28 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
         return [.banner, .sound, .badge]
     }
 }
+
+#if DEBUG
+// MARK: - Shake to show Pulse console
+
+extension UIWindow {
+
+    /// Shows the Pulse network/log console whenever the device is shaken (Debug only).
+    /// Simulator shortcut: Device ▸ Shake, or ⌃⌘Z.
+    open override func motionEnded(_ motion: UIEvent.EventSubtype, with event: UIEvent?) {
+        super.motionEnded(motion, with: event)
+        if motion == .motionShake {
+            let console = UIHostingController(rootView: ConsoleView())
+            topmostViewController?.present(console, animated: true)
+        }
+    }
+
+    private var topmostViewController: UIViewController? {
+        var vc = rootViewController
+        while let presented = vc?.presentedViewController {
+            vc = presented
+        }
+        return vc
+    }
+}
+#endif

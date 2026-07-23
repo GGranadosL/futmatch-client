@@ -8,12 +8,12 @@ public protocol AuthServiceProtocol {
     func registerComplete(email: String, verificationCode: String) async throws -> RegisterCompleteResponse
     func registerResendCode(email: String) async throws -> ResendRegistrationCodeResponse
     func signIn(email: String, password: String, deviceId: String?) async throws -> SignInResponse
-    func mfaSend(userId: String, deviceId: String) async throws -> MFASendResponse
-    func mfaVerify(userId: String, deviceId: String, code: String) async throws -> MFAVerifyResponse
+    func mfaSend(challengeToken: String) async throws -> MFASendResponse
+    func mfaVerify(challengeToken: String, code: String) async throws -> MFAVerifyResponse
     func forgotPassword(email: String) async throws -> ForgotPasswordResponse
-    func verifyResetMFA(userId: String, code: String) async throws -> VerifyResetMFAResponse
+    func verifyResetMFA(email: String, code: String) async throws -> VerifyResetMFAResponse
     func resetPassword(newPassword: String, resetToken: String) async throws -> ResetPasswordResponse
-    func refreshToken(userId: String, deviceId: String, refreshToken: String) async throws -> RefreshTokenResponse
+    func refreshToken(refreshToken: String) async throws -> RefreshTokenResponse
     func signOut() async throws -> SignOutResponse
 }
 
@@ -65,16 +65,16 @@ public class AuthService: AuthServiceProtocol {
     }
     
     // MARK: - MFA
-    
-    public func mfaSend(userId: String, deviceId: String) async throws -> MFASendResponse {
-        let request = MFASendRequest(userId: userId, deviceId: deviceId)
+
+    public func mfaSend(challengeToken: String) async throws -> MFASendResponse {
+        let request = MFASendRequest(challengeToken: challengeToken)
         let endpoint = AuthEndpoint.mfaSend(request)
         let response: MFASendResponse = try await apiClient.request(endpoint: endpoint)
         return response
     }
-    
-    public func mfaVerify(userId: String, deviceId: String, code: String) async throws -> MFAVerifyResponse {
-        let request = MFAVerifyRequest(userId: userId, deviceId: deviceId, code: code)
+
+    public func mfaVerify(challengeToken: String, code: String) async throws -> MFAVerifyResponse {
+        let request = MFAVerifyRequest(challengeToken: challengeToken, code: code)
         let endpoint = AuthEndpoint.mfaVerify(request)
         let response: MFAVerifyResponse = try await apiClient.request(endpoint: endpoint)
         return response
@@ -88,8 +88,8 @@ public class AuthService: AuthServiceProtocol {
         return response
     }
     
-    public func verifyResetMFA(userId: String, code: String) async throws -> VerifyResetMFAResponse {
-        let request = VerifyResetMFARequest(userId: userId, code: code)
+    public func verifyResetMFA(email: String, code: String) async throws -> VerifyResetMFAResponse {
+        let request = VerifyResetMFARequest(email: email, code: code)
         let endpoint = AuthEndpoint.verifyResetMFA(request)
         let response: VerifyResetMFAResponse = try await apiClient.request(endpoint: endpoint)
         return response
@@ -103,21 +103,18 @@ public class AuthService: AuthServiceProtocol {
     }
     
     // MARK: - Refresh Token
-    
-    public func refreshToken(userId: String, deviceId: String, refreshToken: String) async throws -> RefreshTokenResponse {
-        let request = RefreshTokenRequest(userId: userId, deviceId: deviceId, refreshToken: refreshToken)
+
+    public func refreshToken(refreshToken: String) async throws -> RefreshTokenResponse {
+        let request = RefreshTokenRequest(refreshToken: refreshToken)
         let endpoint = AuthEndpoint.refreshToken(request)
         let response: RefreshTokenResponse = try await apiClient.request(endpoint: endpoint)
         return response
     }
-    
+
     // MARK: - Sign Out
-    
+
     public func signOut() async throws -> SignOutResponse {
-        guard let deviceId = try keychainManager.retrieve(for: .deviceId) else {
-            throw AuthError.deviceIdNotFound
-        }
-        let endpoint = AuthEndpoint.signOut(deviceId: deviceId)
+        let endpoint = AuthEndpoint.signOut
         let response: SignOutResponse = try await apiClient.request(endpoint: endpoint)
         return response
     }
@@ -153,16 +150,14 @@ public class AuthService: AuthServiceProtocol {
 
 // MARK: - Auth Errors
 public enum AuthError: LocalizedError {
-    case deviceIdNotFound
     case invalidCredentials
     case tokenExpired
     case networkError
     case firebaseSignInFailed
+    case missingChallengeToken
 
     public var errorDescription: String? {
         switch self {
-        case .deviceIdNotFound:
-            return "No se encontró el identificador del dispositivo"
         case .invalidCredentials:
             return "Email o contraseña incorrectos"
         case .tokenExpired:
@@ -171,6 +166,8 @@ public enum AuthError: LocalizedError {
             return "Error de conexión"
         case .firebaseSignInFailed:
             return "No se pudo completar la autenticación. Intenta de nuevo."
+        case .missingChallengeToken:
+            return "No se pudo continuar con la verificación. Intenta iniciar sesión de nuevo."
         }
     }
 }

@@ -26,12 +26,16 @@ struct AdminLocationsListView: View {
             if isLoading && locations.isEmpty {
                 skeletonList
             } else if !isLoading && locations.isEmpty {
-                FMEmptyStateCard(
-                    icon: "mappin.circle.fill",
-                    message: "No hay ubicaciones registradas"
-                )
-                .padding(.horizontal, 24)
-                .padding(.top, 32)
+                VStack {
+                    Spacer()
+                    FMEmptyStateCard(
+                        icon: "mappin.circle.fill",
+                        message: L10n.AdminLocations.emptyList
+                    )
+                    .padding(.horizontal, 24)
+                    Spacer()
+                }
+                .frame(maxHeight: .infinity)
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
@@ -67,6 +71,7 @@ struct AdminLocationsListView: View {
                 .refreshable { await loadLocations() }
             }
         }
+        .frame(maxHeight: .infinity)
         .background(FMColors.background.ignoresSafeArea())
         .navigationBarBackButtonHidden(true)
         .toolbar {
@@ -74,9 +79,7 @@ struct AdminLocationsListView: View {
                 FMBackButton { dismiss() }
             }
             ToolbarItem(placement: .principal) {
-                Text("Ubicaciones")
-                    .font(FMTypography.titleLarge)
-                    .foregroundColor(FMColors.onBackground)
+                AdminNavTitle(title: "Ubicaciones")
             }
         }
         .task { await loadLocations() }

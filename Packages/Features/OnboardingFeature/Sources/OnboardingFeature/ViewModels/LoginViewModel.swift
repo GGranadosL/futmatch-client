@@ -15,8 +15,7 @@ public class LoginViewModel: ObservableObject {
 
     // MFA State
     @Published var showMFAVerification = false
-    @Published var mfaUserId = ""
-    @Published var mfaDeviceId = ""
+    @Published var mfaChallengeToken = ""
     @Published var resendCodeTimeInSeconds = 60
     @Published var verificationCode = ""
 
@@ -48,8 +47,7 @@ public class LoginViewModel: ObservableObject {
 
             if result.requiresMFA {
                 isLoading = false
-                mfaUserId = result.userId
-                mfaDeviceId = result.deviceId
+                mfaChallengeToken = result.challengeToken ?? ""
                 resendCodeTimeInSeconds = result.resendCodeTimeInSeconds
                 showMFAVerification = true
             } else {
@@ -69,8 +67,7 @@ public class LoginViewModel: ObservableObject {
 
         do {
             _ = try await loginUseCase.verifyMFACode(
-                userId: mfaUserId,
-                deviceId: mfaDeviceId,
+                challengeToken: mfaChallengeToken,
                 code: verificationCode
             )
             try await performFirebaseSignIn()
@@ -89,8 +86,7 @@ public class LoginViewModel: ObservableObject {
         
         do {
             let result = try await loginUseCase.sendMFACode(
-                userId: mfaUserId,
-                deviceId: mfaDeviceId
+                challengeToken: mfaChallengeToken
             )
             isLoading = false
             resendCodeTimeInSeconds = result.resendCodeTimeInSeconds

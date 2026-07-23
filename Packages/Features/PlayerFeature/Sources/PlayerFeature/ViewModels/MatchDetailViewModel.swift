@@ -16,6 +16,8 @@ final class MatchDetailViewModel: ObservableObject {
     @Published private(set) var liveTeamBPlayers: [MatchPlayer]?
     /// Non-nil when the current user has an active RESERVED slot — holds the expiry date.
     @Published private(set) var currentUserReservedUntil: Date?
+    /// Non-nil when Firestore player stream fails.
+    @Published var playersError: String?
 
     // MARK: - Join State
 
@@ -38,6 +40,9 @@ final class MatchDetailViewModel: ObservableObject {
     /// Distinct from `isCurrentUserJoined` (which Firestore can set on screen load
     /// for an already-joined user) so the success overlay never fires "out of nowhere".
     @Published private(set) var paymentDidSucceed = false
+    /// One-shot signal: true when the backend reused an existing confirmed payment
+    /// so no Stripe sheet was needed. View reacts by showing an informational banner.
+    @Published private(set) var paymentWasReused = false
 
     // MARK: - Cancel State
 
@@ -116,8 +121,15 @@ final class MatchDetailViewModel: ObservableObject {
         joinError = nil
         do {
             let data = try await joinMatchUseCase.execute(matchId: match.id, team: team)
-            joinData = data
-            persistJoinData(data)
+            if data.reusedExistingPayment {
+                paymentWasReused = true
+                isCurrentUserJoined = true
+                clearJoinData()
+                NotificationCenter.default.post(name: .matchMembershipDidChange, object: nil)
+            } else {
+                joinData = data
+                persistJoinData(data)
+            }
         } catch {
             guard !(error is CancellationError) else {
                 isJoining = false
@@ -158,6 +170,10 @@ final class MatchDetailViewModel: ObservableObject {
 
     func clearPaymentSuccess() {
         paymentDidSucceed = false
+    }
+
+    func clearPaymentReused() {
+        paymentWasReused = false
     }
 
     /// Clears in-memory and persisted join data (call after payment completes or reservation expires).
@@ -227,27 +243,39 @@ final class MatchDetailViewModel: ObservableObject {
     /// The payment SUCCESS overlay is NOT driven from here — it listens to the
     /// one-shot `paymentDidSucceed` signal so it only fires right after a real payment.
     func subscribeToPlayers() async {
+        let status = match.matchStatus.uppercased()
+        if status == "CANCELED" || status == "CANCELLED" || status == "COMPLETED" {
+            liveTeamAPlayers = match.teamAPlayers
+            liveTeamBPlayers = match.teamBPlayers
+            return
+        }
         let userId = KeychainManager.shared.userId
-        for await snapshot in subscribePlayersUseCase.execute(matchId: match.id) {
-            liveTeamAPlayers = snapshot.teamAPlayers
-            liveTeamBPlayers = snapshot.teamBPlayers
-            if let userId {
-                currentUserReservedUntil = snapshot.reservationsByPlayerId[userId]
-                // Restore joinData from Keychain when a reservation exists but joinData is not set
-                // (happens when the app is relaunched with an active reservation)
-                if currentUserReservedUntil != nil, joinData == nil {
-                    restoreJoinDataIfNeeded()
-                }
-                // Always reflect the joined state from Firestore so the action button
-                // auto-switches to "Leave match" the moment the backend confirms the user
-                // is in (regardless of whether payment polling succeeded).
-                let allPlayers = snapshot.teamAPlayers + snapshot.teamBPlayers
-                let wasJoined = isCurrentUserJoined
-                isCurrentUserJoined = allPlayers.contains { $0.playerId == userId && $0.status == .joined }
-                if !wasJoined, isCurrentUserJoined {
-                    NotificationCenter.default.post(name: .matchMembershipDidChange, object: nil)
+        do {
+            for try await snapshot in subscribePlayersUseCase.execute(matchId: match.id) {
+                playersError = nil
+                liveTeamAPlayers = snapshot.teamAPlayers
+                liveTeamBPlayers = snapshot.teamBPlayers
+                if let userId {
+                    currentUserReservedUntil = snapshot.reservationsByPlayerId[userId]
+                    // Restore joinData from Keychain when a reservation exists but joinData is not set
+                    // (happens when the app is relaunched with an active reservation)
+                    if currentUserReservedUntil != nil, joinData == nil {
+                        restoreJoinDataIfNeeded()
+                    }
+                    // Always reflect the joined state from Firestore so the action button
+                    // auto-switches to "Leave match" the moment the backend confirms the user
+                    // is in (regardless of whether payment polling succeeded).
+                    let allPlayers = snapshot.teamAPlayers + snapshot.teamBPlayers
+                    let wasJoined = isCurrentUserJoined
+                    isCurrentUserJoined = allPlayers.contains { $0.playerId == userId && $0.status == .joined }
+                    if !wasJoined, isCurrentUserJoined {
+                        NotificationCenter.default.post(name: .matchMembershipDidChange, object: nil)
+                    }
                 }
             }
+        } catch {
+            guard !(error is CancellationError) else { return }
+            playersError = error.localizedDescription
         }
     }
 

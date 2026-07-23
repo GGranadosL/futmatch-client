@@ -69,6 +69,7 @@ public struct FMDateField: View {
                     HStack {
                         Text(formattedDate)
                             .font(FMTypography.inputText)
+                            .fontWeight(.regular)
                             .foregroundColor(FMColors.primary)
                         
                         Spacer()

@@ -6,3 +6,7 @@ extension FieldIdName: FMDropdownOption {
 
 extension MatchGender: FMDropdownOption {}
 extension MatchPlayerLevel: FMDropdownOption {}
+
+extension Organizer: FMDropdownOption {
+    public var displayName: String { fullName }
+}

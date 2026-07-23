@@ -81,43 +81,19 @@ extension SignInRequest {
 
 /// Extension to validate MFASendRequest before sending to API
 extension MFASendRequest {
-    
-    /// Validates all fields according to backend rules
-    /// - Throws: RequestValidationError if any field is invalid
     public func validate() throws {
-        // Validate userId
-        let userIdResult = FieldValidator.validateUUID(userId)
-        guard userIdResult.isValid else {
-            throw RequestValidationError.invalidField("userId", userIdResult.errorMessage ?? "Invalid userId")
-        }
-        
-        // Validate deviceId
-        let deviceIdResult = FieldValidator.validateUUID(deviceId)
-        guard deviceIdResult.isValid else {
-            throw RequestValidationError.invalidField("deviceId", deviceIdResult.errorMessage ?? "Invalid deviceId")
+        guard !challengeToken.isEmpty else {
+            throw RequestValidationError.invalidField("challengeToken", "challengeToken is required")
         }
     }
 }
 
 /// Extension to validate MFAVerifyRequest before sending to API
 extension MFAVerifyRequest {
-    
-    /// Validates all fields according to backend rules
-    /// - Throws: RequestValidationError if any field is invalid
     public func validate() throws {
-        // Validate userId
-        let userIdResult = FieldValidator.validateUUID(userId)
-        guard userIdResult.isValid else {
-            throw RequestValidationError.invalidField("userId", userIdResult.errorMessage ?? "Invalid userId")
+        guard !challengeToken.isEmpty else {
+            throw RequestValidationError.invalidField("challengeToken", "challengeToken is required")
         }
-        
-        // Validate deviceId
-        let deviceIdResult = FieldValidator.validateUUID(deviceId)
-        guard deviceIdResult.isValid else {
-            throw RequestValidationError.invalidField("deviceId", deviceIdResult.errorMessage ?? "Invalid deviceId")
-        }
-        
-        // Validate code
         let codeResult = FieldValidator.validateCode(code)
         guard codeResult.isValid else {
             throw RequestValidationError.invalidField("code", codeResult.errorMessage ?? "Invalid code")
@@ -127,20 +103,9 @@ extension MFAVerifyRequest {
 
 /// Extension to validate RefreshTokenRequest before sending to API
 extension RefreshTokenRequest {
-    
-    /// Validates all fields according to backend rules
-    /// - Throws: RequestValidationError if any field is invalid
     public func validate() throws {
-        // Validate userId
-        let userIdResult = FieldValidator.validateUUID(userId)
-        guard userIdResult.isValid else {
-            throw RequestValidationError.invalidField("userId", userIdResult.errorMessage ?? "Invalid userId")
-        }
-        
-        // Validate deviceId
-        let deviceIdResult = FieldValidator.validateUUID(deviceId)
-        guard deviceIdResult.isValid else {
-            throw RequestValidationError.invalidField("deviceId", deviceIdResult.errorMessage ?? "Invalid deviceId")
+        guard !refreshToken.isEmpty else {
+            throw RequestValidationError.invalidField("refreshToken", "refreshToken is required")
         }
     }
 }
@@ -165,12 +130,12 @@ extension VerifyResetMFARequest {
     /// Validates all fields according to backend rules
     /// - Throws: RequestValidationError if any field is invalid
     public func validate() throws {
-        // Validate userId
-        let userIdResult = FieldValidator.validateUUID(userId)
-        guard userIdResult.isValid else {
-            throw RequestValidationError.invalidField("userId", userIdResult.errorMessage ?? "Invalid userId")
+        // Validate email
+        let emailResult = FieldValidator.validateEmail(email)
+        guard emailResult.isValid else {
+            throw RequestValidationError.invalidField("email", emailResult.errorMessage ?? "Invalid email")
         }
-        
+
         // Validate code
         let codeResult = FieldValidator.validateCode(code)
         guard codeResult.isValid else {

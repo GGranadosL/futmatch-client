@@ -77,7 +77,7 @@ public final class EditFieldViewModel: ObservableObject {
     }
 
     public var nameError: String? {
-        trimmedName.count > Self.nameMaxLength ? "Máximo \(Self.nameMaxLength) caracteres" : nil
+        trimmedName.count > Self.nameMaxLength ? L10n.Validation.fieldNameMaxLength(Self.nameMaxLength) : nil
     }
 
     public var isValid: Bool {

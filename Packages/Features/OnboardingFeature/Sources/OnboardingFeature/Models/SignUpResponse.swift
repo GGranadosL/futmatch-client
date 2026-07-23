@@ -74,21 +74,21 @@ public struct SignInRequest: Codable {
 // MARK: - Sign In Response
 public struct SignInResponse: Codable {
     public let data: ResponseData
-    
+
     public struct ResponseData: Codable {
-        public let userId: String
-        public let deviceId: String
+        public let userId: String?
+        public let deviceId: String?
         public let authCode: String
-        public let authTokenResponse: AuthTokenResponse?  // Optional - not present when MFA required
-        public let firebaseToken: String?  // Optional - not present when MFA required
+        public let authTokenResponse: AuthTokenResponse?
+        public let firebaseToken: String?
+        public let challengeToken: String?
     }
-    
+
     public struct AuthTokenResponse: Codable {
         public let accessToken: String
         public let refreshToken: String
     }
-    
-    /// Check if MFA is required
+
     public var requiresMFA: Bool {
         data.authCode == "SUCCESS_NEED_MFA"
     }
@@ -96,12 +96,10 @@ public struct SignInResponse: Codable {
 
 // MARK: - MFA Send Request
 public struct MFASendRequest: Codable {
-    public let userId: String
-    public let deviceId: String
-    
-    public init(userId: String, deviceId: String) {
-        self.userId = userId
-        self.deviceId = deviceId
+    public let challengeToken: String
+
+    public init(challengeToken: String) {
+        self.challengeToken = challengeToken
     }
 }
 
@@ -118,13 +116,11 @@ public struct MFASendResponse: Codable {
 
 // MARK: - MFA Verify Request
 public struct MFAVerifyRequest: Codable {
-    public let userId: String
-    public let deviceId: String
+    public let challengeToken: String
     public let code: String
-    
-    public init(userId: String, deviceId: String, code: String) {
-        self.userId = userId
-        self.deviceId = deviceId
+
+    public init(challengeToken: String, code: String) {
+        self.challengeToken = challengeToken
         self.code = code
     }
 }
@@ -171,11 +167,11 @@ public struct ForgotPasswordResponse: Codable {
 // MARK: - Verify Reset MFA Models
 
 public struct VerifyResetMFARequest: Codable {
-    public let userId: String
+    public let email: String
     public let code: String
-    
-    public init(userId: String, code: String) {
-        self.userId = userId
+
+    public init(email: String, code: String) {
+        self.email = email
         self.code = code
     }
 }
@@ -218,13 +214,9 @@ public struct ResetPasswordResponse: Codable {
 // MARK: - Refresh Token Models
 
 public struct RefreshTokenRequest: Codable {
-    public let userId: String
-    public let deviceId: String
     public let refreshToken: String
 
-    public init(userId: String, deviceId: String, refreshToken: String) {
-        self.userId = userId
-        self.deviceId = deviceId
+    public init(refreshToken: String) {
         self.refreshToken = refreshToken
     }
 }

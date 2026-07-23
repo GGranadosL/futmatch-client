@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A1PULSE012FDB000000E712F5 /* Pulse in Frameworks */ = {isa = PBXBuildFile; productRef = A1PULSE022FDB000000E712F5 /* Pulse */; };
+		A1PULSE032FDB000000E712F5 /* PulseUI in Frameworks */ = {isa = PBXBuildFile; productRef = A1PULSE042FDB000000E712F5 /* PulseUI */; };
 		C0404E692F73A34800E712F5 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = C0404E682F73A34800E712F5 /* FirebaseCore */; };
 		C0404E6B2F73A34800E712F5 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = C0404E6A2F73A34800E712F5 /* FirebaseMessaging */; };
 		C05EB5F72F7B911E00E0C69B /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = C05EB5F62F7B911E00E0C69B /* FirebaseFirestore */; };
@@ -89,6 +91,8 @@
 				D1A0CA01000000000000FACE /* FirebaseAppCheck in Frameworks */,
 				C05EB5F72F7B911E00E0C69B /* FirebaseFirestore in Frameworks */,
 				C0B1A0032FD0A00300E712F5 /* IQKeyboardManagerSwift in Frameworks */,
+				A1PULSE012FDB000000E712F5 /* Pulse in Frameworks */,
+				A1PULSE032FDB000000E712F5 /* PulseUI in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -168,6 +172,8 @@
 				D1A0CA00000000000000FACE /* FirebaseAppCheck */,
 				C0B1A0022FD0A00200E712F5 /* IQKeyboardManagerSwift */,
 				C09AFBD32FB68DB900CF33F0 /* FirebaseRemoteConfig */,
+				A1PULSE022FDB000000E712F5 /* Pulse */,
+				A1PULSE042FDB000000E712F5 /* PulseUI */,
 			);
 			productName = "FutMatch-Client";
 			productReference = C070F9592F17506900E6003D /* FutMatch-Client.app */;
@@ -261,6 +267,7 @@
 				C0404E672F73A34800E712F5 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 				C0B1A0012FD0A00100E712F5 /* XCRemoteSwiftPackageReference "IQKeyboardManager" */,
 				C09AFBDA2FB6AB1100CF33F0 /* XCRemoteSwiftPackageReference "lottie-spm" */,
+				A1PULSE052FDB000000E712F5 /* XCRemoteSwiftPackageReference "Pulse" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = C070F95A2F17506900E6003D /* Products */;
@@ -465,7 +472,7 @@
 				CODE_SIGN_ENTITLEMENTS = "FutMatch-Client/FutMatch-Client.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 0;
 				DEVELOPMENT_TEAM = 8NB4P3S66S;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -483,7 +490,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.0.1;
+				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.futmatch.client;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -505,7 +512,7 @@
 				CODE_SIGN_ENTITLEMENTS = "FutMatch-Client/FutMatch-Client.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 0;
 				DEVELOPMENT_TEAM = 8NB4P3S66S;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -523,7 +530,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.0.1;
+				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.futmatch.client;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -686,6 +693,14 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		A1PULSE052FDB000000E712F5 /* XCRemoteSwiftPackageReference "Pulse" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/kean/Pulse";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 4.0.0;
+			};
+		};
 		C0404E672F73A34800E712F5 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
@@ -713,6 +728,16 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		A1PULSE022FDB000000E712F5 /* Pulse */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A1PULSE052FDB000000E712F5 /* XCRemoteSwiftPackageReference "Pulse" */;
+			productName = Pulse;
+		};
+		A1PULSE042FDB000000E712F5 /* PulseUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A1PULSE052FDB000000E712F5 /* XCRemoteSwiftPackageReference "Pulse" */;
+			productName = PulseUI;
+		};
 		C0404E682F73A34800E712F5 /* FirebaseCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = C0404E672F73A34800E712F5 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;

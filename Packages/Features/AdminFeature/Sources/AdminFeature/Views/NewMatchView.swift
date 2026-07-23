@@ -8,63 +8,80 @@ struct NewMatchView: View {
     @Environment(\.dismiss) private var dismiss
 
     private let onCreated: (() -> Void)?
+    private let navSubtitle: String
 
     // Tracks which dropdown is currently open — only one at a time.
     @State private var activeDropdownId: String? = nil
 
     // Focus tokens for text fields
-    @State private var focusMinPlayers = false
     @State private var focusMaxPlayers = false
-    @State private var focusPrice = false
+
+    // Navigation
+    @State private var showPricingScreen = false
 
     @State private var showSuccessToast = false
     @State private var showErrorToast = false
     @State private var errorToastMessage = ""
-    @State private var showPublishConfirmation = false
 
     // MARK: - Init
 
-    init(viewModel: @autoclosure @escaping () -> NewMatchViewModel, onCreated: (() -> Void)? = nil) {
+    init(viewModel: @autoclosure @escaping () -> NewMatchViewModel, subtitle: String = "admin", onCreated: (() -> Void)? = nil) {
         _viewModel = StateObject(wrappedValue: viewModel())
+        self.navSubtitle = subtitle
         self.onCreated = onCreated
     }
 
     // MARK: - Body
 
     var body: some View {
-        ZStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 28) {
-                    locationSection
-                    dateTimeSection
-                    playersSection
-                    costSection
-                    genderSection
-                    levelSection
+        ScrollView {
+            VStack(alignment: .leading, spacing: 28) {
+                locationSection
+                dateTimeSection
+                playersSection
+                genderSection
+                levelSection
+                organizerSection
 
-                    if let error = viewModel.errorMessage {
-                        Text(error)
-                            .font(FMTypography.bodySmall)
-                            .foregroundColor(FMColors.error)
+                if let error = viewModel.errorMessage {
+                    Text(error)
+                        .font(FMTypography.bodySmall)
+                        .foregroundColor(FMColors.error)
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 16)
+            .padding(.bottom, 8)
+        }
+        .background(FMColors.background.ignoresSafeArea())
+        .navigationDestination(isPresented: $showPricingScreen) {
+            if let field = viewModel.selectedField, let maxPlayers = viewModel.maxPlayers {
+                MatchPricingView(
+                    fieldId: field.id,
+                    fieldName: field.name,
+                    maxPlayers: maxPlayers,
+                    fetchPricingEstimate: viewModel.fetchPricingEstimateUseCase,
+                    fetchCustomPricing: viewModel.fetchCustomPricingUseCase,
+                    isSaving: viewModel.isSaving
+                ) { option in
+                    viewModel.selectedPricingOption = option
+                    Task {
+                        await viewModel.save()
+                        if viewModel.createdMatch != nil {
+                            showPricingScreen = false
+                            showSuccessToast = true
+                            try? await Task.sleep(nanoseconds: 1_500_000_000)
+                            onCreated?()
+                            dismiss()
+                        }
                     }
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 16)
-                .padding(.bottom, 8)
             }
-            .background(FMColors.background.ignoresSafeArea())
-
-            if showPublishConfirmation {
-                FMConfirmationAlert(
-                    icon: "info.circle.fill",
-                    title: L10n.NewMatch.Publish.title,
-                    message: L10n.NewMatch.Publish.message,
-                    primaryButtonTitle: L10n.NewMatch.Publish.confirm,
-                    isLoading: viewModel.isSaving,
-                    onPrimaryAction: { Task { await viewModel.save() } },
-                    onSecondaryAction: { showPublishConfirmation = false }
-                )
-            }
+        }
+        .onChange(of: viewModel.errorMessage) { error in
+            guard let error = error else { return }
+            errorToastMessage = error
+            showErrorToast = true
         }
         .navigationBarBackButtonHidden(true)
         .toolbar {
@@ -72,38 +89,21 @@ struct NewMatchView: View {
                 FMBackButton { dismiss() }
             }
             ToolbarItem(placement: .principal) {
-                Text(L10n.NewMatch.title)
-                    .font(FMTypography.titleLarge)
-                    .foregroundColor(FMColors.onBackground)
+                AdminNavTitle(title: L10n.NewMatch.title, subtitle: navSubtitle)
             }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             FMStickyActionBar(
-                title: L10n.NewMatch.save,
-                isLoading: viewModel.isSaving,
+                title: "Continuar",
+                isLoading: false,
                 isEnabled: viewModel.isValid,
-                action: { showPublishConfirmation = true }
+                action: { showPricingScreen = true }
             )
-        }
-        .onChange(of: viewModel.createdMatch) { match in
-            guard match != nil else { return }
-            showPublishConfirmation = false
-            showSuccessToast = true
-            Task {
-                try? await Task.sleep(nanoseconds: 1_500_000_000)
-                onCreated?()
-                dismiss()
-            }
-        }
-        .onChange(of: viewModel.errorMessage) { error in
-            guard let error = error else { return }
-            showPublishConfirmation = false
-            errorToastMessage = error
-            showErrorToast = true
         }
         .fmToast(L10n.NewMatch.saved, isPresented: $showSuccessToast, style: .success)
         .fmToast(errorToastMessage, isPresented: $showErrorToast, style: .error)
         .task { await viewModel.loadFields() }
+        .task { await viewModel.loadOrganizers() }
     }
 
     // MARK: - Location Section
@@ -164,34 +164,28 @@ struct NewMatchView: View {
         VStack(alignment: .leading, spacing: 12) {
             sectionHeader(icon: "person.2.circle.fill", title: L10n.NewMatch.Section.Players.title, description: L10n.NewMatch.Section.Players.description)
 
-            HStack(alignment: .top, spacing: 12) {
-                FMTextField(
-                    label: L10n.NewMatch.Players.min,
-                    text: $viewModel.minPlayersText,
-                    keyboardType: .numberPad,
-                    trailingIcon: viewModel.minPlayersText.isEmpty ? nil : Image(systemName: "xmark.circle.fill"),
-                    onTrailingIconTap: { viewModel.minPlayersText = "" }
-                )
-                .focused($focusMinPlayers)
-                .keyboardNavigation(
-                    hasPrevious: false, hasNext: true,
-                    onPrevious: {},
-                    onNext: { focusMaxPlayers = true }
-                )
+            FMTextField(
+                label: L10n.NewMatch.Players.max,
+                text: $viewModel.maxPlayersText,
+                keyboardType: .numberPad,
+                trailingIcon: viewModel.maxPlayersText.isEmpty ? nil : Image(systemName: "xmark.circle.fill"),
+                onTrailingIconTap: { viewModel.maxPlayersText = "" }
+            )
+            .focused($focusMaxPlayers)
+            .keyboardNavigation(
+                hasPrevious: false, hasNext: false,
+                onPrevious: {},
+                onNext: {}
+            )
 
-                FMTextField(
-                    label: L10n.NewMatch.Players.max,
-                    text: $viewModel.maxPlayersText,
-                    keyboardType: .numberPad,
-                    trailingIcon: viewModel.maxPlayersText.isEmpty ? nil : Image(systemName: "xmark.circle.fill"),
-                    onTrailingIconTap: { viewModel.maxPlayersText = "" }
-                )
-                .focused($focusMaxPlayers)
-                .keyboardNavigation(
-                    hasPrevious: true, hasNext: true,
-                    onPrevious: { focusMinPlayers = true },
-                    onNext: { focusPrice = true }
-                )
+            if let error = viewModel.maxPlayersError {
+                Text(error)
+                    .font(FMTypography.bodySmall)
+                    .foregroundColor(FMColors.error)
+            } else if let field = viewModel.selectedField, field.maxPlayersAllowed > 0 {
+                Text(L10n.NewMatch.Players.fieldMax(field.maxPlayersAllowed))
+                    .font(FMTypography.bodySmall)
+                    .foregroundColor(FMColors.onSurfaceVariant)
             }
         }
         .padding(16)
@@ -199,27 +193,28 @@ struct NewMatchView: View {
         .overlay(RoundedRectangle(cornerRadius: 12).stroke(FMColors.outlineVariant, lineWidth: 1))
     }
 
-    // MARK: - Cost Section
+    // MARK: - Organizer Section
 
-    private var costSection: some View {
+    private var organizerSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            sectionHeader(icon: "dollarsign.circle.fill", title: L10n.NewMatch.Section.Cost.title, description: L10n.NewMatch.Section.Cost.description)
+            sectionHeader(icon: "person.circle.fill", title: L10n.NewMatch.Section.Organizer.title, description: L10n.NewMatch.Section.Organizer.description)
 
-            FMTextField(
-                label: L10n.NewMatch.priceLabel,
-                text: $viewModel.priceText,
-                keyboardType: .decimalPad,
-                trailingIcon: viewModel.priceText.isEmpty ? nil : Image(systemName: "xmark.circle.fill"),
-                onTrailingIconTap: { viewModel.priceText = "" }
-            )
-            .focused($focusPrice)
-            .keyboardNavigation(
-                hasPrevious: true, hasNext: false,
-                onPrevious: { focusMaxPlayers = true },
-                onNext: {}
-            )
-            .onChange(of: focusPrice) { isFocused in
-                if !isFocused { viewModel.formatPriceOnBlur() }
+            if viewModel.isLoadingOrganizers {
+                HStack(spacing: 8) {
+                    ProgressView().tint(FMColors.primary)
+                    Text(L10n.NewMatch.loadingOrganizers)
+                        .font(FMTypography.bodySmall)
+                        .foregroundColor(FMColors.onSurfaceVariant)
+                }
+            } else {
+                FMDropdownField(
+                    label: L10n.NewMatch.organizerLabel,
+                    dropdownId: "organizer",
+                    selectedOption: $viewModel.selectedOrganizer,
+                    activeDropdownId: $activeDropdownId,
+                    options: viewModel.availableOrganizers,
+                    opensUpward: true
+                )
             }
         }
         .padding(16)

@@ -8,13 +8,13 @@ private func adminMatchDateLabel(from date: Date) -> String {
     let tomorrow = cal.date(byAdding: .day, value: 1, to: today)!
     let day = cal.startOfDay(for: date)
 
-    if cal.isDate(day, inSameDayAs: today) { return "Hoy" }
-    if cal.isDate(day, inSameDayAs: tomorrow) { return "Mañana" }
+    if cal.isDate(day, inSameDayAs: today) { return L10n.AdminMatches.sectionToday }
+    if cal.isDate(day, inSameDayAs: tomorrow) { return L10n.AdminMatches.sectionTomorrow }
 
     let fmt = DateFormatter()
-    fmt.locale = Locale(identifier: "es_MX")
-    fmt.dateFormat = "EEE d"
-    return fmt.string(from: date).capitalized
+    fmt.setLocalizedDateFormatFromTemplate("EEEdMMMM")
+    let label = fmt.string(from: date)
+    return label.prefix(1).localizedUppercase + label.dropFirst()
 }
 
 private func adminMatchTimeRange(from start: Date, to end: Date) -> String {
@@ -56,7 +56,7 @@ struct CreateMatchRequestDTO: Encodable {
     static func from(_ params: CreateMatchParams) -> CreateMatchRequestDTO {
         CreateMatchRequestDTO(
             fieldId: params.fieldId,
-            supervisorId: nil,
+            supervisorId: params.organizerId,
             dateTime: combinedEpochMs(date: params.date, time: params.startTime),
             dateTimeEnd: combinedEpochMs(date: params.date, time: params.endTime),
             maxPlayers: params.maxPlayers,
@@ -102,9 +102,12 @@ struct CreateMatchResponseDataDTO: Decodable {
             playerLevel: MatchPlayerLevel(rawValue: playerLevel) ?? .any,
             spotsFilled: 0,
             spotsTotal: maxPlayers,
-            status: AdminMatchStatus(rawValue: status) ?? .scheduled,
+            status: AdminMatchStatus(backend: status),
             fieldImageUrl: nil,
-            startDate: startDate
+            startDate: startDate,
+            fieldId: fieldId,
+            endDate: endDate,
+            minPlayers: minPlayersRequired
         )
     }
 }
@@ -150,9 +153,15 @@ struct AdminMatchListItemDTO: Decodable {
             playerLevel: MatchPlayerLevel(rawValue: playerLevel) ?? .any,
             spotsFilled: enrolledPlayers,
             spotsTotal: maxPlayers,
-            status: AdminMatchStatus(rawValue: status) ?? .scheduled,
+            status: AdminMatchStatus(backend: status),
             fieldImageUrl: primaryImage,
-            startDate: startDate
+            startDate: startDate,
+            fieldId: fieldId,
+            endDate: endDate,
+            minPlayers: minPlayersRequired,
+            address: fieldLocation?.address,
+            latitude: fieldLocation?.latitude,
+            longitude: fieldLocation?.longitude
         )
     }
 }
@@ -173,7 +182,43 @@ struct AdminMatchFieldImageDTO: Decodable {
     let position: Int
 }
 
+// MARK: - Update Match (PUT /match/admin/update/{matchId})
+
+struct UpdateMatchRequestDTO: Encodable {
+    let fieldId: String
+    let supervisorId: String?
+    let dateTime: Int64
+    let dateTimeEnd: Int64
+    let maxPlayers: Int
+    let minPlayersRequired: Int
+    let matchPriceInCents: Int64
+    let discountIds: [String]
+    let status: String
+    let genderType: String
+    let playerLevel: String
+
+    static func from(_ params: UpdateMatchParams) -> UpdateMatchRequestDTO {
+        UpdateMatchRequestDTO(
+            fieldId: params.fieldId,
+            supervisorId: nil,
+            dateTime: combinedEpochMs(date: params.date, time: params.startTime),
+            dateTimeEnd: combinedEpochMs(date: params.date, time: params.endTime),
+            maxPlayers: params.maxPlayers,
+            minPlayersRequired: params.minPlayers,
+            matchPriceInCents: Int64(params.priceInCents),
+            discountIds: [],
+            status: "SCHEDULED",
+            genderType: params.gender.rawValue,
+            playerLevel: params.playerLevel.rawValue
+        )
+    }
+}
+
 // MARK: - Cancel Match (PATCH /match/admin/cancel/{matchId})
+
+struct CancelMatchRequestDTO: Encodable {
+    let reason: String
+}
 
 struct CancelMatchResponseDTO: Decodable {
     let data: CancelMatchDataDTO
@@ -185,4 +230,79 @@ struct CancelMatchDataDTO: Decodable {
     let playersRemoved: Int
     let paymentsCancelled: Int
     let refundsIssued: Int
+}
+
+// MARK: - Complete Match (POST /match/admin/{matchId}/complete)
+
+struct CompleteMatchRequestDTO: Encodable {
+    struct GoalDTO: Encodable {
+        let userId: String
+        let goals: Int
+    }
+    struct ExternalGoalDTO: Encodable {
+        let team: String
+        let goals: Int
+    }
+    let goals: [GoalDTO]
+    let externalGoals: [ExternalGoalDTO]
+    let bestPlayerId: String
+}
+
+struct CompleteMatchResponseDTO: Decodable {
+    let data: Bool?
+}
+
+// MARK: - Rebalance Teams (POST /match/admin/{matchId}/rebalance-teams)
+
+struct PlayerTeamAssignmentDTO: Encodable {
+    let userId: String
+    let team: String
+}
+
+struct RebalanceTeamsRequestDTO: Encodable {
+    let players: [PlayerTeamAssignmentDTO]
+}
+
+struct RebalanceTeamsResponseDTO: Decodable {
+    let data: Bool
+}
+
+// MARK: - Match Detail (GET /match/{matchId})
+
+struct AdminMatchDetailResponseDTO: Decodable {
+    let data: AdminMatchDetailItemDTO
+}
+
+struct AdminMatchDetailItemDTO: Decodable {
+    let teams: AdminMatchTeamsDTO
+}
+
+struct AdminMatchTeamsDTO: Decodable {
+    let teamA: AdminMatchTeamDTO
+    let teamB: AdminMatchTeamDTO
+}
+
+struct AdminMatchTeamDTO: Decodable {
+    let players: [AdminMatchPlayerDTO]
+}
+
+struct AdminMatchPlayerDTO: Decodable {
+    let id: String
+    let name: String
+    let avatarUrl: String?
+    let country: String?
+    let status: String?
+
+    func toAdminMatchPlayer() -> AdminMatchPlayer {
+        let playerStatus: AdminMatchPlayer.Status = (status?.uppercased() == "RESERVED") ? .reserved : .joined
+        return AdminMatchPlayer(
+            id: id,
+            playerId: id,
+            name: name,
+            avatarUrl: avatarUrl,
+            status: playerStatus,
+            country: country,
+            isExternal: false
+        )
+    }
 }

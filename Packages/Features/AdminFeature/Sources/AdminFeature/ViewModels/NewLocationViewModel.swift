@@ -11,7 +11,6 @@ public final class NewLocationViewModel: NSObject, ObservableObject {
     @Published public var selectedCity = LocationCity.cdmx.rawValue
     @Published public private(set) var catalog: [AdminLocationCountry] = .fallback
     @Published public var address = ""
-    @Published public var exteriorNumber = ""
     @Published public var latitude = NewLocationViewModel.defaultCoordinate.latitude
     @Published public var longitude = NewLocationViewModel.defaultCoordinate.longitude
     @Published public var isSaving = false
@@ -37,9 +36,6 @@ public final class NewLocationViewModel: NSObject, ObservableObject {
     private let fetchCatalogUseCase: FetchLocationCatalogUseCaseProtocol
     private let currentLocationProvider: CurrentLocationProviding
     private var searchTask: Task<Void, Never>?
-    /// Raw address returned by the geocoder. Kept separate so we can
-    /// re-insert a new exterior number without duplicating it.
-    private var rawGeocodedAddress = ""
     /// Once the user moves the pin or picks a search result, the device
     /// location must no longer override their choice.
     private var hasUserAdjustedPin = false
@@ -101,8 +97,6 @@ public final class NewLocationViewModel: NSObject, ObservableObject {
         hasUserAdjustedPin = true
         cityValidationError = nil
         address = ""
-        exteriorNumber = ""
-        rawGeocodedAddress = ""
 
         guard let city = LocationCity(rawValue: code) else { return }
         let center = CLLocationCoordinate2D(latitude: city.centerLatitude, longitude: city.centerLongitude)
@@ -153,7 +147,7 @@ public final class NewLocationViewModel: NSObject, ObservableObject {
 
         cityValidationError = isCityValid(latitude: latitude, longitude: longitude)
             ? nil
-            : "La dirección está fuera de \(selectedCityName). Elige un punto dentro de la ciudad seleccionada."
+            : L10n.Validation.addressOutOfCity(selectedCityName)
 
         Task { await fetchAddressFromCoordinates(latitude, longitude) }
     }
@@ -191,8 +185,7 @@ public final class NewLocationViewModel: NSObject, ObservableObject {
     /// Select a search result and validate it falls within the selected city.
     public func selectSearchResult(_ result: GeocodingSearchResult) {
         hasUserAdjustedPin = true
-        rawGeocodedAddress = result.name
-        address = addressWithExteriorNumber()
+        address = result.name
         latitude = result.latitude
         longitude = result.longitude
         searchQuery = ""
@@ -201,14 +194,7 @@ public final class NewLocationViewModel: NSObject, ObservableObject {
 
         cityValidationError = isCityValid(latitude: result.latitude, longitude: result.longitude)
             ? nil
-            : "La dirección está fuera de \(selectedCityName). Elige una dentro de la ciudad seleccionada."
-    }
-
-    /// Re-inserts the current exterior number into the geocoded address.
-    /// Called by the View whenever `exteriorNumber` changes.
-    public func rebuildAddress() {
-        guard !rawGeocodedAddress.isEmpty else { return }
-        address = addressWithExteriorNumber()
+            : L10n.Validation.addressOutOfCity(selectedCityName)
     }
 
     /// Save location to backend
@@ -246,24 +232,9 @@ public final class NewLocationViewModel: NSObject, ObservableObject {
 
     private func fetchAddressFromCoordinates(_ latitude: Double, _ longitude: Double) async {
         do {
-            let geocoded = try await geocodingService.reverseGeocode(
-                latitude: latitude,
-                longitude: longitude
-            )
-            rawGeocodedAddress = geocoded
-            address = addressWithExteriorNumber()
+            address = try await geocodingService.reverseGeocode(latitude: latitude, longitude: longitude)
         } catch {
             // Silently fail — keep existing address
         }
-    }
-
-    /// Inserts `exteriorNumber` after the street name (first segment before the
-    /// first comma). If there is no comma the number is appended at the end.
-    private func addressWithExteriorNumber() -> String {
-        guard !exteriorNumber.isEmpty else { return rawGeocodedAddress }
-        if let commaIdx = rawGeocodedAddress.firstIndex(of: ",") {
-            return rawGeocodedAddress[..<commaIdx] + " " + exteriorNumber + rawGeocodedAddress[commaIdx...]
-        }
-        return rawGeocodedAddress.isEmpty ? exteriorNumber : rawGeocodedAddress + " " + exteriorNumber
     }
 }

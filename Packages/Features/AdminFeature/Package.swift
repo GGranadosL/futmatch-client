@@ -24,6 +24,7 @@ let package = Package(
                 "NetworkFramework",
                 "SharedModels",
                 .product(name: "FirebaseRemoteConfig", package: "firebase-ios-sdk"),
+                .product(name: "FirebaseFirestore", package: "firebase-ios-sdk"),
             ]
         ),
         .testTarget(

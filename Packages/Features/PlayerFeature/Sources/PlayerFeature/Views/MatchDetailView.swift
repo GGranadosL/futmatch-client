@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import MapKit
 import FMDesignSystem
 import PersistenceFramework
 @_spi(CustomerSessionBetaAccess) import StripePaymentSheet
@@ -132,6 +133,7 @@ struct MatchDetailView: View {
     /// Absolute expiry date — source of truth for the countdown, survives background.
     @State private var countdownExpiry: Date? = nil
     @State private var countdownTimer: Timer? = nil
+    @State private var showMapPicker = false
     @State private var showLeaveConfirm = false
     @State private var showLeaveNoRefund = false
     @State private var showLeaveSuccess = false
@@ -150,6 +152,7 @@ struct MatchDetailView: View {
     @State private var paymentError: String?
     @State private var shouldPresentPayment = false
     @State private var showPaymentSuccess = false
+    @State private var showPaymentReusedToast = false
     @State private var showErrorOverlay = false
     /// API-provided title/message for the error overlay. `nil` falls back to generic copy.
     @State private var overlayErrorTitle: String?
@@ -398,6 +401,16 @@ struct MatchDetailView: View {
                 guard let data else { return }
                 preparePaymentSheet(from: data)
             }
+            .onChange(of: viewModel.paymentWasReused) { reused in
+                guard reused else { return }
+                showPaymentReusedToast = true
+                viewModel.clearPaymentReused()
+            }
+            .fmToast(
+                L10n.MatchDetail.paymentReusedNotice,
+                isPresented: $showPaymentReusedToast,
+                style: .success
+            )
             .onChange(of: viewModel.currentUserReservedUntil) { expiryDate in
                 guard let expiryDate, !hasJoined, viewModel.joinError == nil else { return }
                 let remaining = Int(expiryDate.timeIntervalSinceNow)
@@ -566,18 +579,75 @@ struct MatchDetailView: View {
                     .foregroundColor(.white)
                     .bold()
                 
+                locationRow
+            }
+            .padding(20)
+        }
+    }
+
+    // MARK: - Location Row
+
+    /// Venue address. When the backend supplies coordinates, the row becomes a
+    /// button that shows a map picker (Apple Maps / Google Maps); otherwise plain text.
+    @ViewBuilder
+    private var locationRow: some View {
+        if match.coordinate != nil {
+            Button {
+                showMapPicker = true
+            } label: {
                 HStack(spacing: 4) {
                     Image(systemName: "mappin.and.ellipse")
                         .font(.system(size: 12))
                     Text(match.location)
                         .font(FMTypography.bodySmall)
+                        .multilineTextAlignment(.leading)
+                    Image(systemName: "arrow.up.right")
+                        .font(.system(size: 10, weight: .semibold))
                 }
                 .foregroundColor(.white.opacity(0.9))
             }
-            .padding(20)
+            .buttonStyle(.plain)
+            .confirmationDialog(L10n.MatchDetail.openInMapsTitle, isPresented: $showMapPicker, titleVisibility: .visible) {
+                Button(L10n.MatchDetail.openAppleMaps) {
+                    openInAppleMaps()
+                }
+                if let coordinate = match.coordinate, isGoogleMapsInstalled {
+                    Button(L10n.MatchDetail.openGoogleMaps) {
+                        openInGoogleMaps(coordinate: coordinate)
+                    }
+                }
+            }
+        } else {
+            HStack(spacing: 4) {
+                Image(systemName: "mappin.and.ellipse")
+                    .font(.system(size: 12))
+                Text(match.location)
+                    .font(FMTypography.bodySmall)
+            }
+            .foregroundColor(.white.opacity(0.9))
         }
     }
-    
+
+    private var isGoogleMapsInstalled: Bool {
+        UIApplication.shared.canOpenURL(URL(string: "comgooglemaps://")!)
+    }
+
+    private func openInAppleMaps() {
+        guard let coordinate = match.coordinate else { return }
+        let placemark = MKPlacemark(coordinate: coordinate)
+        let mapItem = MKMapItem(placemark: placemark)
+        mapItem.name = match.venueName
+        mapItem.openInMaps(launchOptions: [
+            MKLaunchOptionsMapCenterKey: NSValue(mkCoordinate: coordinate)
+        ])
+    }
+
+    private func openInGoogleMaps(coordinate: CLLocationCoordinate2D) {
+        let urlString = "comgooglemaps://?q=\(match.venueName.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")&center=\(coordinate.latitude),\(coordinate.longitude)&zoom=16"
+        guard let url = URL(string: urlString) else { return }
+        UIApplication.shared.open(url)
+    }
+
     // MARK: - Info Bar (Date, Price, Duration, Spots)
     
     private var infoBar: some View {
@@ -673,6 +743,7 @@ struct MatchDetailView: View {
     
     private var lineupSection: some View {
         let isLoading = viewModel.liveTeamAPlayers == nil || viewModel.liveTeamBPlayers == nil
+        let hasError = viewModel.playersError != nil
         let liveA = viewModel.liveTeamAPlayers ?? []
         let liveB = viewModel.liveTeamBPlayers ?? []
         let perTeamMax = max(1, (match.spotsLeft + liveA.count + liveB.count) / 2)
@@ -681,7 +752,22 @@ struct MatchDetailView: View {
                 .font(FMTypography.titleLarge)
                 .foregroundColor(FMColors.onBackground)
 
-            if isLoading {
+            if hasError {
+                VStack(spacing: 12) {
+                    HStack(spacing: 12) {
+                        Image(systemName: "exclamationmark.circle.fill")
+                            .font(.system(size: 20))
+                            .foregroundColor(FMColors.error)
+                        Text(L10n.MatchDetail.playersLoadError)
+                            .font(FMTypography.bodySmall)
+                            .foregroundColor(FMColors.onSurface)
+                        Spacer()
+                    }
+                }
+                .padding(12)
+                .background(RoundedRectangle(cornerRadius: 12).fill(FMColors.errorContainer))
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(FMColors.error.opacity(0.3), lineWidth: 1))
+            } else if isLoading {
                 skeletonTeamCard(name: L10n.Matches.teamA)
                 skeletonTeamCard(name: L10n.Matches.teamB)
             } else {
@@ -692,7 +778,7 @@ struct MatchDetailView: View {
                     maxPlayers: perTeamMax,
                     team: .teamA
                 )
-                
+
                 // Team B
                 teamLineup(
                     name: L10n.Matches.teamB,
@@ -1179,6 +1265,7 @@ struct MatchDetailView: View {
         Task {
             await viewModel.joinMatch(team: teamString)
             guard viewModel.joinError == nil, let data = viewModel.joinData else { return }
+            guard !data.reusedExistingPayment else { return }
             let ttlSeconds = data.reservationTtlMs / 1000
             countdownExpiry = Date().addingTimeInterval(Double(ttlSeconds))
             countdownSeconds = ttlSeconds
@@ -1280,18 +1367,22 @@ struct MatchDetailView: View {
     }
 
     private func preparePaymentSheet(from data: JoinMatchData) {
-        STPAPIClient.shared.publishableKey = data.publishableKey
+        guard let clientSecret = data.clientSecret,
+              let publishableKey = data.publishableKey,
+              let customer = data.customer,
+              let customerSessionClientSecret = data.customerSessionClientSecret else { return }
+        STPAPIClient.shared.publishableKey = publishableKey
         var config = PaymentSheet.Configuration()
         config.merchantDisplayName = "FutMatch"
         // Attach the customer so saved payment methods are shown in the sheet.
         // The backend returns a CustomerSession client secret (cuss_…), NOT an
         // ephemeral key — so it must go through the CustomerSession initializer.
         config.customer = .init(
-            id: data.customer,
-            customerSessionClientSecret: data.customerSessionClientSecret
+            id: customer,
+            customerSessionClientSecret: customerSessionClientSecret
         )
         paymentSheet = PaymentSheet(
-            paymentIntentClientSecret: data.clientSecret,
+            paymentIntentClientSecret: clientSecret,
             configuration: config
         )
     }

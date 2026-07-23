@@ -331,3 +331,66 @@ func loadItems() -> [Item] {
 ```
 
 Reference implementations: `LocationRepository`, `AdminFieldsCoreDataCacheRepository`, `MatchCoreDataCacheRepository`, `UserProfileCoreDataRepository`, `OnboardingRepository`. `performAndWait` is reentrant — safe to call whether or not you're already on the context's queue.
+
+### 8. Async Action Feedback — Inline Loader + Toast, Never a Bare Spinner Screen
+
+Every button that triggers an `async` network call (save, cancel, delete, complete, etc.) must give the user three things: a loading state on the button itself, a transient confirmation when it finishes, and — on error — the ability to stay put and retry. Never leave the user staring at a screen with no feedback while a request is in flight, and never silently succeed/fail with no acknowledgment.
+
+**1. Loading state — swap the button's label for a spinner, in place.**
+
+Don't add a separate full-screen overlay or `ProgressView()` floating on its own. The existing action button (whether `FMStickyActionBar`, `FMConfirmationAlert`'s primary button, or a custom button matching that shape) replaces its label/icon with an inline `ProgressView()` and disables itself:
+
+```swift
+Button { onConfirm() } label: {
+    ZStack {
+        if isLoading {
+            ProgressView().tint(.white)
+        } else {
+            Text(title)
+        }
+    }
+    .frame(maxWidth: .infinity, height: 50)
+    .background(Capsule().fill(isDisabled ? disabledColor : activeColor))
+}
+.disabled(isDisabled || isLoading)
+```
+
+`FMStickyActionBar` and `FMConfirmationAlert` already do this via their `isLoading:` parameter — reuse them instead of hand-rolling a button when the layout fits.
+
+**2. On success — `FMToast(style: .success)`, then navigate after the toast is visible.**
+
+Never dismiss/pop instantly on success — the user needs to actually see confirmation, not just watch the screen vanish. Pattern (see `EditMatchView`, `MatchSupervisionView`, `AdminMatchDetailView`'s cancel flow):
+
+```swift
+.onChange(of: viewModel.succeeded) { didSucceed in
+    guard didSucceed else { return }
+    showAnyBlockingOverlay = false   // close confirmation alert / bottom sheet first
+    showSuccessToast = true
+    Task {
+        try? await Task.sleep(nanoseconds: 2_500_000_000)  // matches FMToast's default duration
+        onCompleted?() ?? dismiss()
+    }
+}
+.fmToast(successMessage, isPresented: $showSuccessToast, style: .success)
+```
+
+**3. On error — `FMToast(style: .error)` with the backend's localized message, and stay on screen.**
+
+Don't auto-navigate away on error; the user needs to see what happened and retry without re-entering data.
+
+```swift
+.onChange(of: viewModel.errorMessage) { error in
+    guard let error else { return }
+    errorToastMessage = error
+    showErrorToast = true
+}
+.fmToast(errorToastMessage, isPresented: $showErrorToast, style: .error)
+```
+
+**4. ⚠️ A `.sheet`/`.fullScreenCover` blocks anything attached below it — attach the toast to the topmost presented view.**
+
+`.alert` and `.fmToast` are just overlays on the view they're attached to. If that view is currently covered by a `.sheet`, the overlay/alert is invisible until the sheet is dismissed — it does **not** queue or show through. Two consequences:
+- If an action is triggered *from inside* a sheet (e.g. `CancelMatchReasonBottomSheet`), attach that sheet's own error toast **inside the sheet's view**, not on the presenter underneath.
+- If the action closes the sheet on success, close the sheet in the same state change that triggers the toast (`showSheet = false; showSuccessToast = true`) — the toast, attached to the presenter, becomes visible once the sheet's dismiss animation finishes.
+
+Reference implementation: `AdminMatchDetailView` + `CancelMatchReasonBottomSheet` (cancel-match-with-reason flow) — loader lives in the sheet's confirm button, the sheet's own error toast fires on failure, and the presenter's success toast + delayed `dismiss()` fire after the sheet closes.

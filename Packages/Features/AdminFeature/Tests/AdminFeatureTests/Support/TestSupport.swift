@@ -98,7 +98,49 @@ extension AdminDashboard {
 }
 
 extension FieldIdName {
-    static func stub(id: String = "field-1", name: String = "Cancha Central") -> FieldIdName {
-        FieldIdName(id: id, name: name)
+    static func stub(
+        id: String = "field-1",
+        name: String = "Cancha Central",
+        priceInCents: Int = 50_000,
+        maxPlayersAllowed: Int = 14
+    ) -> FieldIdName {
+        FieldIdName(id: id, name: name, priceInCents: priceInCents, maxPlayersAllowed: maxPlayersAllowed)
+    }
+}
+
+extension AdminMatch {
+    static func stub(
+        id: String = "match-1",
+        fieldName: String = "Cancha Central",
+        status: AdminMatchStatus = .scheduled,
+        startDate: Date = Date()
+    ) -> AdminMatch {
+        AdminMatch(
+            id: id,
+            fieldName: fieldName,
+            dateLabel: "Hoy",
+            timeRange: "20:00 – 22:00",
+            price: "$150.00",
+            gender: .mixed,
+            playerLevel: .any,
+            spotsFilled: 0,
+            spotsTotal: 10,
+            status: status,
+            fieldImageUrl: nil,
+            startDate: startDate,
+            fieldId: "field-1",
+            endDate: startDate.addingTimeInterval(7200),
+            minPlayers: 6
+        )
+    }
+}
+
+extension AdminMatchPlayer {
+    static func stub(
+        id: String = "p-1",
+        name: String = "Jugador",
+        team: String = "A"
+    ) -> AdminMatchPlayer {
+        AdminMatchPlayer(id: id, playerId: id, name: name)
     }
 }

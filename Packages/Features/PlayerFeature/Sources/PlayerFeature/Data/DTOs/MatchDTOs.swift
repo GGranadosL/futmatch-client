@@ -74,7 +74,9 @@ struct MatchListItemV2DTO: Decodable {
             matchStatus: status,
             teamAScore: teamAScore,
             teamBScore: teamBScore,
-            winnerTeam: winnerTeam
+            winnerTeam: winnerTeam,
+            latitude: location?.latitude,
+            longitude: location?.longitude
         )
     }
 }
@@ -159,7 +161,9 @@ struct MatchListItemDTO: Decodable {
             matchStatus: status,
             teamAScore: teamAScore,
             teamBScore: teamBScore,
-            winnerTeam: winnerTeam
+            winnerTeam: winnerTeam,
+            latitude: location?.latitude,
+            longitude: location?.longitude
         )
     }
 }
@@ -225,7 +229,9 @@ struct MatchDetailItemDTO: Decodable {
             matchStatus: status,
             teamAScore: teamAScore,
             teamBScore: teamBScore,
-            winnerTeam: winnerTeam
+            winnerTeam: winnerTeam,
+            latitude: location?.latitude,
+            longitude: location?.longitude
         )
     }
 
@@ -283,12 +289,14 @@ struct MatchLocationDTO: Decodable {
     let address: String?
     let city: String?
     let country: String?
+    let countryCode: String?
+    let cityCode: String?
     let latitude: Double?
     let longitude: Double?
 
     static func displayString(_ location: MatchLocationDTO?) -> String {
         guard let loc = location else { return "" }
-        return [loc.city, loc.country].compactMap { $0 }.joined(separator: ", ")
+        return loc.address ?? ""
     }
 }
 
@@ -351,15 +359,17 @@ struct JoinMatchResponse: Decodable {
 }
 
 struct JoinMatchData: Codable, Equatable {
-    let clientSecret: String
+    let clientSecret: String?
     let paymentId: String
     let provider: String
     let amountInCents: Int
     let currency: String
-    let customer: String
-    let customerSessionClientSecret: String
-    let publishableKey: String
+    let customer: String?
+    let customerSessionClientSecret: String?
+    let publishableKey: String?
     let reservationTtlMs: Int
+    let reusedExistingPayment: Bool
+    let existingPaymentStatus: String?
 }
 
 struct CancelMatchResponse: Decodable {

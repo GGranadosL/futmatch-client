@@ -17,10 +17,10 @@ public struct ForgotPasswordView: View {
                 switch coordinator.currentState {
                 case .email:
                     ForgotPasswordEmailView(coordinator: coordinator)
-                case .verification(let userId, let email):
-                    ForgotPasswordVerificationView(coordinator: coordinator, userId: userId, email: email)
-                case .newPassword(let userId, let resetToken):
-                    ForgotPasswordNewPasswordView(coordinator: coordinator, userId: userId, resetToken: resetToken)
+                case .verification(let email):
+                    ForgotPasswordVerificationView(coordinator: coordinator, email: email)
+                case .newPassword(let resetToken):
+                    ForgotPasswordNewPasswordView(coordinator: coordinator, resetToken: resetToken)
                 case .success:
                     ForgotPasswordSuccessView(coordinator: coordinator)
                 }
@@ -116,7 +116,6 @@ struct ForgotPasswordEmailView: View {
 
 struct ForgotPasswordVerificationView: View {
     @ObservedObject var coordinator: ForgotPasswordCoordinatorViewModel
-    let userId: String
     let email: String
     @State private var code = ""
     @FocusState private var isTextFieldFocused: Bool
@@ -224,7 +223,7 @@ struct ForgotPasswordVerificationView: View {
                     isEnabled: isCodeValid
                 ) {
                     Task {
-                        await coordinator.verifyCode(code, userId: userId)
+                        await coordinator.verifyCode(code, email: email)
                     }
                 }
                 .padding(.horizontal, 24)
@@ -274,7 +273,6 @@ struct ForgotPasswordVerificationView: View {
 
 struct ForgotPasswordNewPasswordView: View {
     @ObservedObject var coordinator: ForgotPasswordCoordinatorViewModel
-    let userId: String
     let resetToken: String
     @State private var newPassword = ""
     @State private var confirmPassword = ""

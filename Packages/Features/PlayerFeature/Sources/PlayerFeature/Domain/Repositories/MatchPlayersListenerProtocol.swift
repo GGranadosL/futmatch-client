@@ -10,5 +10,5 @@ struct MatchPlayersSnapshot {
 // MARK: - Match Players Listener Protocol
 
 protocol MatchPlayersListenerProtocol {
-    func playerStream(matchId: String) -> AsyncStream<MatchPlayersSnapshot>
+    func playerStream(matchId: String) -> AsyncThrowingStream<MatchPlayersSnapshot, Error>
 }

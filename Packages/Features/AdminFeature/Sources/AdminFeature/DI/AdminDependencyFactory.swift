@@ -14,7 +14,10 @@ public struct AdminDependencyFactory {
     // MARK: - Repositories
 
     func makeAdminDashboardRepository() -> AdminDashboardRepositoryProtocol {
-        AdminDashboardRepository(fieldService: makeFieldService())
+        AdminDashboardRepository(
+            fieldService: makeFieldService(),
+            matchRepository: makeAdminMatchRepository()
+        )
     }
 
     // MARK: - Use Cases
@@ -190,6 +193,97 @@ public struct AdminDependencyFactory {
     func makeNewMatchViewModel() -> NewMatchViewModel {
         NewMatchViewModel(
             createMatchUseCase: makeCreateMatchUseCase(),
+            fetchFieldIdNamesUseCase: makeFetchFieldIdNamesUseCase(),
+            fetchOrganizersUseCase: makeFetchOrganizersUseCase(),
+            fetchPricingEstimateUseCase: makeFetchPricingEstimateUseCase(),
+            fetchCustomPricingUseCase: makeFetchCustomPricingUseCase()
+        )
+    }
+
+    // MARK: - Organizers
+
+    func makeUserService() -> UserServiceProtocol {
+        UserService()
+    }
+
+    func makeOrganizerRepository() -> OrganizerRepositoryProtocol {
+        OrganizerRepository(service: makeUserService())
+    }
+
+    public func makeFetchOrganizersUseCase() -> FetchOrganizersUseCaseProtocol {
+        FetchOrganizersUseCase(repository: makeOrganizerRepository())
+    }
+
+    // MARK: - Pricing
+
+    private func makePricingRepository() -> PricingRepositoryProtocol {
+        PricingRepository(service: PricingService())
+    }
+
+    public func makeFetchPricingEstimateUseCase() -> FetchPricingEstimateUseCaseProtocol {
+        FetchPricingEstimateUseCase(repository: makePricingRepository())
+    }
+
+    public func makeFetchCustomPricingUseCase() -> FetchCustomPricingUseCaseProtocol {
+        FetchCustomPricingUseCase(repository: makePricingRepository())
+    }
+
+    // MARK: - Match Detail
+
+    func makeAdminMatchPlayersListener() -> AdminMatchPlayersListenerProtocol {
+        FirestoreAdminMatchPlayersRepository()
+    }
+
+    func makeSubscribeAdminMatchPlayersUseCase() -> SubscribeAdminMatchPlayersUseCaseProtocol {
+        SubscribeAdminMatchPlayersUseCase(repository: makeAdminMatchPlayersListener())
+    }
+
+    func makeUpdateAdminMatchUseCase() -> UpdateAdminMatchUseCaseProtocol {
+        UpdateAdminMatchUseCase(repository: makeAdminMatchRepository())
+    }
+
+    func makeCancelAdminMatchUseCase() -> CancelAdminMatchUseCaseProtocol {
+        CancelAdminMatchUseCase(repository: makeAdminMatchRepository())
+    }
+
+    func makeFetchAdminMatchPlayersUseCase() -> FetchAdminMatchPlayersUseCaseProtocol {
+        FetchAdminMatchPlayersUseCase(repository: makeAdminMatchRepository())
+    }
+
+    func makeRebalanceTeamsUseCase() -> RebalanceTeamsUseCaseProtocol {
+        RebalanceTeamsUseCase(repository: makeAdminMatchRepository())
+    }
+
+    @MainActor
+    func makeAdminMatchDetailViewModel(match: AdminMatch) -> AdminMatchDetailViewModel {
+        AdminMatchDetailViewModel(
+            match: match,
+            fetchFieldsUseCase: makeFetchAdminFieldsUseCase(),
+            subscribeUseCase: makeSubscribeAdminMatchPlayersUseCase(),
+            cancelUseCase: makeCancelAdminMatchUseCase(),
+            fetchPlayersUseCase: makeFetchAdminMatchPlayersUseCase(),
+            rebalanceUseCase: makeRebalanceTeamsUseCase()
+        )
+    }
+
+    func makeCompleteMatchUseCase() -> CompleteMatchUseCaseProtocol {
+        CompleteMatchUseCase(repository: makeAdminMatchRepository())
+    }
+
+    @MainActor
+    func makeMatchSupervisionViewModel(match: AdminMatch) -> MatchSupervisionViewModel {
+        MatchSupervisionViewModel(
+            match: match,
+            subscribeUseCase: makeSubscribeAdminMatchPlayersUseCase(),
+            completeUseCase: makeCompleteMatchUseCase()
+        )
+    }
+
+    @MainActor
+    func makeEditMatchViewModel(match: AdminMatch) -> EditMatchViewModel {
+        EditMatchViewModel(
+            match: match,
+            updateUseCase: makeUpdateAdminMatchUseCase(),
             fetchFieldIdNamesUseCase: makeFetchFieldIdNamesUseCase()
         )
     }
