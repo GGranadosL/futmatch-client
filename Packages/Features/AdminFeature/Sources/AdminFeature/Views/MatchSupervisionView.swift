@@ -182,23 +182,61 @@ struct MatchSupervisionView: View {
     // MARK: - Player Goal Row
 
     private func playerGoalRow(player: AdminMatchPlayer) -> some View {
-        HStack(spacing: 12) {
+        let isAbsent = viewModel.isAbsent(player)
+        return HStack(spacing: 12) {
             playerAvatar(player: player)
+                .opacity(isAbsent ? 0.4 : 1)
 
             Text(player.isExternal || player.name.isEmpty
                  ? L10n.MatchSupervision.externalPlayer
                  : player.name)
                 .font(FMTypography.bodyMedium)
                 .foregroundColor(player.isExternal ? FMColors.onTertiaryContainer : FMColors.onSurface)
+                .strikethrough(isAbsent, color: FMColors.onSurfaceVariant)
+                .opacity(isAbsent ? 0.5 : 1)
                 .lineLimit(1)
 
             Spacer()
 
-            goalStepper(player: player)
+            // External players can't be absent — attendance only applies to enrolled users.
+            if !player.isExternal {
+                absenceToggle(player: player, isAbsent: isAbsent)
+            }
+
+            if isAbsent {
+                absentBadge
+            } else {
+                goalStepper(player: player)
+            }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
         .background(player.isExternal ? FMColors.tertiaryContainer.opacity(0.4) : Color.clear)
+    }
+
+    // MARK: - Absence Toggle
+
+    private func absenceToggle(player: AdminMatchPlayer, isAbsent: Bool) -> some View {
+        Button {
+            viewModel.toggleAbsence(for: player)
+        } label: {
+            Image(systemName: isAbsent ? "person.fill.xmark" : "person.fill.checkmark")
+                .font(.system(size: 18))
+                .foregroundColor(isAbsent ? FMColors.error : FMColors.onSurfaceVariant.opacity(0.6))
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(isAbsent ? L10n.MatchSupervision.markPresent : L10n.MatchSupervision.markAbsent)
+    }
+
+    private var absentBadge: some View {
+        Text(L10n.MatchSupervision.absentBadge)
+            .font(FMTypography.labelMedium)
+            .foregroundColor(FMColors.error)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(Capsule().fill(FMColors.errorContainer))
     }
 
     // MARK: - Player Avatar

@@ -1320,6 +1320,159 @@
         }
       }
     },
+    "matchDetail.fieldType.artificialTurf" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Artificial turf"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pasto artificial"
+          }
+        }
+      }
+    },
+    "matchDetail.fieldType.naturalGrass" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Natural grass"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pasto natural"
+          }
+        }
+      }
+    },
+    "matchDetail.fieldType.indoor" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Indoor court"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancha techada"
+          }
+        }
+      }
+    },
+    "matchDetail.fieldType.futsal" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Futsal"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Futsal"
+          }
+        }
+      }
+    },
+    "matchDetail.footwear.turf" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turf cleats"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tacos para pasto sintético"
+          }
+        }
+      }
+    },
+    "matchDetail.footwear.firmGround" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Firm-ground cleats"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tacos para pasto natural"
+          }
+        }
+      }
+    },
+    "matchDetail.footwear.artificialGrass" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Artificial-grass cleats"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tacos para pasto artificial"
+          }
+        }
+      }
+    },
+    "matchDetail.footwear.indoor" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Indoor shoes"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tenis de salón"
+          }
+        }
+      }
+    },
+    "matchDetail.footwear.rubber" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rubber shoes"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tenis de hule"
+          }
+        }
+      }
+    },
     "matchDetail.join.alert.countdown" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1996,6 +2149,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sí"
+          }
+        }
+      }
+    },
+    "matches.male" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Men's"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Varonil"
+          }
+        }
+      }
+    },
+    "matches.female" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Women's"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Femenil"
           }
         }
       }

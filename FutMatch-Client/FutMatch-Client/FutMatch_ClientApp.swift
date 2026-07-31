@@ -118,6 +118,9 @@ struct FutMatchApp: App {
             UserDefaults.standard.removeObject(forKey: "home.cache.homeDataDTO")
             // Reset notification seen-count so the next user gets a fresh badge
             UserDefaults.standard.removeObject(forKey: "notifications.seenUnreadCount")
+            // Drop the fetch-timestamp safety net so the next account's first
+            // fetch isn't throttled by this account's recent activity.
+            UserDefaults.standard.removeObject(forKey: "notification.lastFetchedAt")
             // Drop persisted regional matches versions so the next account
             // re-fetches the full list instead of sending a stale sinceVersion.
             PlayerDependencyFactory().clearMatchVersions()

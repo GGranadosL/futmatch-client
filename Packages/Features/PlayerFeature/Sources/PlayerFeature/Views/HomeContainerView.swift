@@ -53,7 +53,9 @@ public struct HomeContainerView: View {
             fetchMyMatchesUseCase: factory.makeFetchMyMatchesUseCase(),
             cacheRepo: reservedCacheRepo
         ))
-        _homeViewModel = StateObject(wrappedValue: HomeViewModel())
+        _homeViewModel = StateObject(wrappedValue: HomeViewModel(
+            fetchMatchDetailUseCase: factory.makeFetchMatchDetailUseCase()
+        ))
         _notificationsViewModel = StateObject(wrappedValue: factory.makeNotificationsViewModel())
     }
     

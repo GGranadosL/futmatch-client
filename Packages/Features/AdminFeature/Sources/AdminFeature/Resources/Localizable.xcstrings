@@ -1737,6 +1737,57 @@
         }
       }
     },
+    "matchSupervision.absentBadge" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Absent"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ausente"
+          }
+        }
+      }
+    },
+    "matchSupervision.markAbsent" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mark as absent"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Marcar como ausente"
+          }
+        }
+      }
+    },
+    "matchSupervision.markPresent" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mark as present"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Marcar como presente"
+          }
+        }
+      }
+    },
     "matchSupervision.bestPlayer" : {
       "extractionState" : "manual",
       "localizations" : {

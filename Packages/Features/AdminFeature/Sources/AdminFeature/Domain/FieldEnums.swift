@@ -12,7 +12,7 @@ public enum FieldType: String, Codable, Equatable, CaseIterable, CustomStringCon
     public var displayName: String {
         switch self {
         case .naturalGrass:   return "Pasto natural"
-        case .artificialTurf: return "Pasto sintético"
+        case .artificialTurf: return "Pasto artificial"
         case .indoor:         return "Cancha indoor"
         case .futsal:         return "Futsal"
         }

@@ -15,6 +15,9 @@ struct CompleteMatchParams {
     let bestPlayerId: String
     let playerGoals: [PlayerGoal]
     let externalGoals: [ExternalTeamGoals]
+    /// Enrolled active players who did not attend. Recorded as NO_SHOW by the backend;
+    /// every enrolled player not listed is recorded as PRESENT.
+    let absentPlayerIds: [String]
 }
 
 // MARK: - Protocol

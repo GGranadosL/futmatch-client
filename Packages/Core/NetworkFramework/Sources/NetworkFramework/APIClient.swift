@@ -187,8 +187,13 @@ public class APIClient {
                 let newToken: String
                 if isRefreshing {
                     // Another request is already refreshing — wait for its result
-                    newToken = try await withCheckedThrowingContinuation { continuation in
-                        refreshContinuations.append(continuation)
+                    do {
+                        newToken = try await withCheckedThrowingContinuation { continuation in
+                            refreshContinuations.append(continuation)
+                        }
+                    } catch {
+                        // Refresh failed — report this request's own 401, not the shared refresh error
+                        return try handleResponse(data, httpResponse, for: type, decoder: decoder)
                     }
                 } else {
                     isRefreshing = true

@@ -1,6 +1,5 @@
 import Foundation
 import NetworkFramework
-import PersistenceFramework
 
 // MARK: - Protocol
 public protocol AuthServiceProtocol {
@@ -20,17 +19,11 @@ public protocol AuthServiceProtocol {
 // MARK: - Implementation
 public class AuthService: AuthServiceProtocol {
     private let apiClient: APIClient
-    private let keychainManager: KeychainManager
-    
-    private let tokenKey = "auth_token"
-    private let refreshTokenKey = "refresh_token"
-    
+
     public init(
-        apiClient: APIClient = .shared,
-        keychainManager: KeychainManager = .shared
+        apiClient: APIClient = .shared
     ) {
         self.apiClient = apiClient
-        self.keychainManager = keychainManager
     }
     
     // MARK: - Register
@@ -117,34 +110,6 @@ public class AuthService: AuthServiceProtocol {
         let endpoint = AuthEndpoint.signOut
         let response: SignOutResponse = try await apiClient.request(endpoint: endpoint)
         return response
-    }
-    
-    // MARK: - Token Management
-    
-    public func saveTokens(_ token: AuthToken) throws {
-        try keychainManager.save(token.accessToken, forKey: tokenKey)
-        try keychainManager.save(token.refreshToken, forKey: refreshTokenKey)
-    }
-    
-    public func getAccessToken() throws -> String? {
-        return try keychainManager.retrieve(forKey: tokenKey)
-    }
-    
-    public func getRefreshToken() throws -> String? {
-        return try keychainManager.retrieve(forKey: refreshTokenKey)
-    }
-    
-    public func clearTokens() throws {
-        try keychainManager.delete(forKey: tokenKey)
-        try keychainManager.delete(forKey: refreshTokenKey)
-    }
-    
-    public func isAuthenticated() -> Bool {
-        do {
-            return try getAccessToken() != nil
-        } catch {
-            return false
-        }
     }
 }
 

@@ -3,12 +3,13 @@ import FMDesignSystem
 import SafariServices
 @_spi(CustomerSessionBetaAccess) import StripePaymentSheet
 
-// MARK: - Static Web URLs (TODO: replace with real hosted URLs before release)
+// MARK: - Static Web URLs
 
 private enum FutMatchURLs {
+    // TODO: replace with the real hosted help page before release.
     static let help    = URL(string: "https://futmatch.app/ayuda")!
-    static let terms   = URL(string: "https://futmatch.app/terminos")!
-    static let privacy = URL(string: "https://futmatch.app/privacidad")!
+    static let terms   = URL(string: "https://futmatch.mx/terminos")!
+    static let privacy = URL(string: "https://futmatch.mx/privacidad")!
 }
 
 // MARK: - SettingsRow Model

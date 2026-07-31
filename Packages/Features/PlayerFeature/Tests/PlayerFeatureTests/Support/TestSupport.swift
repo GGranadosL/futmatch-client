@@ -118,3 +118,25 @@ extension MatchPlayersSnapshot {
         MatchPlayersSnapshot(teamAPlayers: teamA, teamBPlayers: teamB, reservationsByPlayerId: reservations)
     }
 }
+
+extension NotificationItem {
+    static func stub(
+        id: String = "notif-1",
+        title: String = "Partido cancelado",
+        body: String = "Tu partido fue cancelado",
+        notificationType: NotificationType = .matchCanceled,
+        createdAt: Date = Date(),
+        metadata: NotificationMetadata? = nil,
+        isRead: Bool = false
+    ) -> NotificationItem {
+        NotificationItem(
+            id: id,
+            title: title,
+            body: body,
+            notificationType: notificationType,
+            createdAt: createdAt,
+            metadata: metadata,
+            isRead: isRead
+        )
+    }
+}

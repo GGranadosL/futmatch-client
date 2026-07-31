@@ -7,6 +7,7 @@ public struct PlayerDependencyFactory {
     private static let sharedMatchService      = MatchService(isDemoMode: false)
     private static let sharedDemoMatchService  = MatchService(isDemoMode: true)
     private static let sharedMatchVersionStore = UserDefaultsMatchVersionStore()
+    private static let sharedNotificationFetchTimestampStore = UserDefaultsNotificationFetchTimestampStore()
 
     private let isDemoMode: Bool
     private let countryRepository: CountryRepositoryProtocol
@@ -121,8 +122,13 @@ public struct PlayerDependencyFactory {
         let service: NotificationServiceProtocol = isDemoMode
             ? DemoNotificationService()
             : NotificationService()
+        let fetchNotificationsUseCase = FetchNotificationsUseCase(
+            notificationService: service,
+            timestampStore: Self.sharedNotificationFetchTimestampStore
+        )
         return NotificationsViewModel(
             notificationService: service,
+            fetchNotificationsUseCase: fetchNotificationsUseCase,
             fetchMatchDetailUseCase: makeFetchMatchDetailUseCase()
         )
     }

@@ -88,6 +88,11 @@ struct NotificationsView: View {
             .padding(.top, 8)
             .padding(.bottom, 32)
         }
+        .refreshable {
+            // Wrapped in an unstructured Task so .refreshable's cancellation on
+            // gesture release doesn't abort the network request mid-flight.
+            await Task { await viewModel.load(forceRefresh: true) }.value
+        }
     }
 
     private func sectionHeader(_ title: String) -> some View {

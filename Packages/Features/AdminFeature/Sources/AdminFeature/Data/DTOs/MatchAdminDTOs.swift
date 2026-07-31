@@ -246,6 +246,7 @@ struct CompleteMatchRequestDTO: Encodable {
     let goals: [GoalDTO]
     let externalGoals: [ExternalGoalDTO]
     let bestPlayerId: String
+    let absentPlayerIds: [String]
 }
 
 struct CompleteMatchResponseDTO: Decodable {

@@ -30,15 +30,25 @@ final class HomeViewModel: ObservableObject {
     private var hasData = false
 
     private let homeService: HomeServiceProtocol
+    private let fetchMatchDetailUseCase: FetchMatchDetailUseCaseProtocol
     private static let cacheKey = "home.cache.homeDataDTO"
 
-    init(homeService: HomeServiceProtocol = HomeService()) {
+    init(
+        homeService: HomeServiceProtocol = HomeService(),
+        fetchMatchDetailUseCase: FetchMatchDetailUseCaseProtocol = FetchMatchDetailUseCase(matchService: MatchService())
+    ) {
         self.homeService = homeService
+        self.fetchMatchDetailUseCase = fetchMatchDetailUseCase
         // Pre-load from cache so the first render already has data
         if let cached = HomeViewModel.loadCache() {
             apply(cached)
             hasData = true
         }
+    }
+
+    func fetchLastMatchDetail() async -> MatchItem? {
+        guard let matchId = lastMatch?.matchId else { return nil }
+        return try? await fetchMatchDetailUseCase.execute(matchId: matchId)
     }
 
     func load() async {

@@ -23,9 +23,6 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
-        let s = "Cab is a rab"
-        
-        var array = Array(s.filter { $0.isLetter || $0.isNumber }.lowercased())
         // App Check must be installed BEFORE FirebaseApp.configure() so the very
         // first Firebase request carries an attestation token. Uses App Attest on
         // capable devices, DeviceCheck as fallback, and a debug provider in DEBUG.
@@ -62,17 +59,23 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         Messaging.messaging().apnsToken = deviceToken
     }
 
-    // MARK: - Data-only Push (regional matches refresh)
+    // MARK: - Data-only Push (regional matches refresh / in-app notifications)
 
     /// Handles data-only pushes. Regional `matches_updated` payloads are routed
     /// into the in-app notification that auto-refreshes the matches feed.
+    /// Any other remote push is treated as a signal that a new in-app
+    /// notification was created server-side (there's no distinguishing `type`
+    /// for those yet), and routed to refresh the notifications feed instead.
     /// Fires in foreground and background (for `content-available` messages).
     func application(
         _ application: UIApplication,
         didReceiveRemoteNotification userInfo: [AnyHashable: Any]
     ) async -> UIBackgroundFetchResult {
-        let handled = MatchPushRouter.handleRemoteNotification(userInfo)
-        return handled ? .newData : .noData
+        let isMatchesPush = MatchPushRouter.handleRemoteNotification(userInfo)
+        if !isMatchesPush {
+            InAppNotificationPushRouter.handleRemoteNotification(userInfo)
+        }
+        return .newData
     }
 
     // MARK: - Match Topics

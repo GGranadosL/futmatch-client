@@ -236,18 +236,25 @@ struct MatchDetailItemDTO: Decodable {
     }
 
     private static func mapFootwear(_ raw: String?) -> String {
-        switch raw?.uppercased() {
-        case "TURF": return "Tacos para pasto sintético"
-        case "RUBBER": return "Tenis de hule"
-        default: return raw ?? ""
+        guard let raw, !raw.isEmpty else { return "" }
+        switch raw.uppercased() {
+        case "TURF":            return L10n.MatchDetail.FootwearValue.turf
+        case "FIRM_GROUND":     return L10n.MatchDetail.FootwearValue.firmGround
+        case "ARTIFICIAL_GRASS": return L10n.MatchDetail.FootwearValue.artificialGrass
+        case "INDOOR":          return L10n.MatchDetail.FootwearValue.indoor
+        case "RUBBER":          return L10n.MatchDetail.FootwearValue.rubber
+        default:                return MatchFormatters.humanize(raw)
         }
     }
 
     private static func mapFieldType(_ raw: String?) -> String {
-        switch raw?.uppercased() {
-        case "SYNTHETIC": return "Pasto sintético"
-        case "NATURAL": return "Pasto natural"
-        default: return raw ?? ""
+        guard let raw, !raw.isEmpty else { return "" }
+        switch raw.uppercased() {
+        case "ARTIFICIAL_TURF", "SYNTHETIC": return L10n.MatchDetail.FieldTypeValue.artificialTurf
+        case "NATURAL_GRASS", "NATURAL":     return L10n.MatchDetail.FieldTypeValue.naturalGrass
+        case "INDOOR":                       return L10n.MatchDetail.FieldTypeValue.indoor
+        case "FUTSAL":                       return L10n.MatchDetail.FieldTypeValue.futsal
+        default:                             return MatchFormatters.humanize(raw)
         }
     }
 }
@@ -335,10 +342,20 @@ enum MatchFormatters {
     static func genderLabel(_ raw: String) -> String {
         switch raw.uppercased() {
         case "MIXED": return L10n.Matches.mixed
-        case "MALE": return "Varonil"
-        case "FEMALE": return "Femenil"
-        default: return raw
+        case "MALE": return L10n.Matches.male
+        case "FEMALE": return L10n.Matches.female
+        default: return humanize(raw)
         }
+    }
+
+    /// Last-resort formatting for an unmapped backend enum value so a raw
+    /// `SCREAMING_SNAKE_CASE` token never reaches the UI. Turns
+    /// `"ARTIFICIAL_TURF"` into `"Artificial Turf"`.
+    static func humanize(_ raw: String) -> String {
+        raw
+            .split(separator: "_")
+            .map { $0.lowercased().capitalized }
+            .joined(separator: " ")
     }
 }
 

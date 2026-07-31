@@ -17,6 +17,7 @@ struct HomeContentView: View {
     @State private var showNotifications = false
     @State private var showAdmin = false
     @State private var showOrganizer = false
+    @State private var isLoadingLastMatchDetail = false
 
     /// `ADMIN` and `ORGANIZER` users see the admin-panel button next to the bell,
     /// unless `admin_feature_enabled` Remote Config flag is set to false.
@@ -301,40 +302,58 @@ struct HomeContentView: View {
             if homeViewModel.isLoading && homeViewModel.lastMatch == nil {
                 FMLastMatchSkeleton()
             } else if let last = homeViewModel.lastMatch {
-                HStack(spacing: 14) {
-                    Image(systemName: outcomeIcon(last.outcome))
-                        .font(.system(size: 24))
-                        .foregroundColor(outcomeColor(last.outcome))
-                        .frame(width: 44, height: 44)
-                        .background(
-                            Circle()
-                                .fill(outcomeColor(last.outcome).opacity(0.12))
-                        )
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(last.outcomeLabel)
-                            .font(FMTypography.titleSmall)
-                            .foregroundColor(FMColors.onSurface)
-                        Text("\(last.relativeDate) - \(last.fieldName)")
-                            .font(FMTypography.bodySmall)
-                            .foregroundColor(FMColors.onSurfaceVariant)
+                Button {
+                    Task {
+                        isLoadingLastMatchDetail = true
+                        if let detail = await homeViewModel.fetchLastMatchDetail() {
+                            navigationPath.append(detail)
+                        }
+                        isLoadingLastMatchDetail = false
                     }
+                } label: {
+                    HStack(spacing: 14) {
+                        Image(systemName: outcomeIcon(last.outcome))
+                            .font(.system(size: 24))
+                            .foregroundColor(outcomeColor(last.outcome))
+                            .frame(width: 44, height: 44)
+                            .background(
+                                Circle()
+                                    .fill(outcomeColor(last.outcome).opacity(0.12))
+                            )
 
-                    Spacer()
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(last.outcomeLabel)
+                                .font(FMTypography.titleSmall)
+                                .foregroundColor(FMColors.onSurface)
+                            Text("\(last.relativeDate) - \(last.fieldName)")
+                                .font(FMTypography.bodySmall)
+                                .foregroundColor(FMColors.onSurfaceVariant)
 
-                    Text("\(last.teamAScore) - \(last.teamBScore)")
-                        .font(FMTypography.headlineMedium)
-                        .foregroundColor(FMColors.onSurface)
+                        }
+
+                        Spacer()
+
+                        HStack(spacing: 4) {
+                            Text("\(last.teamAScore) - \(last.teamBScore)")
+                                .font(FMTypography.headlineMedium)
+                                .foregroundColor(FMColors.onSurface)
+                            if isLoadingLastMatchDetail {
+                                ProgressView()
+                                    .tint(FMColors.primary)
+                            }
+                        }
+                    }
+                    .padding(16)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(FMColors.surfaceContainerLowest)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(FMColors.outlineVariant, lineWidth: 1)
+                    )
                 }
-                .padding(16)
-                .background(
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(FMColors.surfaceContainerLowest)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(FMColors.outlineVariant, lineWidth: 1)
-                )
+                .buttonStyle(.plain)
             } else {
                 FMEmptyStateCard(
                     icon: "soccerball",
