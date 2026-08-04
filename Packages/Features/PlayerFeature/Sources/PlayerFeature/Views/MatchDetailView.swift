@@ -373,6 +373,12 @@ struct MatchDetailView: View {
         }
         .background(FMColors.background.ignoresSafeArea())
         .navigationBarBackButtonHidden(true)
+        // The hero image is full-bleed under the top safe area (`.ignoresSafeArea(.top)`).
+        // Hide the nav bar's background so the image shows through behind the floating
+        // back button instead of being covered by an opaque bar — otherwise the top of
+        // the image is clipped by a black strip (visible on iPhone 13 mini and similar).
+        .toolbarBackground(.hidden, for: .navigationBar)
+        .toolbarColorScheme(.dark, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .navigationBarLeading) {
                 FMBackButton { dismiss() }

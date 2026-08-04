@@ -303,12 +303,18 @@ struct HomeContentView: View {
                 FMLastMatchSkeleton()
             } else if let last = homeViewModel.lastMatch {
                 Button {
+                    // Guard against re-entry: the detail is fetched async before we
+                    // navigate, so without this a rapid multi-tap would queue several
+                    // Tasks and push the detail screen N times. Set the flag
+                    // synchronously (before the Task's first await) so it blocks
+                    // subsequent taps immediately.
+                    guard !isLoadingLastMatchDetail else { return }
+                    isLoadingLastMatchDetail = true
                     Task {
-                        isLoadingLastMatchDetail = true
+                        defer { isLoadingLastMatchDetail = false }
                         if let detail = await homeViewModel.fetchLastMatchDetail() {
                             navigationPath.append(detail)
                         }
-                        isLoadingLastMatchDetail = false
                     }
                 } label: {
                     HStack(spacing: 14) {
@@ -328,14 +334,14 @@ struct HomeContentView: View {
                             Text("\(last.relativeDate) - \(last.fieldName)")
                                 .font(FMTypography.bodySmall)
                                 .foregroundColor(FMColors.onSurfaceVariant)
-
+                                .lineLimit(2)
                         }
 
                         Spacer()
 
                         HStack(spacing: 4) {
                             Text("\(last.teamAScore) - \(last.teamBScore)")
-                                .font(FMTypography.headlineMedium)
+                                .font(FMTypography.titleLarge)
                                 .foregroundColor(FMColors.onSurface)
                             if isLoadingLastMatchDetail {
                                 ProgressView()
@@ -354,6 +360,7 @@ struct HomeContentView: View {
                     )
                 }
                 .buttonStyle(.plain)
+                .disabled(isLoadingLastMatchDetail)
             } else {
                 FMEmptyStateCard(
                     icon: "soccerball",

@@ -14,6 +14,7 @@ public struct HomeContainerView: View {
     @State private var homeNavPath = NavigationPath()      // iOS 26 home tab
     @State private var matchesNavPath = NavigationPath()   // iOS 26 matches tab
     @State private var reservedNavPath = NavigationPath()  // iOS 26 reserved tab
+    @State private var profileNavPath = NavigationPath()   // iOS 26 profile tab
     /// Cached circular profile image for the Liquid Glass tab icon (iOS 26+).
     @State private var profileTabImage: UIImage? = nil
     /// Prerasterized default avatar used as placeholder while the real photo loads.
@@ -156,8 +157,11 @@ public struct HomeContainerView: View {
             }
 
             Tab(value: HomeTab.profile, role: nil) {
-                NavigationStack {
-                    ProfileView(onLogout: onLogout, selectedTab: $selectedTab)
+                NavigationStack(path: $profileNavPath) {
+                    ProfileView(onLogout: onLogout, selectedTab: $selectedTab, navigationPath: $profileNavPath)
+                        .navigationDestination(for: MatchItem.self) { match in
+                            MatchDetailView(match: match, isDemoMode: isDemoMode)
+                        }
                 }
             } label: {
                 Label {
@@ -206,7 +210,7 @@ public struct HomeContainerView: View {
             case .reserved:
                 ReservedView(navigationPath: $navigationPath)
             case .profile:
-                ProfileView(onLogout: onLogout, selectedTab: $selectedTab)
+                ProfileView(onLogout: onLogout, selectedTab: $selectedTab, navigationPath: $navigationPath)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
