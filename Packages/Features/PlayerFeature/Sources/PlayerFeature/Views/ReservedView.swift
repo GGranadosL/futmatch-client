@@ -225,12 +225,6 @@ struct ReservedView: View {
                     .fill(Color.black.opacity(0.58))
                     .overlay {
                         VStack(spacing: 10) {
-                            if status == "COMPLETED" {
-                                HStack(spacing: 18) {
-                                    scoreColumn(title: L10n.Matches.teamA, value: match.teamAPlayers.count)
-                                    scoreColumn(title: L10n.Matches.teamB, value: match.teamBPlayers.count)
-                                }
-                            }
                             HStack(spacing: 8) {
                                 Image(systemName: status == "COMPLETED" ? "checkmark.circle.fill" : "xmark.circle.fill")
                                     .font(.system(size: 18, weight: .semibold))
@@ -243,13 +237,6 @@ struct ReservedView: View {
                     }
                     .allowsHitTesting(false)
             }
-        }
-    }
-
-    private func scoreColumn(title: String, value: Int) -> some View {
-        VStack(spacing: 2) {
-            Text(title).font(FMTypography.labelMedium)
-            Text("\(value)").font(FMTypography.headlineMedium).bold()
         }
     }
 

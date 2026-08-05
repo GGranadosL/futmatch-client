@@ -89,7 +89,8 @@ struct MatchAdminService: MatchAdminServiceProtocol {
             externalGoals: params.externalGoals.map {
                 CompleteMatchRequestDTO.ExternalGoalDTO(team: $0.team, goals: $0.goals)
             },
-            bestPlayerId: params.bestPlayerId
+            bestPlayerId: params.bestPlayerId,
+            absentPlayerIds: params.absentPlayerIds
         )
         let _: CompleteMatchResponseDTO = try await apiClient.request(
             endpoint: MatchAdminEndpoint.complete(matchId: params.matchId),

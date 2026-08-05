@@ -9,11 +9,13 @@ struct ProfileView: View {
     @EnvironmentObject private var homeViewModel: HomeViewModel
     var onLogout: (() -> Void)?
     @Binding var selectedTab: HomeTab
+    @Binding var navigationPath: NavigationPath
 
     @State private var showSettings = false
     @State private var showEditProfile = false
     @State private var showLogoutAlert = false
     @State private var profileImage: Image? = nil
+    @State private var isLoadingLastMatchDetail = false
 
     private var user: User? { userSession.currentUser }
     
@@ -295,39 +297,63 @@ struct ProfileView: View {
                     .font(FMTypography.titleLarge)
                     .foregroundColor(FMColors.onBackground)
 
-                HStack(spacing: 14) {
-                    Image(systemName: outcomeIcon(last.outcome))
-                        .font(.system(size: 24))
-                        .foregroundColor(outcomeColor(last.outcome))
-                        .frame(width: 44, height: 44)
-                        .background(Circle().fill(outcomeColor(last.outcome).opacity(0.12)))
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(last.outcomeLabel)
-                            .font(FMTypography.titleSmall)
-                            .foregroundColor(FMColors.onSurface)
-                        Text("\(last.relativeDate) - \(last.fieldName)")
-                            .font(FMTypography.bodySmall)
-                            .foregroundColor(FMColors.onSurfaceVariant)
-                            .lineLimit(1)
-                            .truncationMode(.tail)
+                Button {
+                    // Guard against re-entry: the detail is fetched async before we
+                    // navigate, so without this a rapid multi-tap would queue several
+                    // Tasks and push the detail screen N times. Set the flag
+                    // synchronously (before the Task's first await) so it blocks
+                    // subsequent taps immediately.
+                    guard !isLoadingLastMatchDetail else { return }
+                    isLoadingLastMatchDetail = true
+                    Task {
+                        defer { isLoadingLastMatchDetail = false }
+                        if let detail = await homeViewModel.fetchLastMatchDetail() {
+                            navigationPath.append(detail)
+                        }
                     }
+                } label: {
+                    HStack(spacing: 14) {
+                        Image(systemName: outcomeIcon(last.outcome))
+                            .font(.system(size: 24))
+                            .foregroundColor(outcomeColor(last.outcome))
+                            .frame(width: 44, height: 44)
+                            .background(Circle().fill(outcomeColor(last.outcome).opacity(0.12)))
 
-                    Spacer()
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(last.outcomeLabel)
+                                .font(FMTypography.titleSmall)
+                                .foregroundColor(FMColors.onSurface)
+                            Text("\(last.relativeDate) - \(last.fieldName)")
+                                .font(FMTypography.bodySmall)
+                                .foregroundColor(FMColors.onSurfaceVariant)
+                                .lineLimit(1)
+                                .truncationMode(.tail)
+                        }
 
-                    Text("\(last.teamAScore) - \(last.teamBScore)")
-                        .font(FMTypography.headlineMedium)
-                        .foregroundColor(FMColors.onSurface)
+                        Spacer()
+
+                        HStack(spacing: 4) {
+                            Text("\(last.teamAScore) - \(last.teamBScore)")
+                                .font(FMTypography.headlineMedium)
+                                .foregroundColor(FMColors.onSurface)
+                            if isLoadingLastMatchDetail {
+                                ProgressView()
+                                    .tint(FMColors.primary)
+                            }
+                        }
+                    }
+                    .padding(16)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(FMColors.surfaceContainerLowest)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(FMColors.outlineVariant, lineWidth: 1)
+                    )
                 }
-                .padding(16)
-                .background(
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(FMColors.surfaceContainerLowest)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(FMColors.outlineVariant, lineWidth: 1)
-                )
+                .buttonStyle(.plain)
+                .disabled(isLoadingLastMatchDetail)
             }
             .padding(.horizontal, 24)
         }
@@ -380,5 +406,5 @@ struct ProfileView: View {
 
 // MARK: - Preview
 #Preview {
-    ProfileView(selectedTab: .constant(.profile))
+    ProfileView(selectedTab: .constant(.profile), navigationPath: .constant(NavigationPath()))
 }

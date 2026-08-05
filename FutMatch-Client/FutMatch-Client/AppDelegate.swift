@@ -1,5 +1,6 @@
 import UIKit
 import UserNotifications
+import OSLog
 import FirebaseCore
 import FirebaseAppCheck
 import FirebaseMessaging
@@ -18,14 +19,12 @@ import SwiftUI
 final class AppDelegate: NSObject, UIApplicationDelegate {
 
     let adminRemoteConfig = AdminRemoteConfigRepository()
+    let legalLinksRemoteConfig = LegalLinksRemoteConfigRepository()
 
     func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
-        let s = "Cab is a rab"
-        
-        var array = Array(s.filter { $0.isLetter || $0.isNumber }.lowercased())
         // App Check must be installed BEFORE FirebaseApp.configure() so the very
         // first Firebase request carries an attestation token. Uses App Attest on
         // capable devices, DeviceCheck as fallback, and a debug provider in DEBUG.
@@ -41,6 +40,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         }
         FirebaseApp.configure()
         Task { await adminRemoteConfig.fetchAndActivate() }
+        Task { await legalLinksRemoteConfig.fetchAndActivate() }
         #if DEBUG
         print("[🔔 FM-PUSH] FirebaseApp.configure() called")
         #endif
@@ -62,17 +62,23 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         Messaging.messaging().apnsToken = deviceToken
     }
 
-    // MARK: - Data-only Push (regional matches refresh)
+    // MARK: - Data-only Push (regional matches refresh / in-app notifications)
 
     /// Handles data-only pushes. Regional `matches_updated` payloads are routed
     /// into the in-app notification that auto-refreshes the matches feed.
+    /// Any other remote push is treated as a signal that a new in-app
+    /// notification was created server-side (there's no distinguishing `type`
+    /// for those yet), and routed to refresh the notifications feed instead.
     /// Fires in foreground and background (for `content-available` messages).
     func application(
         _ application: UIApplication,
         didReceiveRemoteNotification userInfo: [AnyHashable: Any]
     ) async -> UIBackgroundFetchResult {
-        let handled = MatchPushRouter.handleRemoteNotification(userInfo)
-        return handled ? .newData : .noData
+        let isMatchesPush = MatchPushRouter.handleRemoteNotification(userInfo)
+        if !isMatchesPush {
+            InAppNotificationPushRouter.handleRemoteNotification(userInfo)
+        }
+        return .newData
     }
 
     // MARK: - Match Topics
@@ -106,15 +112,22 @@ extension AppDelegate: MessagingDelegate {
     func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
         guard let fcmToken else { return }
 
-        // Always persist the token so syncFCMTokenIfNeeded() can find it after login.
+        // Always persist the token so the next login's syncFCMTokenIfNeeded() has a
+        // fallback cached value even if fetching a fresh one from Firebase fails.
         try? KeychainManager.shared.save(fcmToken, for: .fcmToken)
 
-        // Only sync with server when user is already authenticated.
+        // Only sync with server when user is already authenticated — covers the case
+        // where the token rotates mid-session (rare, e.g. token invalidation/refresh).
         guard KeychainManager.shared.isLoggedIn else { return }
 
         let useCase = PlayerDependencyFactory().makeUpdateFCMTokenUseCase()
         Task {
-            try? await useCase.execute(fcmToken: fcmToken)
+            do {
+                try await useCase.execute(fcmToken: fcmToken)
+            } catch {
+                let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "FutMatch", category: "FCM")
+                logger.error("FCM token sync (delegate refresh) failed: \(error.localizedDescription, privacy: .public)")
+            }
         }
     }
 }

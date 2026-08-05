@@ -373,6 +373,12 @@ struct MatchDetailView: View {
         }
         .background(FMColors.background.ignoresSafeArea())
         .navigationBarBackButtonHidden(true)
+        // The hero image is full-bleed under the top safe area (`.ignoresSafeArea(.top)`).
+        // Hide the nav bar's background so the image shows through behind the floating
+        // back button instead of being covered by an opaque bar — otherwise the top of
+        // the image is clipped by a black strip (visible on iPhone 13 mini and similar).
+        .toolbarBackground(.hidden, for: .navigationBar)
+        .toolbarColorScheme(.dark, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .navigationBarLeading) {
                 FMBackButton { dismiss() }
@@ -643,7 +649,7 @@ struct MatchDetailView: View {
     }
 
     private func openInGoogleMaps(coordinate: CLLocationCoordinate2D) {
-        let urlString = "comgooglemaps://?q=\(match.venueName.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")&center=\(coordinate.latitude),\(coordinate.longitude)&zoom=16"
+        let urlString = "comgooglemaps://?q=\(coordinate.latitude),\(coordinate.longitude)&center=\(coordinate.latitude),\(coordinate.longitude)&zoom=16"
         guard let url = URL(string: urlString) else { return }
         UIApplication.shared.open(url)
     }

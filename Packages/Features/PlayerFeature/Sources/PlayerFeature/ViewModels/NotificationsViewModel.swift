@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import Combine
 
 // MARK: - NotificationSection
 
@@ -40,14 +41,19 @@ final class NotificationsViewModel: ObservableObject {
     }
 
     private let notificationService: NotificationServiceProtocol
+    private let fetchNotificationsUseCase: FetchNotificationsUseCaseProtocol
     private let fetchMatchDetailUseCase: FetchMatchDetailUseCaseProtocol
+    private var cancellables = Set<AnyCancellable>()
 
     init(
         notificationService: NotificationServiceProtocol,
+        fetchNotificationsUseCase: FetchNotificationsUseCaseProtocol,
         fetchMatchDetailUseCase: FetchMatchDetailUseCaseProtocol
     ) {
         self.notificationService = notificationService
+        self.fetchNotificationsUseCase = fetchNotificationsUseCase
         self.fetchMatchDetailUseCase = fetchMatchDetailUseCase
+        observePushNotifications()
     }
 
     // MARK: - Load
@@ -56,9 +62,11 @@ final class NotificationsViewModel: ObservableObject {
     /// Only shows a badge when the server returns MORE unread items than the user last saw,
     /// so visiting the notifications screen permanently suppresses the old count even
     /// after the app returns from background.
-    func loadUnreadCount() async {
+    func loadUnreadCount(forceRefresh: Bool = false) async {
         do {
-            let items = try await notificationService.fetchNotifications()
+            guard let items = try await fetchNotificationsUseCase.execute(forceRefresh: forceRefresh) else {
+                return // Skipped — not stale enough and not forced, keep current badge.
+            }
             let serverCount = items.filter { !$0.isRead }.count
             // Only surface a badge for items beyond what the user already acknowledged.
             unreadCount = max(0, serverCount - lastSeenCount)
@@ -68,10 +76,20 @@ final class NotificationsViewModel: ObservableObject {
         }
     }
 
-    func load() async {
-        state = .loading
+    func load(forceRefresh: Bool = false) async {
+        let hasData: Bool
+        switch state {
+        case .loaded, .empty: hasData = true
+        default: hasData = false
+        }
+        if !hasData { state = .loading }
         do {
-            let items = try await notificationService.fetchNotifications()
+            // Force through the use case if there's nothing displayable yet —
+            // otherwise a recent badge check could throttle this and leave the
+            // screen stuck showing the loading spinner forever.
+            guard let items = try await fetchNotificationsUseCase.execute(forceRefresh: forceRefresh || !hasData) else {
+                return // Skipped — already showing fresh-enough data.
+            }
             let sections = groupByDate(items)
             state = sections.isEmpty ? .empty : .loaded(sections)
             // Persist the current server count so future polls don't re-trigger the badge.
@@ -80,8 +98,25 @@ final class NotificationsViewModel: ObservableObject {
             unreadCount = 0
         } catch {
             guard !(error is CancellationError) else { return }
-            state = .failed(error.localizedDescription)
+            // Only surface the error full-screen if we have nothing else to show;
+            // otherwise keep the stale-but-valid list visible.
+            if !hasData { state = .failed(error.localizedDescription) }
         }
+    }
+
+    // MARK: - Push-Driven Refresh
+
+    /// Any non-`matches_updated` remote push is treated as a signal that a new
+    /// in-app notification was created server-side (no distinguishing `type` is
+    /// sent yet), so force a real fetch to refresh the badge immediately.
+    private func observePushNotifications() {
+        NotificationCenter.default.publisher(for: .inAppNotificationsPushReceived)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                Task { await self.loadUnreadCount(forceRefresh: true) }
+            }
+            .store(in: &cancellables)
     }
 
     /// Clears the badge and persists the current server count so background polls

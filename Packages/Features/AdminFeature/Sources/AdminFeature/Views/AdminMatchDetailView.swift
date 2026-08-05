@@ -65,6 +65,7 @@ struct AdminMatchDetailView: View {
     @State private var showCancelWithPay = false
     @State private var showCancelReasonSheet = false
     @State private var showCancelSuccessToast = false
+    @State private var showCompleteSuccessToast = false
     @State private var highlightedDropId: String? = nil
 
     private let factory: AdminDependencyFactory
@@ -167,7 +168,11 @@ struct AdminMatchDetailView: View {
                 viewModel: factory.makeMatchSupervisionViewModel(match: match),
                 onCompleted: {
                     showSupervision = false
-                    dismiss()
+                    showCompleteSuccessToast = true
+                    Task {
+                        try? await Task.sleep(nanoseconds: 2_500_000_000)
+                        dismiss()
+                    }
                 }
             )
         }
@@ -181,6 +186,7 @@ struct AdminMatchDetailView: View {
             }
         }
         .fmToast(L10n.CancelMatch.canceledSuccess, isPresented: $showCancelSuccessToast, style: .success)
+        .fmToast(L10n.MatchSupervision.completedSuccess, isPresented: $showCompleteSuccessToast, style: .success)
         .sheet(isPresented: $showCancelReasonSheet, onDismiss: { viewModel.clearCancelError() }) {
             CancelMatchReasonBottomSheet(
                 isLoading: viewModel.isCanceling,
@@ -303,8 +309,7 @@ struct AdminMatchDetailView: View {
     }
 
     private func openInGoogleMaps(_ coordinate: CLLocationCoordinate2D) {
-        let q = match.fieldName.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-        let urlString = "comgooglemaps://?q=\(q)&center=\(coordinate.latitude),\(coordinate.longitude)&zoom=16"
+        let urlString = "comgooglemaps://?q=\(coordinate.latitude),\(coordinate.longitude)&center=\(coordinate.latitude),\(coordinate.longitude)&zoom=16"
         guard let url = URL(string: urlString) else { return }
         UIApplication.shared.open(url)
     }

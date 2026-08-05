@@ -287,3 +287,50 @@ final class MockKeychain: KeychainManaging {
         [.accessToken, .refreshToken, .userId, .firebaseToken, .fcmToken].forEach { storage[$0] = nil }
     }
 }
+
+// MARK: - MockNotificationService
+
+final class MockNotificationService: NotificationServiceProtocol {
+    var fetchNotificationsResult: Result<[NotificationItem], Error> = .success([])
+    private(set) var fetchNotificationsCallCount = 0
+    private(set) var deletedIds: [String] = []
+
+    func fetchNotifications() async throws -> [NotificationItem] {
+        fetchNotificationsCallCount += 1
+        return try fetchNotificationsResult.get()
+    }
+
+    func deleteNotification(id: String) async throws {
+        deletedIds.append(id)
+    }
+}
+
+// MARK: - MockFetchNotificationsUseCase
+
+final class MockFetchNotificationsUseCase: FetchNotificationsUseCaseProtocol {
+    var result: Result<[NotificationItem]?, Error> = .success([])
+    private(set) var executeCallCount = 0
+    private(set) var lastForceRefresh: Bool?
+
+    func execute(forceRefresh: Bool) async throws -> [NotificationItem]? {
+        executeCallCount += 1
+        lastForceRefresh = forceRefresh
+        return try result.get()
+    }
+}
+
+// MARK: - MockNotificationFetchTimestampStore
+
+final class MockNotificationFetchTimestampStore: NotificationFetchTimestampStoreProtocol {
+    var lastFetchedAt: Date?
+    private(set) var clearCallCount = 0
+
+    func setLastFetchedAt(_ date: Date) {
+        lastFetchedAt = date
+    }
+
+    func clear() {
+        clearCallCount += 1
+        lastFetchedAt = nil
+    }
+}

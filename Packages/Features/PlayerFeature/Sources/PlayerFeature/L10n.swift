@@ -159,6 +159,12 @@ public enum L10n {
         public static var mixed: String {
             NSLocalizedString("matches.mixed", bundle: .module, comment: "")
         }
+        public static var male: String {
+            NSLocalizedString("matches.male", bundle: .module, comment: "")
+        }
+        public static var female: String {
+            NSLocalizedString("matches.female", bundle: .module, comment: "")
+        }
         public static var noLocation: String {
             NSLocalizedString("matches.noLocation", bundle: .module, comment: "")
         }
@@ -251,6 +257,39 @@ public enum L10n {
         }
         public static var fieldType: String {
             NSLocalizedString("matchDetail.fieldType", bundle: .module, comment: "")
+        }
+        /// Localized display names for the backend `fieldType` contract values.
+        public enum FieldTypeValue {
+            public static var artificialTurf: String {
+                NSLocalizedString("matchDetail.fieldType.artificialTurf", bundle: .module, comment: "")
+            }
+            public static var naturalGrass: String {
+                NSLocalizedString("matchDetail.fieldType.naturalGrass", bundle: .module, comment: "")
+            }
+            public static var indoor: String {
+                NSLocalizedString("matchDetail.fieldType.indoor", bundle: .module, comment: "")
+            }
+            public static var futsal: String {
+                NSLocalizedString("matchDetail.fieldType.futsal", bundle: .module, comment: "")
+            }
+        }
+        /// Localized display names for the backend `footwearType` contract values.
+        public enum FootwearValue {
+            public static var turf: String {
+                NSLocalizedString("matchDetail.footwear.turf", bundle: .module, comment: "")
+            }
+            public static var firmGround: String {
+                NSLocalizedString("matchDetail.footwear.firmGround", bundle: .module, comment: "")
+            }
+            public static var artificialGrass: String {
+                NSLocalizedString("matchDetail.footwear.artificialGrass", bundle: .module, comment: "")
+            }
+            public static var indoor: String {
+                NSLocalizedString("matchDetail.footwear.indoor", bundle: .module, comment: "")
+            }
+            public static var rubber: String {
+                NSLocalizedString("matchDetail.footwear.rubber", bundle: .module, comment: "")
+            }
         }
         public static var parking: String {
             NSLocalizedString("matchDetail.parking", bundle: .module, comment: "")
@@ -414,6 +453,9 @@ public enum L10n {
         }
         public static var deleteAccountDesc: String {
             NSLocalizedString("settings.deleteAccountDesc", bundle: .module, comment: "")
+        }
+        public static var version: String {
+            NSLocalizedString("settings.version", bundle: .module, comment: "")
         }
     }
 

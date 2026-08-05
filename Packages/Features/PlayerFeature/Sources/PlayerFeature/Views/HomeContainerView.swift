@@ -14,6 +14,7 @@ public struct HomeContainerView: View {
     @State private var homeNavPath = NavigationPath()      // iOS 26 home tab
     @State private var matchesNavPath = NavigationPath()   // iOS 26 matches tab
     @State private var reservedNavPath = NavigationPath()  // iOS 26 reserved tab
+    @State private var profileNavPath = NavigationPath()   // iOS 26 profile tab
     /// Cached circular profile image for the Liquid Glass tab icon (iOS 26+).
     @State private var profileTabImage: UIImage? = nil
     /// Prerasterized default avatar used as placeholder while the real photo loads.
@@ -53,7 +54,9 @@ public struct HomeContainerView: View {
             fetchMyMatchesUseCase: factory.makeFetchMyMatchesUseCase(),
             cacheRepo: reservedCacheRepo
         ))
-        _homeViewModel = StateObject(wrappedValue: HomeViewModel())
+        _homeViewModel = StateObject(wrappedValue: HomeViewModel(
+            fetchMatchDetailUseCase: factory.makeFetchMatchDetailUseCase()
+        ))
         _notificationsViewModel = StateObject(wrappedValue: factory.makeNotificationsViewModel())
     }
     
@@ -75,10 +78,11 @@ public struct HomeContainerView: View {
         .environmentObject(homeViewModel)
         .environmentObject(notificationsViewModel)
         .task {
-            await homeViewModel.load()
-            await reservedViewModel.load()
+            async let home: Void = homeViewModel.load()
+            async let reserved: Void = reservedViewModel.load()
             // Single initial badge fetch — subsequent refreshes happen on foreground.
-            await notificationsViewModel.loadUnreadCount()
+            async let badge: Void = notificationsViewModel.loadUnreadCount()
+            _ = await (home, reserved, badge)
         }
         // Prerasterize the default avatar placeholder at the same size as the real
         // photo so the tab icon never jumps in size when the download completes.
@@ -99,9 +103,10 @@ public struct HomeContainerView: View {
         .onChange(of: scenePhase) { phase in
             guard phase == .active else { return }
             Task {
-                await notificationsViewModel.loadUnreadCount()
-                await homeViewModel.load()
-                await reservedViewModel.load()
+                async let badge: Void = notificationsViewModel.loadUnreadCount()
+                async let home: Void = homeViewModel.load()
+                async let reserved: Void = reservedViewModel.load()
+                _ = await (badge, home, reserved)
             }
         }
     }
@@ -154,8 +159,11 @@ public struct HomeContainerView: View {
             }
 
             Tab(value: HomeTab.profile, role: nil) {
-                NavigationStack {
-                    ProfileView(onLogout: onLogout, selectedTab: $selectedTab)
+                NavigationStack(path: $profileNavPath) {
+                    ProfileView(onLogout: onLogout, selectedTab: $selectedTab, navigationPath: $profileNavPath)
+                        .navigationDestination(for: MatchItem.self) { match in
+                            MatchDetailView(match: match, isDemoMode: isDemoMode)
+                        }
                 }
             } label: {
                 Label {
@@ -204,7 +212,7 @@ public struct HomeContainerView: View {
             case .reserved:
                 ReservedView(navigationPath: $navigationPath)
             case .profile:
-                ProfileView(onLogout: onLogout, selectedTab: $selectedTab)
+                ProfileView(onLogout: onLogout, selectedTab: $selectedTab, navigationPath: $navigationPath)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

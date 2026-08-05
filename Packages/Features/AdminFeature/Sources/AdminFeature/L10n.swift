@@ -553,6 +553,15 @@ enum L10n {
         static var playersLoadError: String {
             NSLocalizedString("matchSupervision.playersLoadError", bundle: .module, comment: "")
         }
+        static var absentBadge: String {
+            NSLocalizedString("matchSupervision.absentBadge", bundle: .module, comment: "")
+        }
+        static var markAbsent: String {
+            NSLocalizedString("matchSupervision.markAbsent", bundle: .module, comment: "")
+        }
+        static var markPresent: String {
+            NSLocalizedString("matchSupervision.markPresent", bundle: .module, comment: "")
+        }
     }
 
     enum OrganizerHome {

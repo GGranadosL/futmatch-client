@@ -5,16 +5,21 @@ import FMDesignSystem
 struct MFAVerificationView: View {
     @ObservedObject var viewModel: LoginViewModel
     @Environment(\.dismiss) private var dismiss
-    
+    @Environment(\.scenePhase) private var scenePhase
+
     var onVerificationSuccess: (() -> Void)?
-    
+
     @State private var countdown: Int = 60
+    /// Absolute expiry date — source of truth for the countdown, survives background/relaunch.
+    @State private var countdownExpiry: Date
     @State private var timer: Timer?
-    
+
     init(viewModel: LoginViewModel, onVerificationSuccess: (() -> Void)? = nil) {
         self.viewModel = viewModel
         self.onVerificationSuccess = onVerificationSuccess
-        self._countdown = State(initialValue: viewModel.resendCodeTimeInSeconds)
+        let seconds = viewModel.resendCodeTimeInSeconds
+        self._countdown = State(initialValue: seconds)
+        self._countdownExpiry = State(initialValue: Date().addingTimeInterval(Double(seconds)))
     }
     
     var body: some View {
@@ -46,14 +51,29 @@ struct MFAVerificationView: View {
             }
         }
         .onAppear {
-            startCountdown()
+            refreshCountdown()
+            startTicking()
         }
         .onDisappear {
             timer?.invalidate()
         }
+        .onChange(of: scenePhase) { phase in
+            if phase == .active {
+                refreshCountdown()
+                startTicking()
+            } else {
+                timer?.invalidate()
+            }
+        }
         .onChange(of: viewModel.isLoginSuccessful) { newValue in
             if newValue {
                 onVerificationSuccess?()
+            }
+        }
+        .onChange(of: viewModel.showError) { isShowingError in
+            // Clear the entered code on error so the user isn't stuck deleting a stale/invalid code by hand.
+            if isShowingError {
+                viewModel.verificationCode = ""
             }
         }
         .alert(L10n.Login.errorTitle, isPresented: $viewModel.showError) {
@@ -106,8 +126,9 @@ struct MFAVerificationView: View {
                 Button {
                     Task {
                         await viewModel.resendMFACode()
-                        countdown = viewModel.resendCodeTimeInSeconds
-                        startCountdown()
+                        countdownExpiry = Date().addingTimeInterval(Double(viewModel.resendCodeTimeInSeconds))
+                        refreshCountdown()
+                        startTicking()
                     }
                 } label: {
                     Text(L10n.Verification.resend)
@@ -135,15 +156,22 @@ struct MFAVerificationView: View {
     }
     
     // MARK: - Helpers
-    
-    private func startCountdown() {
+
+    /// Recomputes `countdown` from the stored expiry `Date` rather than trusting the in-memory
+    /// value, so the display is correct even after the app was backgrounded or relaunched.
+    private func refreshCountdown() {
+        let remaining = max(0, Int(countdownExpiry.timeIntervalSinceNow))
+        countdown = remaining
+        if remaining == 0 {
+            timer?.invalidate()
+        }
+    }
+
+    private func startTicking() {
         timer?.invalidate()
+        guard countdown > 0 else { return }
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
-            if countdown > 0 {
-                countdown -= 1
-            } else {
-                timer?.invalidate()
-            }
+            refreshCountdown()
         }
     }
 }

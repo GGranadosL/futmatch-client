@@ -22,7 +22,8 @@ final class MatchPricingViewModel: ObservableObject {
         self.estimate = estimate
         self.fieldId = fieldId
         self.fetchCustom = fetchCustom
-        self.selectedOption = estimate.selectedOption
+        self.selectedOption = estimate.pricingOptions.first { $0.pricePerPlayerInCents == estimate.selectedOption.pricePerPlayerInCents }
+            ?? estimate.selectedOption
         // Pre-fill the input with the recommended/selected price (spec: "el input
         // de precio se llena con la opción recomendada").
         self.customPriceText = String(format: "%.0f", Double(estimate.selectedOption.pricePerPlayerInCents) / 100.0)
