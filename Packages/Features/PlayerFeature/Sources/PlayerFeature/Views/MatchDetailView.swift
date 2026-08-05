@@ -649,7 +649,7 @@ struct MatchDetailView: View {
     }
 
     private func openInGoogleMaps(coordinate: CLLocationCoordinate2D) {
-        let urlString = "comgooglemaps://?q=\(match.venueName.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")&center=\(coordinate.latitude),\(coordinate.longitude)&zoom=16"
+        let urlString = "comgooglemaps://?q=\(coordinate.latitude),\(coordinate.longitude)&center=\(coordinate.latitude),\(coordinate.longitude)&zoom=16"
         guard let url = URL(string: urlString) else { return }
         UIApplication.shared.open(url)
     }
