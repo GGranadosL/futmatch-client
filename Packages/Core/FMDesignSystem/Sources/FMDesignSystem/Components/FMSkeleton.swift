@@ -117,6 +117,44 @@ public struct FMLastMatchSkeleton: View {
     }
 }
 
+/// Skeleton that matches `FMNextGameCard` dimensions (upcoming match card).
+public struct FMNextGameCardSkeleton: View {
+    public init() {}
+
+    public var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header label
+            FMSkeleton(cornerRadius: 4)
+                .frame(width: 140, height: 12)
+                .padding(.bottom, 8)
+
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 6) {
+                    FMSkeleton(cornerRadius: 4).frame(width: 150, height: 18)
+                    FMSkeleton(cornerRadius: 4).frame(width: 110, height: 14)
+                    FMSkeleton(cornerRadius: 4)
+                        .frame(width: 90, height: 14)
+                        .padding(.top, 4)
+                }
+
+                Spacer()
+
+                FMSkeleton(cornerRadius: 12)
+                    .frame(width: 100, height: 72)
+            }
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(FMColors.surfaceContainerLowest)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(FMColors.outlineVariant, lineWidth: 1)
+        )
+    }
+}
+
 /// Skeleton that matches `FMMatchCard` dimensions (full-width list card).
 public struct FMMatchCardSkeleton: View {
     public init() {}

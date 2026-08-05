@@ -44,8 +44,9 @@ struct HomeContentView: View {
                     retryTitle: L10n.Common.retry,
                     onRetry: {
                         Task {
-                            await homeViewModel.load()
-                            await reservedViewModel.load()
+                            async let home: Void = homeViewModel.load()
+                            async let reserved: Void = reservedViewModel.load()
+                            _ = await (home, reserved)
                         }
                     }
                 )
@@ -64,8 +65,9 @@ struct HomeContentView: View {
                     // when `.task(id: effectiveProfileImageUrl)` in HomeContainerView
                     // restarts due to profileImageUrl changing mid-load.
                     await Task {
-                        await homeViewModel.load()
-                        await reservedViewModel.load()
+                        async let home: Void = homeViewModel.load()
+                        async let reserved: Void = reservedViewModel.load()
+                        _ = await (home, reserved)
                     }.value
                 }
             }
@@ -89,15 +91,17 @@ struct HomeContentView: View {
         .onChange(of: showAdmin) { isShowing in
             guard !isShowing else { return }
             Task {
-                await homeViewModel.load()
-                await reservedViewModel.load()
+                async let home: Void = homeViewModel.load()
+                async let reserved: Void = reservedViewModel.load()
+                _ = await (home, reserved)
             }
         }
         .onChange(of: showOrganizer) { isShowing in
             guard !isShowing else { return }
             Task {
-                await homeViewModel.load()
-                await reservedViewModel.load()
+                async let home: Void = homeViewModel.load()
+                async let reserved: Void = reservedViewModel.load()
+                _ = await (home, reserved)
             }
         }
     }
@@ -223,10 +227,8 @@ struct HomeContentView: View {
                     }
                 )
             } else if reservedViewModel.isLoading {
-                ProgressView()
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 32)
-                    .tint(FMColors.primary)
+                FMNextGameCardSkeleton()
+                    .disabled(true)
             } else {
                 FMEmptyStateCard(
                     icon: "calendar",

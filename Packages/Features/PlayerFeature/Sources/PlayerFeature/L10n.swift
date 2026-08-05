@@ -454,6 +454,9 @@ public enum L10n {
         public static var deleteAccountDesc: String {
             NSLocalizedString("settings.deleteAccountDesc", bundle: .module, comment: "")
         }
+        public static var version: String {
+            NSLocalizedString("settings.version", bundle: .module, comment: "")
+        }
     }
 
     // MARK: - Edit Profile

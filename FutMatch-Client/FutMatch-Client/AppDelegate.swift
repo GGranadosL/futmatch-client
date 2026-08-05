@@ -1,5 +1,6 @@
 import UIKit
 import UserNotifications
+import OSLog
 import FirebaseCore
 import FirebaseAppCheck
 import FirebaseMessaging
@@ -18,6 +19,7 @@ import SwiftUI
 final class AppDelegate: NSObject, UIApplicationDelegate {
 
     let adminRemoteConfig = AdminRemoteConfigRepository()
+    let legalLinksRemoteConfig = LegalLinksRemoteConfigRepository()
 
     func application(
         _ application: UIApplication,
@@ -38,6 +40,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         }
         FirebaseApp.configure()
         Task { await adminRemoteConfig.fetchAndActivate() }
+        Task { await legalLinksRemoteConfig.fetchAndActivate() }
         #if DEBUG
         print("[🔔 FM-PUSH] FirebaseApp.configure() called")
         #endif
@@ -109,15 +112,22 @@ extension AppDelegate: MessagingDelegate {
     func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
         guard let fcmToken else { return }
 
-        // Always persist the token so syncFCMTokenIfNeeded() can find it after login.
+        // Always persist the token so the next login's syncFCMTokenIfNeeded() has a
+        // fallback cached value even if fetching a fresh one from Firebase fails.
         try? KeychainManager.shared.save(fcmToken, for: .fcmToken)
 
-        // Only sync with server when user is already authenticated.
+        // Only sync with server when user is already authenticated — covers the case
+        // where the token rotates mid-session (rare, e.g. token invalidation/refresh).
         guard KeychainManager.shared.isLoggedIn else { return }
 
         let useCase = PlayerDependencyFactory().makeUpdateFCMTokenUseCase()
         Task {
-            try? await useCase.execute(fcmToken: fcmToken)
+            do {
+                try await useCase.execute(fcmToken: fcmToken)
+            } catch {
+                let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "FutMatch", category: "FCM")
+                logger.error("FCM token sync (delegate refresh) failed: \(error.localizedDescription, privacy: .public)")
+            }
         }
     }
 }

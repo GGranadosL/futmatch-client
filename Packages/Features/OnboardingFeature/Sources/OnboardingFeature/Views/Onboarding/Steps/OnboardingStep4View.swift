@@ -1,10 +1,17 @@
 import SwiftUI
 import FMDesignSystem
+import SharedModels
 
 /// Step 4: Review & Confirm
 struct OnboardingStep4View: View {
     @ObservedObject var viewModel: OnboardingViewModel
-    
+    private let legalLinks: LegalLinksProtocol
+
+    init(viewModel: OnboardingViewModel, legalLinks: LegalLinksProtocol = LegalLinksConfig()) {
+        self.viewModel = viewModel
+        self.legalLinks = legalLinks
+    }
+
     private func flagAndName(for iso: String) -> String {
         let upper = iso.uppercased()
         let flag = upper.unicodeScalars.compactMap { Unicode.Scalar($0.value + 127397) }
@@ -171,24 +178,17 @@ struct OnboardingStep4View: View {
 
         var terms = AttributedString(L10n.Terms.termsOfService)
         terms.foregroundColor = FMColors.primary
-        terms.link = OnboardingLegalURLs.terms
+        terms.link = legalLinks.termsURL
 
         var and = AttributedString(L10n.Terms.and)
         and.foregroundColor = FMColors.onSurfaceVariant
 
         var privacy = AttributedString(L10n.Terms.privacyPolicy)
         privacy.foregroundColor = FMColors.primary
-        privacy.link = OnboardingLegalURLs.privacy
+        privacy.link = legalLinks.privacyURL
 
         return prefix + terms + and + privacy
     }
-}
-
-// MARK: - Legal Web URLs
-
-private enum OnboardingLegalURLs {
-    static let terms   = URL(string: "https://futmatch.mx/terminos")!
-    static let privacy = URL(string: "https://futmatch.mx/privacidad")!
 }
 
 // MARK: - Review Section

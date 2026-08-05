@@ -290,19 +290,22 @@ struct RootView: View {
         }
     }
 
-    /// Syncs the stored FCM token with the server on every authenticated session start.
-    /// Covers the case where Firebase fires the token delegate before the session is ready.
+    /// Syncs the FCM token with the server on every authenticated session start.
+    /// Fetches the token directly from Firebase Messaging instead of trusting a value
+    /// already cached in Keychain by the delegate callback — that callback only fires
+    /// once per app install (when the token is first generated or later rotates), so on
+    /// any subsequent login it may not have run yet, silently skipping the sync and
+    /// leaving the device row without platform/fcm_token/app_version/os_version.
     private func syncFCMTokenIfNeeded() async {
-        guard let token = KeychainManager.shared.fcmToken, !token.isEmpty else {
-            return
-        }
-        let useCase = PlayerDependencyFactory().makeUpdateFCMTokenUseCase()
+        let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "FutMatch", category: "FCM")
         do {
+            let token = try await Messaging.messaging().token()
+            try? KeychainManager.shared.save(token, for: .fcmToken)
+            let useCase = PlayerDependencyFactory().makeUpdateFCMTokenUseCase()
             try await useCase.execute(fcmToken: token)
         } catch {
-            // Best-effort FCM token sync — server errors (e.g. 500) must not
+            // Best-effort FCM token sync — Firebase/server errors must not
             // crash the app. The token will resync on the next session start.
-            let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "FutMatch", category: "FCM")
             logger.error("FCM token sync failed: \(error.localizedDescription, privacy: .public)")
         }
     }

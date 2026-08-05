@@ -1,16 +1,8 @@
 import SwiftUI
 import FMDesignSystem
 import SafariServices
+import SharedModels
 @_spi(CustomerSessionBetaAccess) import StripePaymentSheet
-
-// MARK: - Static Web URLs
-
-private enum FutMatchURLs {
-    // TODO: replace with the real hosted help page before release.
-    static let help    = URL(string: "https://futmatch.app/ayuda")!
-    static let terms   = URL(string: "https://futmatch.mx/terminos")!
-    static let privacy = URL(string: "https://futmatch.mx/privacidad")!
-}
 
 // MARK: - SettingsRow Model
 
@@ -36,18 +28,28 @@ struct SettingsView: View {
     @State private var showPaymentHistory = false
     @State private var safariURL: URL? = nil
     @State private var showLogoutAlert = false
+    private let linksConfig: LegalLinksProtocol
 
     init(
         onLogout: (() -> Void)? = nil,
         paymentMethodsViewModel: PaymentMethodsViewModel? = nil,
-        paymentHistoryViewModelFactory: (() -> PaymentHistoryViewModel)? = nil
+        paymentHistoryViewModelFactory: (() -> PaymentHistoryViewModel)? = nil,
+        linksConfig: LegalLinksProtocol = LegalLinksConfig()
     ) {
         self.onLogout = onLogout
         self.paymentHistoryViewModelFactory = paymentHistoryViewModelFactory
+        self.linksConfig = linksConfig
         _paymentMethodsVM = StateObject(wrappedValue: paymentMethodsViewModel ?? PaymentMethodsViewModel(paymentService: PaymentService()))
     }
 
     // MARK: - Row Data
+
+    /// "Versión 1.2.3 (45)" — reads the marketing version and build from the bundle.
+    private var versionText: String {
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
+        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
+        return "\(L10n.Settings.version) \(version) (\(build))"
+    }
 
     private var generalRows: [SettingsRow] {
         [
@@ -113,6 +115,17 @@ struct SettingsView: View {
                         }
                         .padding(.vertical, 4)
                     }
+                }
+
+                // Version footer
+                Section {
+                    EmptyView()
+                } footer: {
+                    Text(versionText)
+                        .font(FMTypography.bodySmall)
+                        .foregroundColor(FMColors.onSurfaceVariant)
+                        .frame(maxWidth: .infinity)
+                        .multilineTextAlignment(.center)
                 }
             }
             .listStyle(.insetGrouped)
@@ -228,11 +241,11 @@ private extension SettingsView {
         } else if row.title == L10n.Settings.paymentHistory {
             showPaymentHistory = true
         } else if row.title == L10n.Settings.help {
-            safariURL = FutMatchURLs.help
+            safariURL = linksConfig.helpURL
         } else if row.title == L10n.Settings.terms {
-            safariURL = FutMatchURLs.terms
+            safariURL = linksConfig.termsURL
         } else if row.title == L10n.Settings.privacy {
-            safariURL = FutMatchURLs.privacy
+            safariURL = linksConfig.privacyURL
         }
     }
 }

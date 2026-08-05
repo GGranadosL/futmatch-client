@@ -78,10 +78,11 @@ public struct HomeContainerView: View {
         .environmentObject(homeViewModel)
         .environmentObject(notificationsViewModel)
         .task {
-            await homeViewModel.load()
-            await reservedViewModel.load()
+            async let home: Void = homeViewModel.load()
+            async let reserved: Void = reservedViewModel.load()
             // Single initial badge fetch — subsequent refreshes happen on foreground.
-            await notificationsViewModel.loadUnreadCount()
+            async let badge: Void = notificationsViewModel.loadUnreadCount()
+            _ = await (home, reserved, badge)
         }
         // Prerasterize the default avatar placeholder at the same size as the real
         // photo so the tab icon never jumps in size when the download completes.
@@ -102,9 +103,10 @@ public struct HomeContainerView: View {
         .onChange(of: scenePhase) { phase in
             guard phase == .active else { return }
             Task {
-                await notificationsViewModel.loadUnreadCount()
-                await homeViewModel.load()
-                await reservedViewModel.load()
+                async let badge: Void = notificationsViewModel.loadUnreadCount()
+                async let home: Void = homeViewModel.load()
+                async let reserved: Void = reservedViewModel.load()
+                _ = await (badge, home, reserved)
             }
         }
     }
