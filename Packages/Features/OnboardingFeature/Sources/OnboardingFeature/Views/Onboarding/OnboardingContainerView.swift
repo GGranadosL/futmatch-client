@@ -69,18 +69,15 @@ public struct OnboardingContainerView: View {
             .navigationBarBackButtonHidden(true)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button {
-                        if viewModel.currentStep > 1 {
-                            viewModel.previousStep()
-                        } else {
-                            dismiss()
-                        }
-                    } label: {
+                    Button(action: goToPreviousStep) {
                         Image(systemName: "chevron.left")
                             .foregroundColor(FMColors.primary)
                     }
                 }
             }
+            // `.navigationBarBackButtonHidden(true)` above also disables iOS's native
+            // edge-swipe-to-go-back, so it's restored manually here.
+            .edgeSwipeToGoBack(action: goToPreviousStep)
             .navigationDestination(for: OnboardingDestination.self) { destination in
                 switch destination {
                 case .verification:
@@ -111,6 +108,15 @@ public struct OnboardingContainerView: View {
                 showRegistrationSuccess = false
                 onRegistrationComplete?()
             }
+        }
+    }
+
+    /// Shared by the back button and the edge-swipe gesture.
+    private func goToPreviousStep() {
+        if viewModel.currentStep > 1 {
+            viewModel.previousStep()
+        } else {
+            dismiss()
         }
     }
 }

@@ -14,10 +14,16 @@ final class PlayerProfileViewModel: ObservableObject {
 
     private let userId: String
     private let profileService: ProfileServiceProtocol
+    private let fetchMatchDetailUseCase: FetchMatchDetailUseCaseProtocol
 
-    init(userId: String, profileService: ProfileServiceProtocol) {
+    init(
+        userId: String,
+        profileService: ProfileServiceProtocol,
+        fetchMatchDetailUseCase: FetchMatchDetailUseCaseProtocol
+    ) {
         self.userId = userId
         self.profileService = profileService
+        self.fetchMatchDetailUseCase = fetchMatchDetailUseCase
     }
 
     func load() async {
@@ -40,5 +46,12 @@ final class PlayerProfileViewModel: ObservableObject {
         } catch {
             // Keep showing the existing content on a failed refresh.
         }
+    }
+
+    /// Resolves the full match for navigation. Errors resolve to `nil` so the
+    /// caller can silently no-op instead of surfacing an error toast for what's
+    /// a secondary action off an already-loaded screen.
+    func fetchMatchDetail(matchId: String) async -> MatchItem? {
+        try? await fetchMatchDetailUseCase.execute(matchId: matchId)
     }
 }

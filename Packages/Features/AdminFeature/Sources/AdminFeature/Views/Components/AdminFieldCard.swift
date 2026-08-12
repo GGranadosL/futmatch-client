@@ -1,5 +1,4 @@
 import SwiftUI
-import UIKit
 import FMDesignSystem
 
 /// Card for a single field in the admin fields list.
@@ -8,17 +7,9 @@ struct AdminFieldCard: View {
     let field: AdminFieldItem
     var onTap: (() -> Void)?
 
-    @State private var cachedImage: UIImage? = nil
-
     init(field: AdminFieldItem, onTap: (() -> Void)? = nil) {
         self.field = field
         self.onTap = onTap
-        // Seed from the cache so a recreated card (list refresh, LazyVStack
-        // recycling) renders the image on its first frame instead of flashing
-        // the placeholder while `.task` re-fetches it.
-        _cachedImage = State(
-            initialValue: field.imageUrl.flatMap { FMImageCache.shared.image(for: $0) }
-        )
     }
 
     var body: some View {
@@ -40,7 +31,6 @@ struct AdminFieldCard: View {
         }
         .buttonStyle(.plain)
         .contentShape(Rectangle())
-        .task(id: field.imageUrl) { await loadImage() }
     }
 
     // MARK: - Image + badge
@@ -57,21 +47,15 @@ struct AdminFieldCard: View {
         .frame(height: 180)
     }
 
-    @ViewBuilder
     private func imageContent(width: CGFloat) -> some View {
-        if let img = cachedImage {
-            Image(uiImage: img)
-                .resizable()
-                .scaledToFill()
-                .frame(width: width, height: 180)
-                .clipped()
-        } else {
+        FMRemoteImage(urlString: field.imageUrl) {
             Image("defaultField1x1", bundle: .main)
                 .resizable()
                 .scaledToFill()
-                .frame(width: width, height: 180)
-                .clipped()
         }
+        .scaledToFill()
+        .frame(width: width, height: 180)
+        .clipped()
     }
 
     private var capacityBadge: some View {
@@ -123,11 +107,4 @@ struct AdminFieldCard: View {
         .padding(.vertical, 14)
     }
 
-    // MARK: - Async image load
-
-    private func loadImage() async {
-        if let image = await FieldImageLoader.load(field.imageUrl) {
-            cachedImage = image
-        }
-    }
 }

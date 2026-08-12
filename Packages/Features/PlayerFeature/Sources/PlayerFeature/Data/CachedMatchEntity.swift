@@ -24,6 +24,10 @@ class CachedMatchEntity: NSManagedObject {
     @NSManaged var teamBPlayersJSON: String
     @NSManaged var rulesJSON: String
     @NSManaged var matchStatus: String
+    /// Venue coordinates. Stored as scalars — 0/0 means "no coordinate", which
+    /// `MatchItem.coordinate` already treats as absent.
+    @NSManaged var latitude: Double
+    @NSManaged var longitude: Double
     @NSManaged var cachedAt: Date
 
     class func fetchRequest() -> NSFetchRequest<CachedMatchEntity> {

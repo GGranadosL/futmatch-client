@@ -1,13 +1,11 @@
 import SwiftUI
 import FMDesignSystem
-import UIKit
 
 /// Compact match row for the admin home "Próximos Partidos" list.
 /// Field image + venue/date/price on the left, occupancy + type on the right.
 struct AdminMatchRow: View {
     let match: AdminUpcomingMatch
     var onTap: (() -> Void)?
-    @State private var cachedFieldImage: UIImage?
 
     var body: some View {
         Button {
@@ -72,29 +70,17 @@ struct AdminMatchRow: View {
             )
         }
         .buttonStyle(.plain)
-        .task(id: match.fieldImageUrl) { await loadFieldImage() }
     }
 
-    @ViewBuilder
     private var fieldImage: some View {
-        if let img = cachedFieldImage {
-            Image(uiImage: img)
-                .resizable()
-                .scaledToFill()
-                .frame(width: 72, height: 72)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-        } else {
+        FMRemoteImage(urlString: match.fieldImageUrl) {
             Image("defaultField1x1", bundle: .main)
                 .resizable()
                 .scaledToFill()
-                .frame(width: 72, height: 72)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
         }
-    }
-
-    private func loadFieldImage() async {
-        guard let img = await FieldImageLoader.load(match.fieldImageUrl) else { return }
-        cachedFieldImage = img
+        .scaledToFill()
+        .frame(width: 72, height: 72)
+        .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 }
 

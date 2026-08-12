@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 import UIKit
 
 public protocol RequestInterceptor {
@@ -29,6 +30,11 @@ public struct AuthTokenInterceptor: RequestInterceptor {
 /// `FirebaseAppCheck` is available. A nil/throwing provider results in the
 /// request being sent without the header (backend decides enforcement).
 public struct AppCheckInterceptor: RequestInterceptor {
+    private static let logger = Logger(
+        subsystem: Bundle.main.bundleIdentifier ?? "FutMatch",
+        category: "AppCheck"
+    )
+
     private let tokenProvider: () async throws -> String?
     private let timeout: Duration
 
@@ -36,9 +42,11 @@ public struct AppCheckInterceptor: RequestInterceptor {
     ///   - timeout: Maximum time to wait for a token before sending the request
     ///     without the header. App Check token fetches can stall on retry backoff
     ///     (e.g. an unregistered debug token); a bounded wait keeps that from
-    ///     freezing app startup. Defaults to 3 seconds.
+    ///     freezing app startup. The provider reads the SDK's cached token, so the
+    ///     normal path returns immediately and this budget is only spent on the
+    ///     first attestation of a launch.
     public init(
-        timeout: Duration = .seconds(3),
+        timeout: Duration = .seconds(5),
         tokenProvider: @escaping () async throws -> String?
     ) {
         self.tokenProvider = tokenProvider
@@ -47,9 +55,24 @@ public struct AppCheckInterceptor: RequestInterceptor {
 
     public func intercept(_ request: inout URLRequest) async throws {
         guard request.value(forHTTPHeaderField: "X-Firebase-AppCheck") == nil else { return }
-        if let token = await tokenWithinTimeout() {
-            request.setValue(token, forHTTPHeaderField: "X-Firebase-AppCheck")
+        // Retry once: the first attestation after a cold start can exceed the
+        // timeout, and by the second attempt the SDK usually has a cached token.
+        var token = await tokenWithinTimeout()
+        if token == nil {
+            token = await tokenWithinTimeout()
         }
+        guard let token else {
+            // The request still goes out (the backend decides enforcement), but this
+            // is the only client-side trace of the server's `headerPresent=false`.
+            // Read the path into a local first: the log interpolation is an
+            // autoclosure and cannot capture the inout `request`.
+            let path = request.url?.path ?? "?"
+            Self.logger.error(
+                "App Check token unavailable — sending \(path, privacy: .public) without X-Firebase-AppCheck"
+            )
+            return
+        }
+        request.setValue(token, forHTTPHeaderField: "X-Firebase-AppCheck")
     }
 
     /// Races the token fetch against a timeout. Returns nil on timeout or error

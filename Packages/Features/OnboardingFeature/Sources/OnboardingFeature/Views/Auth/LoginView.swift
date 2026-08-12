@@ -142,18 +142,19 @@ public struct LoginView: View {
                 }
             }
 
-            HStack(spacing: 4) {
-                Text(L10n.Login.noAccount)
-                    .font(FMTypography.caption)
-                    .foregroundColor(FMColors.secondary)
+            Button {
+                showOnboarding = true
+            } label: {
+                HStack(spacing: 4) {
+                    Text(L10n.Login.noAccount)
+                        .font(FMTypography.caption)
+                        .foregroundColor(FMColors.secondary)
 
-                Button {
-                    showOnboarding = true
-                } label: {
                     Text(L10n.Login.createAccount)
                         .font(FMTypography.captionMedium)
                         .foregroundColor(FMColors.primary)
                 }
+                .contentShape(Rectangle())
             }
         }
         .padding(.horizontal, 24)

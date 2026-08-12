@@ -1,5 +1,4 @@
 import SwiftUI
-import UIKit
 
 /// Data model for a match card's team info
 public struct FMMatchTeam {
@@ -32,9 +31,6 @@ public struct FMMatchCard: View {
     var location: String?
     var onTap: (() -> Void)?
 
-    /// Cached downloaded image — survives re-renders caused by parent state changes.
-    @State private var cachedFieldImage: UIImage? = nil
-
     public init(
         venueName: String,
         timeRange: String,
@@ -63,12 +59,6 @@ public struct FMMatchCard: View {
         self.fieldImage = fieldImage
         self.location = location
         self.onTap = onTap
-        // Seed from the cache so a recreated card (list refresh, LazyVStack
-        // recycling) renders the image on its first frame instead of flashing
-        // the placeholder while `.task` re-fetches it.
-        _cachedFieldImage = State(
-            initialValue: fieldImageUrl.flatMap { FMImageCache.shared.image(for: $0) }
-        )
     }
     
     public var body: some View {
@@ -90,9 +80,6 @@ public struct FMMatchCard: View {
             )
         }
         .buttonStyle(.plain)
-        .task(id: fieldImageUrl) {
-            await loadFieldImage()
-        }
     }
     
     // MARK: - Top Section (Image + Info + Price)
@@ -162,50 +149,30 @@ public struct FMMatchCard: View {
     @ViewBuilder
     private var fieldImageView: some View {
         Group {
-            if let cached = cachedFieldImage {
-                Image(uiImage: cached)
-                    .resizable()
-                    .scaledToFill()
-            } else if let image = fieldImage {
-                image
-                    .resizable()
-                    .scaledToFill()
+            if fieldImageUrl != nil {
+                FMRemoteImage(urlString: fieldImageUrl) {
+                    defaultFieldImage
+                }
             } else {
-                Image("defaultField1x1", bundle: .main)
-                    .resizable()
-                    .scaledToFill()
+                defaultFieldImage
             }
         }
+        .scaledToFill()
         .frame(width: 72, height: 72)
         .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 
-    private func loadFieldImage() async {
-        guard
-            let urlString = fieldImageUrl,
-            let url = URL(string: urlString)
-        else {
-            cachedFieldImage = nil
-            return
-        }
-
-        // Return immediately if already in the shared cache
-        if let cached = FMImageCache.shared.image(for: urlString) {
-            cachedFieldImage = cached
-            return
-        }
-
-        do {
-            let (data, response) = try await URLSession.shared.data(from: url)
-            if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) { return }
-            guard let downloaded = UIImage(data: data) else { return }
-            FMImageCache.shared.store(downloaded, for: urlString)
-            cachedFieldImage = downloaded
-        } catch {
-            // Silently fail — default image stays visible
+    @ViewBuilder
+    private var defaultFieldImage: some View {
+        if let image = fieldImage {
+            image.resizable().scaledToFill()
+        } else {
+            Image("defaultField1x1", bundle: .main)
+                .resizable()
+                .scaledToFill()
         }
     }
-    
+
     private var availabilityBadge: some View {
         HStack(spacing: 4) {
             Image(systemName: "person.2.fill")
@@ -240,16 +207,27 @@ public struct FMMatchCard: View {
         }
     }
     
+    /// Shows the pin + location on one line, and — only when both a location
+    /// and a distance are supplied — the distance on a second line beneath it.
     private var distanceView: some View {
-        HStack(spacing: 4) {
-            Image(systemName: "mappin.and.ellipse")
-                .font(.system(size: 12))
-                .foregroundColor(FMColors.onSurfaceVariant)
+        VStack(alignment: .trailing, spacing: 2) {
+            HStack(spacing: 4) {
+                Image(systemName: "mappin.and.ellipse")
+                    .font(.system(size: 12))
+                    .foregroundColor(FMColors.onSurfaceVariant)
 
-            Text(location ?? distance)
-                .font(FMTypography.labelSmall)
-                .foregroundColor(FMColors.onSurfaceVariant)
-                .lineLimit(1)
+                Text(location?.isEmpty == false ? location! : distance)
+                    .font(FMTypography.labelSmall)
+                    .foregroundColor(FMColors.onSurfaceVariant)
+                    .lineLimit(1)
+            }
+
+            if location?.isEmpty == false, !distance.isEmpty {
+                Text(distance)
+                    .font(FMTypography.labelSmall)
+                    .foregroundColor(FMColors.onSurfaceVariant)
+                    .lineLimit(1)
+            }
         }
     }
     

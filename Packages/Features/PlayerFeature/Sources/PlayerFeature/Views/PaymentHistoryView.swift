@@ -40,11 +40,8 @@ struct PaymentHistoryView: View {
 
     @ViewBuilder
     private var content: some View {
-        if viewModel.isLoading {
-            Spacer()
-            ProgressView()
-                .tint(FMColors.primary)
-            Spacer()
+        if viewModel.isLoading && viewModel.payments.isEmpty {
+            skeletonList
         } else if let error = viewModel.error {
             Spacer()
             VStack(spacing: 12) {
@@ -78,6 +75,31 @@ struct PaymentHistoryView: View {
             Spacer()
         } else {
             paymentTable
+        }
+    }
+
+    // MARK: - Skeleton
+
+    private var skeletonList: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(L10n.PaymentHistory.sectionTitle)
+                .font(FMTypography.titleSmall)
+                .foregroundColor(FMColors.onBackground)
+                .padding(.horizontal, 16)
+                .padding(.top, 16)
+                .padding(.bottom, 8)
+
+            ScrollView {
+                LazyVStack(spacing: 12) {
+                    ForEach(0..<6, id: \.self) { _ in
+                        PaymentHistoryCardSkeleton()
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 4)
+                .padding(.bottom, 100)
+            }
+            .disabled(true)
         }
     }
 
@@ -196,6 +218,8 @@ struct PaymentHistoryView: View {
             return (L10n.PaymentHistory.statusSuccess, .green, .green.opacity(0.15))
         case "canceled":
             return (L10n.PaymentHistory.statusCanceled, FMColors.onSurfaceVariant, FMColors.onSurfaceVariant.opacity(0.15))
+        case "requires_capture":
+            return (L10n.PaymentHistory.statusPending, FMColors.onTertiaryContainer, FMColors.tertiaryContainer)
         default:
             return (L10n.PaymentHistory.statusFailed, FMColors.error, FMColors.error.opacity(0.15))
         }

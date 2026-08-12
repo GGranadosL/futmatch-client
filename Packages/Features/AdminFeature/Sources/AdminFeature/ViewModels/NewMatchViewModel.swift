@@ -6,13 +6,11 @@ public final class NewMatchViewModel: ObservableObject {
     // MARK: - Form Inputs
 
     @Published public var selectedField: FieldIdName?
-    @Published public var date: Date = Date()
-    @Published public var startTime: Date = {
-        Calendar.current.date(bySettingHour: 20, minute: 0, second: 0, of: Date()) ?? Date()
+    @Published public var date: Date = {
+        Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: Date())) ?? Date()
     }()
-    @Published public var endTime: Date = {
-        Calendar.current.date(bySettingHour: 22, minute: 0, second: 0, of: Date()) ?? Date()
-    }()
+    @Published public var startTime: Date?
+    @Published public var endTime: Date?
     @Published public var maxPlayersText: String = ""
     @Published public var selectedOrganizer: Organizer?
     @Published public var selectedGender: MatchGender?
@@ -84,12 +82,23 @@ public final class NewMatchViewModel: ObservableObject {
         return L10n.NewMatch.Players.exceedsFieldMax(field.maxPlayersAllowed)
     }
 
+    /// Non-nil when the selected date is earlier than today.
+    /// Used to show an inline error and block "Continuar".
+    public var dateError: String? {
+        let startOfToday = Calendar.current.startOfDay(for: Date())
+        guard Calendar.current.startOfDay(for: date) < startOfToday else { return nil }
+        return L10n.NewMatch.Date.pastError
+    }
+
     public var isValid: Bool {
         selectedField != nil
             && maxPlayers != nil
             && selectedOrganizer != nil
             && selectedGender != nil
             && selectedLevel != nil
+            && startTime != nil
+            && endTime != nil
+            && dateError == nil
     }
 
     // MARK: - Save
@@ -102,7 +111,9 @@ public final class NewMatchViewModel: ObservableObject {
             let maxPlayers,
             let gender = selectedGender,
             let level = selectedLevel,
-            let option = selectedPricingOption
+            let option = selectedPricingOption,
+            let startTime,
+            let endTime
         else { return }
 
         let params = CreateMatchParams(

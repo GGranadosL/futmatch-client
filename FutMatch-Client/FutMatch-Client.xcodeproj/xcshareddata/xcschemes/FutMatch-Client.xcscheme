@@ -90,13 +90,6 @@
             ReferencedContainer = "container:FutMatch-Client.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
-      <EnvironmentVariables>
-         <EnvironmentVariable
-            key = "FIRAAppCheckDebugToken"
-            value = "84c53070-a67f-4737-b14d-00137d936ef1"
-            isEnabled = "YES">
-         </EnvironmentVariable>
-      </EnvironmentVariables>
    </LaunchAction>
    <ProfileAction
       buildConfiguration = "Release"

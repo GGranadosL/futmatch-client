@@ -31,7 +31,12 @@ public struct DefaultResponseHandler: ResponseHandler {
         case 500...599:
             throw try decodeErrorResponse(data, statusCode: response.statusCode, decoder: decoder)
         default:
-            throw APIError.serverError(statusCode: response.statusCode, title: "", message: "Unexpected status code")
+            throw APIError.serverError(
+                statusCode: response.statusCode,
+                title: "",
+                message: "Unexpected status code",
+                errorCode: ""
+            )
         }
     }
     
@@ -54,22 +59,35 @@ public struct DefaultResponseHandler: ResponseHandler {
         
         switch statusCode {
         case 401:
-            return APIError.serverError(statusCode: 401, title: parsed.title, message: parsed.message)
+            return APIError.serverError(
+                statusCode: 401,
+                title: parsed.title,
+                message: parsed.message,
+                errorCode: parsed.errorCode
+            )
         case 404:
             return APIError.notFound
         default:
-            return APIError.serverError(statusCode: statusCode, title: parsed.title, message: parsed.message)
+            return APIError.serverError(
+                statusCode: statusCode,
+                title: parsed.title,
+                message: parsed.message,
+                errorCode: parsed.errorCode
+            )
         }
     }
-    
-    private func parseErrorDetails(from data: Data, decoder: JSONDecoder) -> (title: String, message: String) {
+
+    private func parseErrorDetails(
+        from data: Data,
+        decoder: JSONDecoder
+    ) -> (title: String, message: String, errorCode: String) {
         if let errorResponse = try? decoder.decode(APIErrorResponse.self, from: data) {
-            return (errorResponse.error.title, errorResponse.displayMessage)
+            return (errorResponse.error.title, errorResponse.displayMessage, errorResponse.error.errorCode ?? "")
         }
         if let flat = try? decoder.decode(ErrorDetails.self, from: data) {
             let msg = flat.message.isEmpty ? flat.title : flat.message
-            return (flat.title, msg)
+            return (flat.title, msg, flat.errorCode ?? "")
         }
-        return ("", "Error desconocido")
+        return ("", "Error desconocido", "")
     }
 }

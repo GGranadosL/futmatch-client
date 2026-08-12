@@ -34,7 +34,7 @@ public class LoginViewModel: ObservableObject {
     
     var isFormValid: Bool {
         FieldValidator.validateEmail(email).isValid &&
-        FieldValidator.validatePassword(password).isValid
+        FieldValidator.validatePasswordForLogin(password).isValid
     }
     
     func login() async {

@@ -13,9 +13,9 @@ final class AdminMatchesViewModel: ObservableObject {
 
     @Published private(set) var state: State = .idle
 
-    private let fetchUseCase: FetchAdminMatchesUseCaseProtocol
+    private let fetchUseCase: FetchMatchesListUseCaseProtocol
 
-    init(fetchUseCase: FetchAdminMatchesUseCaseProtocol) {
+    init(fetchUseCase: FetchMatchesListUseCaseProtocol) {
         self.fetchUseCase = fetchUseCase
     }
 

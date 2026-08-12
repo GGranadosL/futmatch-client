@@ -62,7 +62,7 @@ final class CountryRemoteConfigRepository: CountryRepositoryProtocol {
 
         // 2. Try parsing from the currently active Remote Config value.
         if let countries = parsedCountries(), !countries.isEmpty {
-            persist(countries)
+            await persistOnMainThread(countries)
             return countries
         }
 
@@ -95,8 +95,13 @@ final class CountryRemoteConfigRepository: CountryRepositoryProtocol {
         guard (try? await remoteConfig.fetch(withExpirationDuration: Self.fetchInterval)) != nil else { return }
         _ = try? await remoteConfig.activate()
         if let countries = parsedCountries(), !countries.isEmpty {
-            persist(countries)
+            await persistOnMainThread(countries)
         }
+    }
+
+    @MainActor
+    private func persistOnMainThread(_ countries: [Country]) {
+        persist(countries)
     }
 
     private func parsedCountries() -> [Country]? {

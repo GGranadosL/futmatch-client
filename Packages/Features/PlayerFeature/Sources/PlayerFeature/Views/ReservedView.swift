@@ -94,19 +94,11 @@ struct ReservedView: View {
     private func filteredMatches(for tab: ReservedTab) -> [MatchItem] {
         switch tab {
         case .upcoming:
-            return viewModel.myMatches.filter {
-                let s = $0.matchStatus.uppercased()
-                return s != "COMPLETED" && s != "CANCELED" && s != "CANCELLED"
-            }
+            return viewModel.myMatches.filter { $0.isUpcoming }
         case .finished:
-            return viewModel.myMatches.filter {
-                $0.matchStatus.uppercased() == "COMPLETED"
-            }
+            return viewModel.myMatches.filter { $0.isCompleted }
         case .canceled:
-            return viewModel.myMatches.filter {
-                let s = $0.matchStatus.uppercased()
-                return s == "CANCELED" || s == "CANCELLED"
-            }
+            return viewModel.myMatches.filter { $0.isCanceled }
         }
     }
 
@@ -194,8 +186,7 @@ struct ReservedView: View {
     // MARK: - Match Card
 
     private func reservedCard(for match: MatchItem) -> some View {
-        let status = match.matchStatus.uppercased()
-        let isDimmed = status == "COMPLETED" || status == "CANCELED" || status == "CANCELLED"
+        let isDimmed = !match.isUpcoming
 
         return FMMatchCard(
             venueName: match.venueName,
@@ -214,9 +205,9 @@ struct ReservedView: View {
                 avatarURLs: match.teamBPlayers.prefix(3).map { $0.avatarUrl },
                 playerCount: match.teamBPlayers.count
             ),
-            distance: match.distanceDisplay,
+            distance: match.formattedDistance(from: viewModel.userCoordinate),
             fieldImageUrl: match.fieldImageUrl,
-            location: match.location,
+            location: match.pinLocationText,
             onTap: { navigationPath.append(match) }
         )
         .overlay {
@@ -226,9 +217,9 @@ struct ReservedView: View {
                     .overlay {
                         VStack(spacing: 10) {
                             HStack(spacing: 8) {
-                                Image(systemName: status == "COMPLETED" ? "checkmark.circle.fill" : "xmark.circle.fill")
+                                Image(systemName: match.isCompleted ? "checkmark.circle.fill" : "xmark.circle.fill")
                                     .font(.system(size: 18, weight: .semibold))
-                                Text(statusTitle(for: status))
+                                Text(statusTitle(for: match))
                                     .font(FMTypography.titleLarge)
                                     .bold()
                             }
@@ -240,12 +231,12 @@ struct ReservedView: View {
         }
     }
 
-    private func statusTitle(for status: String) -> String {
-        switch status {
-        case "COMPLETED":  return L10n.Reserved.tabFinished
-        case "CANCELED", "CANCELLED": return L10n.Reserved.tabCanceled
-        default: return status
-        }
+    private func statusTitle(for match: MatchItem) -> String {
+        if match.isCompleted { return L10n.Reserved.tabFinished }
+        if match.isCanceled { return L10n.Reserved.tabCanceled }
+        // For upcoming matches that have a specific status (IN_PROGRESS, PENDING_RESULT),
+        // show that status badge. matchStatus.displayName uses L10n for localization.
+        return match.matchStatus.displayName
     }
 
     // MARK: - Empty States

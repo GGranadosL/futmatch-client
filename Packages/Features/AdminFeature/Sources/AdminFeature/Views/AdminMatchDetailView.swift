@@ -57,7 +57,6 @@ struct AdminMatchDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel: AdminMatchDetailViewModel
 
-    @State private var fieldImage: UIImage? = nil
     @State private var showMapPicker = false
     @State private var showEditMatch = false
     @State private var showSupervision = false
@@ -78,7 +77,8 @@ struct AdminMatchDetailView: View {
     }
 
     private var match: AdminMatch { viewModel.match }
-    private var isScheduled: Bool { match.status == .scheduled }
+    private var canEdit: Bool { match.status == .scheduled }
+    private var canTakeAction: Bool { match.status != .completed && match.status != .canceled }
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -93,18 +93,19 @@ struct AdminMatchDetailView: View {
                     let rules = viewModel.rules
                     if !rules.isEmpty {
                         rulesSection(rules: rules)
-                            .padding(.bottom, isScheduled ? 96 : 16)
+                            .padding(.bottom, canTakeAction ? 96 : 16)
                     } else {
-                        Spacer().frame(height: isScheduled ? 80 : 0)
+                        Spacer().frame(height: canTakeAction ? 80 : 0)
                     }
                 }
             }
             .ignoresSafeArea(edges: .top)
 
-            if isScheduled {
+            if canTakeAction {
                 HStack {
                     Spacer()
                     AdminMatchDetailActionBar(
+                        canEdit: canEdit,
                         onEdit: { showEditMatch = true },
                         onCancel: {
                             if viewModel.isInPaidWindow {
@@ -210,24 +211,18 @@ struct AdminMatchDetailView: View {
         }
         .task { await viewModel.loadField() }
         .task { await viewModel.subscribeToPlayers() }
-        .task { await loadFieldImage() }
     }
 
     // MARK: - Hero
 
     private var heroSection: some View {
         ZStack(alignment: .bottomLeading) {
-            Group {
-                if let loaded = fieldImage {
-                    Image(uiImage: loaded)
-                        .resizable()
-                        .scaledToFill()
-                } else {
-                    Image("defaultField", bundle: .main)
-                        .resizable()
-                        .scaledToFill()
-                }
+            FMRemoteImage(urlString: match.fieldImageUrl) {
+                Image("defaultField", bundle: .main)
+                    .resizable()
+                    .scaledToFill()
             }
+            .scaledToFill()
             .frame(maxWidth: .infinity, minHeight: 260, maxHeight: 260)
             .clipped()
             .overlay(
@@ -346,7 +341,7 @@ struct AdminMatchDetailView: View {
                 Spacer()
                 HStack(spacing: 4) {
                     Image(systemName: "person.2.fill").font(.system(size: 12))
-                    Text(L10n.AdminMatchDetail.spotsLeft(match.spotsLeft))
+                    Text(L10n.AdminMatchDetail.spotsLeft(liveSpotsLeft))
                         .font(FMTypography.labelSmall)
                 }
                 .foregroundColor(FMColors.primary)
@@ -363,6 +358,15 @@ struct AdminMatchDetailView: View {
         .padding(.top, 16)
     }
 
+    /// Spots remaining, derived from the live Firestore roster so the badge
+    /// tracks joins/leaves while the screen stays open. Falls back to the REST
+    /// snapshot until the first Firestore snapshot arrives.
+    private var liveSpotsLeft: Int {
+        guard let liveA = viewModel.liveTeamAPlayers,
+              let liveB = viewModel.liveTeamBPlayers else { return match.spotsLeft }
+        return max(0, match.spotsTotal - (liveA.count + liveB.count))
+    }
+
     // MARK: - Lineup Section
 
     private var lineupSection: some View {
@@ -370,7 +374,14 @@ struct AdminMatchDetailView: View {
         let hasError = viewModel.playersError != nil
         let liveA = viewModel.liveTeamAPlayers ?? []
         let liveB = viewModel.liveTeamBPlayers ?? []
-        let perTeamMax = max(1, (match.spotsLeft + liveA.count + liveB.count) / 2)
+        // Capacity is fixed per match — the live roster must NOT alter it.
+        // Deriving it from `match.spotsLeft` (a frozen REST snapshot) plus the
+        // live Firestore counts made both teams lose a slot whenever anyone
+        // left, because the total dropped by 1 and the `/ 2` truncated it.
+        // That also silently removed a drag-and-drop target for rebalancing.
+        let perTeamMax = max(1, match.spotsTotal / 2)
+        let maxA = max(perTeamMax, liveA.count)
+        let maxB = max(perTeamMax, liveB.count)
 
         return VStack(alignment: .leading, spacing: 16) {
             Text(L10n.AdminMatchDetail.currentLineup)
@@ -396,8 +407,8 @@ struct AdminMatchDetailView: View {
                 skeletonTeamCard(name: L10n.AdminMatchDetail.teamA)
                 skeletonTeamCard(name: L10n.AdminMatchDetail.teamB)
             } else {
-                teamLineup(name: L10n.AdminMatchDetail.teamA, team: "A", players: liveA, maxPlayers: perTeamMax)
-                teamLineup(name: L10n.AdminMatchDetail.teamB, team: "B", players: liveB, maxPlayers: perTeamMax)
+                teamLineup(name: L10n.AdminMatchDetail.teamA, team: "A", players: liveA, maxPlayers: maxA)
+                teamLineup(name: L10n.AdminMatchDetail.teamB, team: "B", players: liveB, maxPlayers: maxB)
             }
         }
         .padding(.horizontal, 20)
@@ -475,7 +486,7 @@ struct AdminMatchDetailView: View {
                 .lineLimit(1)
         }
         .frame(width: 56)
-        .if(isScheduled) { view in
+        .if(canEdit) { view in
             view
                 .draggable(player)
                 .dropDestination(for: AdminMatchPlayer.self) { dropped, _ in
@@ -490,17 +501,13 @@ struct AdminMatchDetailView: View {
 
     private func playerAvatar(url: String?, size: CGFloat) -> some View {
         Group {
-            if let urlString = url, let avatarURL = URL(string: urlString) {
-                AsyncImage(url: avatarURL) { phase in
-                    switch phase {
-                    case .success(let loaded):
-                        loaded.resizable().scaledToFill()
-                            .frame(width: size, height: size)
-                            .clipShape(Circle())
-                    default:
-                        FMAvatar(image: nil, size: size)
-                    }
+            if let urlString = url {
+                FMRemoteImage(urlString: urlString) {
+                    FMAvatar(image: nil, size: size)
                 }
+                .scaledToFill()
+                .frame(width: size, height: size)
+                .clipShape(Circle())
             } else {
                 FMAvatar(image: nil, size: size)
             }
@@ -531,7 +538,7 @@ struct AdminMatchDetailView: View {
                 .lineLimit(1)
         }
         .frame(width: 56)
-        .if(isScheduled) { view in
+        .if(canEdit) { view in
             view.dropDestination(for: AdminMatchPlayer.self) { dropped, _ in
                 guard let dragged = dropped.first else { return false }
                 Task { await viewModel.movePlayer(dragged, toTeam: team) }
@@ -577,11 +584,11 @@ struct AdminMatchDetailView: View {
 
             VStack(spacing: 0) {
                 if let footwear = field.footwearType {
-                    detailRow(label: L10n.AdminMatchDetail.shoeType, value: footwear.displayName)
+                    detailRow(label: L10n.AdminMatchDetail.shoeType, value: FieldAttributeDisplay.footwearTypeName(forCode: footwear))
                     Divider().padding(.horizontal, 16)
                 }
                 if let fType = field.fieldType {
-                    detailRow(label: L10n.AdminMatchDetail.fieldType, value: fType.displayName)
+                    detailRow(label: L10n.AdminMatchDetail.fieldType, value: FieldAttributeDisplay.fieldTypeName(forCode: fType))
                     Divider().padding(.horizontal, 16)
                 }
                 detailRow(
@@ -643,20 +650,4 @@ struct AdminMatchDetailView: View {
         .padding(.top, 24)
     }
 
-    // MARK: - Image Loading
-
-    private func loadFieldImage() async {
-        guard let urlString = match.fieldImageUrl, let url = URL(string: urlString) else { return }
-        if let cached = FMImageCache.shared.image(for: urlString) {
-            fieldImage = cached
-            return
-        }
-        do {
-            let (data, response) = try await URLSession.shared.data(from: url)
-            if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) { return }
-            guard let downloaded = UIImage(data: data) else { return }
-            FMImageCache.shared.store(downloaded, for: urlString)
-            fieldImage = downloaded
-        } catch {}
-    }
 }

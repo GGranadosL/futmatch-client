@@ -79,7 +79,7 @@ struct AdminFieldImageSlot: View {
             remoteImage = nil
             return
         }
-        remoteImage = await FieldImageLoader.load(imagePath)
+        remoteImage = await FMImageLoader.shared.load(imagePath)
     }
 
     // MARK: - Slot appearance

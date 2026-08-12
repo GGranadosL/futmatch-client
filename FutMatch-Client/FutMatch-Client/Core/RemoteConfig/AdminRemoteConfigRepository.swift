@@ -18,11 +18,13 @@ final class AdminRemoteConfigRepository: AdminRemoteConfigProtocol {
     private static let maxImagesKey               = "admin_field_max_images"
     private static let featureEnabledKey          = "admin_feature_enabled"
     private static let cancelPaidThresholdHoursKey = "match_cancel_paid_threshold_hours"
+    private static let desktopEnrollmentEnabledKey = "admin_desktop_enrollment_enabled"
 
     // UserDefaults keys (namespaced to avoid collisions)
     private static let cachedMaxImagesKey                = AdminRemoteConfig.maxImagesKey
     private static let cachedFeatureEnabledKey           = AdminRemoteConfig.featureEnabledKey
     private static let cachedCancelPaidThresholdHoursKey = AdminRemoteConfig.cancelPaidThresholdHoursKey
+    private static let cachedDesktopEnrollmentEnabledKey = AdminRemoteConfig.desktopEnrollmentEnabledKey
 
     private static let fetchInterval: TimeInterval = 3_600   // 1 hour in production
 
@@ -69,23 +71,33 @@ final class AdminRemoteConfigRepository: AdminRemoteConfigProtocol {
         return stored > 0 ? stored : 6
     }
 
+    var isDesktopEnrollmentEnabled: Bool {
+        (defaults.object(forKey: Self.cachedDesktopEnrollmentEnabledKey) as? Bool) ?? true
+    }
+
     // MARK: - Fetch & Activate
 
     /// Call once at app launch (after `FirebaseApp.configure()`).
     /// Activates any pending config and kicks off a background refresh.
     func fetchAndActivate() async {
         _ = try? await remoteConfig.activate()
-        persistCurrentValues()
+        await persistCurrentValuesOnMainThread()
 
         Task.detached(priority: .background) { [weak self] in
             guard let self else { return }
             guard (try? await self.remoteConfig.fetch(withExpirationDuration: Self.fetchInterval)) != nil else { return }
             _ = try? await self.remoteConfig.activate()
-            self.persistCurrentValues()
+            await self.persistCurrentValuesOnMainThread()
         }
     }
 
     // MARK: - Private
+
+    /// Persiste en el main thread para evitar race conditions con UserDefaults.
+    @MainActor
+    private func persistCurrentValuesOnMainThread() {
+        persistCurrentValues()
+    }
 
     private func persistCurrentValues() {
         let maxImages = remoteConfig
@@ -106,6 +118,11 @@ final class AdminRemoteConfigRepository: AdminRemoteConfigProtocol {
             .numberValue.intValue
         if cancelHours > 0 {
             defaults.set(cancelHours, forKey: Self.cachedCancelPaidThresholdHoursKey)
+        }
+
+        let desktopEnrollment = remoteConfig.configValue(forKey: Self.desktopEnrollmentEnabledKey)
+        if desktopEnrollment.source != .static {
+            defaults.set(desktopEnrollment.boolValue, forKey: Self.cachedDesktopEnrollmentEnabledKey)
         }
     }
 }

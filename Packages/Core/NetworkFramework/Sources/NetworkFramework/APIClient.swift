@@ -14,7 +14,10 @@ public struct APIErrorResponse: Decodable {
 public struct ErrorDetails: Decodable {
     public let title: String
     public let message: String
-    public let errorCode: String
+    /// Machine-readable code (e.g. `PAYMENT_PENDING_NOT_RECOVERABLE`). Optional because
+    /// not every backend error body carries it — a non-optional here made those bodies
+    /// fail to decode and degrade to a generic "Error desconocido".
+    public let errorCode: String?
 }
 
 @available(iOS 15.0, macOS 12.0, *)
@@ -41,8 +44,16 @@ public class APIClient {
     
     private let session: URLSession
     private var interceptors: [RequestInterceptor] = []
-    private var isRefreshing = false
-    private var refreshContinuations: [CheckedContinuation<String, Error>] = []
+    /// In-flight token refresh, shared by every request that hits a 401 while it runs.
+    ///
+    /// Deliberately a `Task` and not a `[CheckedContinuation]`: appending to an array
+    /// from inside `withCheckedThrowingContinuation` is not atomic with the "is a
+    /// refresh running?" check, because that function is nonisolated and releases the
+    /// main actor before its closure runs. A late append landed after the refresh had
+    /// already drained the array, leaving that request suspended forever with no
+    /// response and no error (stuck skeletons on Home). Reading and assigning this
+    /// property happens synchronously on the actor, so there is no such window.
+    private var refreshTask: Task<String, Error>?
     
     /// Called on every 401 response (before posting the unauthorized notification).
     /// Should fetch a new access token and return it. If it throws, the 401 falls
@@ -116,7 +127,8 @@ public class APIClient {
                 throw APIError.serverError(
                     statusCode: httpResponse.statusCode,
                     title: "Error al cargar imagen",
-                    message: "No se pudo descargar la imagen."
+                    message: "No se pudo descargar la imagen.",
+                    errorCode: ""
                 )
             }
             return data
@@ -182,40 +194,16 @@ public class APIClient {
             
             logger.logResponse(httpResponse, data: data)
             
-            // On 401, attempt a token refresh and retry once before giving up
+            // On 401, refresh the token and retry once before giving up.
+            // A 401 on its own never ends the session — see `endSession()`.
             if httpResponse.statusCode == 401, let handler = unauthorizedHandler {
                 let newToken: String
-                if isRefreshing {
-                    // Another request is already refreshing — wait for its result
-                    do {
-                        newToken = try await withCheckedThrowingContinuation { continuation in
-                            refreshContinuations.append(continuation)
-                        }
-                    } catch {
-                        // Refresh failed — report this request's own 401, not the shared refresh error
-                        return try handleResponse(data, httpResponse, for: type, decoder: decoder)
-                    }
-                } else {
-                    isRefreshing = true
-                    do {
-                        newToken = try await handler()
-                        // Resume all waiting continuations with the new token
-                        let waiting = refreshContinuations
-                        refreshContinuations.removeAll()
-                        isRefreshing = false
-                        for cont in waiting {
-                            cont.resume(returning: newToken)
-                        }
-                    } catch {
-                        let waiting = refreshContinuations
-                        refreshContinuations.removeAll()
-                        isRefreshing = false
-                        for cont in waiting {
-                            cont.resume(throwing: error)
-                        }
-                        // Refresh failed — fall through to standard 401 handling below
-                        return try handleResponse(data, httpResponse, for: type, decoder: decoder)
-                    }
+                do {
+                    newToken = try await refreshedToken(using: handler)
+                } catch {
+                    // Refresh failed; `refreshedToken` already ended the session.
+                    // Report this request's own 401, not the shared refresh error.
+                    return try handleResponse(data, httpResponse, for: type, decoder: decoder)
                 }
                 // Retry with the new token
                 var retryRequest = request
@@ -226,6 +214,11 @@ public class APIClient {
                     throw APIError.invalidResponse
                 }
                 logger.logResponse(retryHTTPResponse, data: retryData)
+                if retryHTTPResponse.statusCode == 401 {
+                    // The server rejects a token it issued seconds ago — the retry
+                    // budget is spent and there is nothing left to recover with.
+                    endSession()
+                }
                 return try handleResponse(retryData, retryHTTPResponse, for: type, decoder: decoder)
             }
             
@@ -241,8 +234,46 @@ public class APIClient {
         }
     }
     
+    /// Returns a fresh access token, coalescing concurrent 401s onto a single refresh.
+    ///
+    /// A burst of requests failing with 401 at once (Home + notifications + profile +
+    /// FCM sync on launch) must produce exactly one refresh call, and every one of them
+    /// must be resumed with its result — success or failure. Awaiting the same `Task`
+    /// gives both: the check-and-store below runs without an intervening suspension
+    /// point, so no caller can arrive too late to observe the in-flight refresh.
+    private func refreshedToken(using handler: @escaping () async throws -> String) async throws -> String {
+        if let inFlight = refreshTask {
+            // A waiter never ends the session itself — the request that owns the
+            // refresh does that, so one failed refresh logs out exactly once
+            // instead of once per request in the burst.
+            return try await inFlight.value
+        }
+        let task = Task { try await handler() }
+        refreshTask = task
+        // Only the request that started the refresh clears it, so a later refresh
+        // is never cancelled out by a straggler from the previous one.
+        defer { refreshTask = nil }
+        do {
+            return try await task.value
+        } catch {
+            endSession()
+            throw error
+        }
+    }
+
+    /// Ends the session, forcing the user back to login.
+    ///
+    /// Deliberately **not** called for every 401. A 401 usually means nothing worse
+    /// than "this access token just expired", which the refresh below recovers from
+    /// transparently. Only two outcomes are unrecoverable and reach this method:
+    /// the refresh call itself failed (no refresh token, or the server rejected it),
+    /// or a retry carrying a freshly issued token was still rejected.
+    private func endSession() {
+        NotificationCenter.default.post(name: .apiUnauthorized, object: nil)
+    }
+
     // MARK: - Response Handling
-    
+
     private func handleResponse<T: Decodable>(
         _ data: Data,
         _ response: HTTPURLResponse,
@@ -253,14 +284,26 @@ public class APIClient {
         case 200...299:
             return try decodeSuccessResponse(data, for: type, decoder: decoder)
         case 401:
+            // No session teardown here: this runs for every 401, including ones the
+            // refresh-and-retry path recovers from. Ending the session is `endSession()`'s
+            // job, and only after a refresh has actually been attempted and failed.
             let parsed = parseErrorDetails(from: data, decoder: decoder)
-            NotificationCenter.default.post(name: .apiUnauthorized, object: nil)
-            throw APIError.serverError(statusCode: 401, title: parsed.title, message: parsed.message)
+            throw APIError.serverError(
+                statusCode: 401,
+                title: parsed.title,
+                message: parsed.message,
+                errorCode: parsed.errorCode
+            )
         case 404:
             throw APIError.notFound
         default:
             let parsed = parseErrorDetails(from: data, decoder: decoder)
-            throw APIError.serverError(statusCode: response.statusCode, title: parsed.title, message: parsed.message)
+            throw APIError.serverError(
+                statusCode: response.statusCode,
+                title: parsed.title,
+                message: parsed.message,
+                errorCode: parsed.errorCode
+            )
         }
     }
     
@@ -284,17 +327,20 @@ public class APIClient {
     
     // MARK: - Error Parsing with Higher-Order Functions
     
-    private func parseErrorDetails(from data: Data, decoder: JSONDecoder) -> (title: String, message: String) {
-        // Try {"error": {"title":…, "message":…}} structure first
+    private func parseErrorDetails(
+        from data: Data,
+        decoder: JSONDecoder
+    ) -> (title: String, message: String, errorCode: String) {
+        // Try {"error": {"title":…, "message":…, "errorCode":…}} structure first
         if let errorResponse = try? decoder.decode(APIErrorResponse.self, from: data) {
-            return (errorResponse.error.title, errorResponse.displayMessage)
+            return (errorResponse.error.title, errorResponse.displayMessage, errorResponse.error.errorCode ?? "")
         }
         // Fallback: server returns flat {"title":…, "message":…} at root level
         if let flat = try? decoder.decode(ErrorDetails.self, from: data) {
             let msg = flat.message.isEmpty ? flat.title : flat.message
-            return (flat.title, msg)
+            return (flat.title, msg, flat.errorCode ?? "")
         }
-        return ("", "Error desconocido")
+        return ("", "Error desconocido", "")
     }
 }
 

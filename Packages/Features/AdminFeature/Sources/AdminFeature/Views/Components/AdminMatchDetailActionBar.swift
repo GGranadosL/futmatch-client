@@ -3,18 +3,25 @@ import FMDesignSystem
 
 /// Floating liquid-glass action bar for the admin match detail screen.
 ///
-/// Three circular icon buttons — edit (pencil), cancel (xmark), complete (checkmark).
+/// Shows icon buttons for actions available to the match status:
+/// - Edit (pencil) — only when `canEdit` is true (SCHEDULED matches only)
+/// - Cancel (xmark) — always shown when the bar is visible
+/// - Complete (checkmark) — always shown when the bar is visible
+///
 /// The glass treatment mirrors `FMTabBar` (iOS 26 `.glassEffect`, `.ultraThinMaterial`
 /// fallback). Button actions are intentionally wired by the caller; defaults are no-ops
 /// because the action flows are delivered in a later iteration.
 struct AdminMatchDetailActionBar: View {
+    var canEdit: Bool = true
     var onEdit: () -> Void = {}
     var onCancel: () -> Void = {}
     var onComplete: () -> Void = {}
 
     var body: some View {
         let content = HStack(spacing: 8) {
-            actionButton(icon: "pencil", tint: FMColors.onSurface, action: onEdit)
+            if canEdit {
+                actionButton(icon: "pencil", tint: FMColors.onSurface, action: onEdit)
+            }
             actionButton(icon: "xmark", tint: FMColors.error, action: onCancel)
             actionButton(icon: "checkmark", tint: FMColors.primary, action: onComplete)
         }

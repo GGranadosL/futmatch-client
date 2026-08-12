@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import CoreLocation
 import NetworkFramework
 
 // MARK: - Reserved Matches ViewModel
@@ -17,16 +18,23 @@ final class ReservedMatchesViewModel: ObservableObject {
     @Published var refreshFailed: Bool = false
     /// API-provided message for the refresh toast (nil → generic copy).
     @Published private(set) var refreshErrorMessage: String?
+    /// Device's current coordinate, resolved once per session — used to show
+    /// each match's distance on its card. Nil when permission was denied or
+    /// the location couldn't be determined.
+    @Published private(set) var userCoordinate: CLLocationCoordinate2D?
 
     private let fetchMyMatchesUseCase: FetchMyMatchesUseCaseProtocol
+    private let fetchCurrentLocationUseCase: FetchCurrentLocationUseCaseProtocol?
     private let cacheRepo: MatchCacheRepositoryProtocol?
     private var cancellables = Set<AnyCancellable>()
 
     init(
         fetchMyMatchesUseCase: FetchMyMatchesUseCaseProtocol,
+        fetchCurrentLocationUseCase: FetchCurrentLocationUseCaseProtocol? = nil,
         cacheRepo: MatchCacheRepositoryProtocol? = nil
     ) {
         self.fetchMyMatchesUseCase = fetchMyMatchesUseCase
+        self.fetchCurrentLocationUseCase = fetchCurrentLocationUseCase
         self.cacheRepo = cacheRepo
         // Pre-load cache synchronously so the first render already has data
         if let cached = cacheRepo?.loadMatches(), !cached.isEmpty {
@@ -46,9 +54,20 @@ final class ReservedMatchesViewModel: ObservableObject {
         }
         error = nil
 
+        // Resolve the device's coordinate so match cards can show a distance.
+        // Retries on every load until it succeeds — the shared service (see
+        // `CurrentLocationService`) caches a successful fix and fast-paths a
+        // denied/restricted status, so repeated calls are cheap once resolved
+        // or once permission is settled.
+        if userCoordinate == nil {
+            if let coordinate = await fetchCurrentLocationUseCase?.execute() {
+                userCoordinate = CLLocationCoordinate2D(latitude: coordinate.latitude, longitude: coordinate.longitude)
+            }
+        }
+
         // 2. Fetch fresh data from API
         do {
-            let fresh = try await fetchMyMatchesUseCase.execute(lat: nil, lon: nil)
+            let fresh = try await fetchMyMatchesUseCase.execute(lat: userCoordinate?.latitude, lon: userCoordinate?.longitude)
             myMatches = fresh
             try? cacheRepo?.saveMatches(fresh)
         } catch {
@@ -70,11 +89,14 @@ final class ReservedMatchesViewModel: ObservableObject {
         isLoading = false
     }
 
-    /// The nearest upcoming match the user is enrolled in
+    /// The nearest upcoming match the user is enrolled in. Skips completed and
+    /// canceled matches — without the status check a canceled match with a
+    /// future kickoff still surfaced on Home as "your next match" even though
+    /// the Reserved tab correctly filed it under Cancelados.
     var nextMatch: MatchItem? {
         let now = Date()
         return myMatches
-            .filter { $0.startDate > now }
+            .filter { $0.startDate > now && $0.isUpcoming }
             .min { $0.startDate < $1.startDate }
     }
 

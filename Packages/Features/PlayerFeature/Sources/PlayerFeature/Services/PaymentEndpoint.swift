@@ -11,6 +11,7 @@ enum PaymentEndpoint: APIEndpoint {
     case paymentHistory
     case pollPayment(matchId: String)
     case paymentStatus(matchId: String)
+    case pendingMatchPayment(matchId: String)
 
     var path: String {
         switch self {
@@ -28,6 +29,8 @@ enum PaymentEndpoint: APIEndpoint {
             return "/payment/poll/\(matchId)"
         case .paymentStatus(let matchId):
             return "/payment/status/\(matchId)"
+        case .pendingMatchPayment(let matchId):
+            return "/payment/matches/\(matchId)/pending"
         }
     }
 
@@ -35,7 +38,7 @@ enum PaymentEndpoint: APIEndpoint {
         switch self {
         case .customerSheetInit, .setupIntent:
             return .post
-        case .paymentMethods, .paymentHistory, .pollPayment, .paymentStatus:
+        case .paymentMethods, .paymentHistory, .pollPayment, .paymentStatus, .pendingMatchPayment:
             return .get
         case .deletePaymentMethod:
             return .delete

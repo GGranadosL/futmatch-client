@@ -7,17 +7,9 @@ struct AdminMatchCard: View {
     let match: AdminMatch
     var onTap: (() -> Void)?
 
-    @State private var cachedFieldImage: UIImage?
-
     init(match: AdminMatch, onTap: (() -> Void)? = nil) {
         self.match = match
         self.onTap = onTap
-        // Seed from the cache so a recreated card (list refresh, LazyVStack
-        // recycling) renders the image on its first frame instead of flashing
-        // the placeholder while `.task` re-fetches it.
-        _cachedFieldImage = State(
-            initialValue: match.fieldImageUrl.flatMap { FMImageCache.shared.image(for: $0) }
-        )
     }
 
     var body: some View {
@@ -71,7 +63,7 @@ struct AdminMatchCard: View {
                             .foregroundColor(FMColors.onSurfaceVariant)
                     }
 
-                    if match.status == .completed || match.status == .canceled {
+                    if match.status == .completed || match.status == .canceled || match.status == .pendingResult {
                         statusBadge(for: match.status)
                     }
                 }
@@ -88,36 +80,23 @@ struct AdminMatchCard: View {
             )
         }
         .buttonStyle(.plain)
-        .task(id: match.fieldImageUrl) { await loadFieldImage() }
     }
 
     // MARK: - Subviews
 
-    @ViewBuilder
     private var fieldImage: some View {
-        if let img = cachedFieldImage {
-            Image(uiImage: img)
-                .resizable()
-                .scaledToFill()
-                .frame(width: 72, height: 72)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-        } else {
+        FMRemoteImage(urlString: match.fieldImageUrl) {
             defaultFieldImage
         }
+        .scaledToFill()
+        .frame(width: 72, height: 72)
+        .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 
     private var defaultFieldImage: some View {
         Image("defaultField1x1", bundle: .main)
             .resizable()
             .scaledToFill()
-            .frame(width: 72, height: 72)
-            .clipShape(RoundedRectangle(cornerRadius: 10))
-    }
-
-    private func loadFieldImage() async {
-        if let image = await FieldImageLoader.load(match.fieldImageUrl) {
-            cachedFieldImage = image
-        }
     }
 
     private func statusBadge(for status: AdminMatchStatus) -> some View {

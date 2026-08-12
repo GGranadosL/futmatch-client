@@ -71,7 +71,7 @@ struct MatchListItemV2DTO: Decodable {
             hasParking: false,
             extraInfo: nil,
             rules: [],
-            matchStatus: status,
+            matchStatus: MatchStatus(backend: status),
             teamAScore: teamAScore,
             teamBScore: teamBScore,
             winnerTeam: winnerTeam,
@@ -158,7 +158,7 @@ struct MatchListItemDTO: Decodable {
             hasParking: false,
             extraInfo: nil,
             rules: [],
-            matchStatus: status,
+            matchStatus: MatchStatus(backend: status),
             teamAScore: teamAScore,
             teamBScore: teamBScore,
             winnerTeam: winnerTeam,
@@ -188,6 +188,10 @@ struct MatchDetailItemDTO: Decodable {
     let genderType: String
     let status: String
     let availableSpots: Int
+    /// Fixed total capacity. Optional because the detail endpoint may not send
+    /// it yet; when present it is the source of truth for per-team capacity,
+    /// matching the contract `MatchListItemV2DTO` already follows.
+    let maxPlayers: Int?
     let teams: MatchTeamsDTO
     let location: MatchLocationDTO?
     let footwearType: String?
@@ -199,11 +203,16 @@ struct MatchDetailItemDTO: Decodable {
     let teamAScore: Int?
     let teamBScore: Int?
     let winnerTeam: String?
+    let goalBreakdown: GoalBreakdownDTO?
+    let bestPlayer: BestPlayerDTO?
 
     func toMatchItem() -> MatchItem {
         let (start, end) = MatchFormatters.dates(startMs: startTime, endMs: endTime)
         let totalPlayers = teams.teamA.players.count + teams.teamB.players.count
-        let perTeamMax = max(1, (availableSpots + totalPlayers) / 2)
+        // Prefer the fixed `maxPlayers` capacity; the `availableSpots + players`
+        // fallback reconstructs it from a server counter that can drift from the
+        // roster, and would then change `teamAMax` when moving list → detail.
+        let perTeamMax = max(1, (maxPlayers ?? (availableSpots + totalPlayers)) / 2)
         return MatchItem(
             id: id,
             venueName: fieldName,
@@ -221,42 +230,55 @@ struct MatchDetailItemDTO: Decodable {
             distance: "",
             duration: MatchFormatters.durationString(start: start, end: end),
             fieldImageUrl: resolvedFieldImageUrl,
-            shoeType: Self.mapFootwear(footwearType),
-            fieldType: Self.mapFieldType(fieldType),
+            shoeType: footwearType ?? "",
+            fieldType: fieldType ?? "",
             hasParking: hasParking ?? false,
             extraInfo: extraInfo,
             rules: rules?.components(separatedBy: "\n").filter { !$0.isEmpty } ?? [],
-            matchStatus: status,
+            matchStatus: MatchStatus(backend: status),
             teamAScore: teamAScore,
             teamBScore: teamBScore,
             winnerTeam: winnerTeam,
             latitude: location?.latitude,
-            longitude: location?.longitude
+            longitude: location?.longitude,
+            goalBreakdown: goalBreakdown?.toMatchGoalBreakdown(),
+            bestPlayer: bestPlayer.map { MatchBestPlayer(userId: $0.userId, name: $0.name) }
         )
     }
+}
 
-    private static func mapFootwear(_ raw: String?) -> String {
-        guard let raw, !raw.isEmpty else { return "" }
-        switch raw.uppercased() {
-        case "TURF":            return L10n.MatchDetail.FootwearValue.turf
-        case "FIRM_GROUND":     return L10n.MatchDetail.FootwearValue.firmGround
-        case "ARTIFICIAL_GRASS": return L10n.MatchDetail.FootwearValue.artificialGrass
-        case "INDOOR":          return L10n.MatchDetail.FootwearValue.indoor
-        case "RUBBER":          return L10n.MatchDetail.FootwearValue.rubber
-        default:                return MatchFormatters.humanize(raw)
-        }
-    }
+// MARK: - Goal Breakdown / Best Player
 
-    private static func mapFieldType(_ raw: String?) -> String {
-        guard let raw, !raw.isEmpty else { return "" }
-        switch raw.uppercased() {
-        case "ARTIFICIAL_TURF", "SYNTHETIC": return L10n.MatchDetail.FieldTypeValue.artificialTurf
-        case "NATURAL_GRASS", "NATURAL":     return L10n.MatchDetail.FieldTypeValue.naturalGrass
-        case "INDOOR":                       return L10n.MatchDetail.FieldTypeValue.indoor
-        case "FUTSAL":                       return L10n.MatchDetail.FieldTypeValue.futsal
-        default:                             return MatchFormatters.humanize(raw)
-        }
+struct GoalBreakdownDTO: Decodable {
+    let teamA: TeamGoalBreakdownDTO
+    let teamB: TeamGoalBreakdownDTO
+
+    func toMatchGoalBreakdown() -> MatchGoalBreakdown {
+        MatchGoalBreakdown(teamA: teamA.toMatchTeamGoalBreakdown(), teamB: teamB.toMatchTeamGoalBreakdown())
     }
+}
+
+struct TeamGoalBreakdownDTO: Decodable {
+    let playerGoals: [PlayerGoalDTO]
+    let externalGoals: Int
+
+    func toMatchTeamGoalBreakdown() -> MatchTeamGoalBreakdown {
+        MatchTeamGoalBreakdown(
+            playerGoals: playerGoals.map { MatchPlayerGoal(id: $0.userId, name: $0.name, goals: $0.goals) },
+            externalGoals: externalGoals
+        )
+    }
+}
+
+struct PlayerGoalDTO: Decodable {
+    let name: String
+    let userId: String
+    let goals: Int
+}
+
+struct BestPlayerDTO: Decodable {
+    let name: String
+    let userId: String
 }
 
 // MARK: - Shared Sub-DTOs
@@ -318,10 +340,14 @@ enum MatchFormatters {
     }
 
     static func timeRange(start: Date, end: Date) -> String {
+        "\(timeLabel(start)) - \(timeLabel(end))"
+    }
+
+    static func timeLabel(_ date: Date) -> String {
         let fmt = DateFormatter()
         fmt.locale = Locale(identifier: "es_MX")
         fmt.dateFormat = "hh:mm a"
-        return "\(fmt.string(from: start)) - \(fmt.string(from: end))"
+        return fmt.string(from: date)
     }
 
     static func dateString(_ date: Date) -> String {
@@ -333,6 +359,18 @@ enum MatchFormatters {
 
     static func priceString(_ cents: Int) -> String {
         String(format: "$%.2f MXN", Double(cents) / 100.0)
+    }
+
+    /// Formats a kilometer distance using the device locale's decimal
+    /// separator (e.g. "3,8 km" in Spanish, "3.8 km" in English).
+    static func distanceString(_ km: Double) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.minimumFractionDigits = 1
+        formatter.maximumFractionDigits = 1
+        formatter.locale = Locale.current
+        let value = formatter.string(from: NSNumber(value: km)) ?? String(format: "%.1f", km)
+        return "\(value) km"
     }
 
     static func durationString(start: Date, end: Date) -> String {

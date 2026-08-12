@@ -1,5 +1,4 @@
 import SwiftUI
-import UIKit
 
 /// Overlapping stacked avatars with optional "+N" counter
 /// Used to display team members in match cards
@@ -66,7 +65,18 @@ public struct FMStackedAvatars: View {
     // MARK: - Private Views
 
     private func avatarView(_ urlString: String?) -> some View {
-        CachedAvatarView(urlString: urlString, size: size)
+        FMRemoteImage(urlString: urlString) {
+            Image("defaultAvatar", bundle: .main)
+                .resizable()
+                .scaledToFill()
+        }
+        .scaledToFill()
+        .frame(width: size, height: size)
+        .clipShape(Circle())
+        .overlay(
+            Circle()
+                .stroke(FMColors.surfaceContainerLowest, lineWidth: 2)
+        )
     }
     
     private var emptySlotView: some View {
@@ -100,61 +110,6 @@ public struct FMStackedAvatars: View {
     }
 }
 
-// MARK: - CachedAvatarView
-
-/// Single avatar that loads from FMImageCache — survives navigation and parent re-renders.
-private struct CachedAvatarView: View {
-    let urlString: String?
-    let size: CGFloat
-
-    @State private var image: UIImage? = nil
-
-    var body: some View {
-        Group {
-            if let image {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFill()
-            } else {
-                Image("defaultAvatar", bundle: .main)
-                    .resizable()
-                    .scaledToFill()
-            }
-        }
-        .frame(width: size, height: size)
-        .clipShape(Circle())
-        .overlay(
-            Circle()
-                .stroke(FMColors.surfaceContainerLowest, lineWidth: 2)
-        )
-        .task(id: urlString) {
-            await loadAvatar()
-        }
-    }
-
-    private func loadAvatar() async {
-        guard let urlString, let url = URL(string: urlString) else {
-            image = nil
-            return
-        }
-
-        // Instant return if already cached
-        if let cached = FMImageCache.shared.image(for: urlString) {
-            image = cached
-            return
-        }
-
-        do {
-            let (data, response) = try await URLSession.shared.data(from: url)
-            if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) { return }
-            guard let downloaded = UIImage(data: data) else { return }
-            FMImageCache.shared.store(downloaded, for: urlString)
-            image = downloaded
-        } catch {
-            // Silently fail — default avatar stays visible
-        }
-    }
-}
 
 // MARK: - Preview
 #Preview {

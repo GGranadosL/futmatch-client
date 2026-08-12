@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 
 extension Notification.Name {
     /// Posted when the current user joins, leaves, or cancels a match.
@@ -27,6 +28,7 @@ public enum MatchPushRouter {
     ///   caller can report `.newData` to the system), `false` otherwise.
     @discardableResult
     public static func handleRemoteNotification(_ userInfo: [AnyHashable: Any]) -> Bool {
+        let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "FutMatch", category: "Push")
         guard let type = userInfo["type"] as? String, type == "matches_updated" else {
             return false
         }
@@ -34,6 +36,8 @@ public enum MatchPushRouter {
         // APNs/FCM data values arrive as strings; tolerate a numeric value too.
         let version = (userInfo["version"] as? String).flatMap { Int64($0) }
             ?? (userInfo["version"] as? NSNumber)?.int64Value
+
+        logger.debug("MatchPushRouter matched matches_updated — region: \(region ?? "nil", privacy: .public), version: \(version.map(String.init) ?? "nil", privacy: .public)")
 
         var info: [String: Any] = [:]
         if let region { info["region"] = region }

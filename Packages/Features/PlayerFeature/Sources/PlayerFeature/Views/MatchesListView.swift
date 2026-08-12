@@ -9,6 +9,40 @@ enum PlayerStatus: String {
     case reserved = "RESERVED"
 }
 
+// MARK: - Match Status
+
+/// Match lifecycle state as returned by the backend.
+enum MatchStatus: String, Equatable {
+    case scheduled     = "SCHEDULED"
+    case inProgress    = "IN_PROGRESS"
+    case pendingResult = "PENDING_RESULT"
+    case completed     = "COMPLETED"
+    case canceled      = "CANCELED"
+
+    /// The backend emits both spellings for cancellation ("CANCELED"/"CANCELLED"),
+    /// so raw-value decoding alone would misfile those matches under `.scheduled`.
+    init(backend value: String) {
+        switch value.uppercased() {
+        case "IN_PROGRESS":    self = .inProgress
+        case "PENDING_RESULT": self = .pendingResult
+        case "COMPLETED":      self = .completed
+        case "CANCELED",
+             "CANCELLED":      self = .canceled
+        default:               self = .scheduled
+        }
+    }
+
+    var displayName: String {
+        switch self {
+        case .scheduled:     return L10n.MatchStatus.scheduled
+        case .inProgress:    return L10n.MatchStatus.inProgress
+        case .pendingResult: return L10n.MatchStatus.pendingResult
+        case .completed:     return L10n.MatchStatus.completed
+        case .canceled:      return L10n.MatchStatus.canceled
+        }
+    }
+}
+
 // MARK: - Match Data Models
 
 struct MatchPlayer: Identifiable, Hashable {
@@ -51,6 +85,29 @@ struct MatchPlayer: Identifiable, Hashable {
     func hash(into hasher: inout Hasher) { hasher.combine(id) }
 }
 
+// MARK: - Match Goals Summary
+
+struct MatchPlayerGoal: Identifiable, Hashable {
+    let id: String
+    let name: String
+    let goals: Int
+}
+
+struct MatchTeamGoalBreakdown: Hashable {
+    let playerGoals: [MatchPlayerGoal]
+    let externalGoals: Int
+}
+
+struct MatchGoalBreakdown: Hashable {
+    let teamA: MatchTeamGoalBreakdown
+    let teamB: MatchTeamGoalBreakdown
+}
+
+struct MatchBestPlayer: Hashable {
+    let userId: String
+    let name: String
+}
+
 struct MatchItem: Identifiable, Hashable {
     let id: String
     let venueName: String
@@ -74,12 +131,14 @@ struct MatchItem: Identifiable, Hashable {
     let hasParking: Bool
     let extraInfo: String?
     let rules: [String]
-    let matchStatus: String
+    let matchStatus: MatchStatus
     let teamAScore: Int?
     let teamBScore: Int?
     let winnerTeam: String?
     let latitude: Double?
     let longitude: Double?
+    let goalBreakdown: MatchGoalBreakdown?
+    let bestPlayer: MatchBestPlayer?
 
     init(
         id: String = UUID().uuidString,
@@ -104,12 +163,14 @@ struct MatchItem: Identifiable, Hashable {
         hasParking: Bool = false,
         extraInfo: String? = nil,
         rules: [String] = [],
-        matchStatus: String = "UPCOMING",
+        matchStatus: MatchStatus = .scheduled,
         teamAScore: Int? = nil,
         teamBScore: Int? = nil,
         winnerTeam: String? = nil,
         latitude: Double? = nil,
-        longitude: Double? = nil
+        longitude: Double? = nil,
+        goalBreakdown: MatchGoalBreakdown? = nil,
+        bestPlayer: MatchBestPlayer? = nil
     ) {
         self.id = id
         self.venueName = venueName
@@ -139,6 +200,8 @@ struct MatchItem: Identifiable, Hashable {
         self.winnerTeam = winnerTeam
         self.latitude = latitude
         self.longitude = longitude
+        self.goalBreakdown = goalBreakdown
+        self.bestPlayer = bestPlayer
     }
 
     static func == (lhs: MatchItem, rhs: MatchItem) -> Bool { lhs.id == rhs.id }
@@ -151,12 +214,59 @@ struct MatchItem: Identifiable, Hashable {
         return CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
     }
 
-    /// Distance to show on the card, falling back to a localized "no location"
-    /// label when the backend doesn't provide a distance/location.
-    var distanceDisplay: String {
-        distance.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            ? L10n.Matches.noLocation
-            : distance
+    /// Backend called the match off.
+    var isCanceled: Bool {
+        matchStatus == .canceled
+    }
+
+    /// Match already took place.
+    var isCompleted: Bool {
+        matchStatus == .completed
+    }
+
+    /// Still going to happen — neither finished nor called off. Single source
+    /// of truth for "upcoming": the Reserved tab's Próximos filter and the
+    /// Home next-match card must agree, or Home surfaces a match the Reserved
+    /// tab deliberately hides. Includes SCHEDULED, IN_PROGRESS, and PENDING_RESULT.
+    var isUpcoming: Bool {
+        matchStatus != .completed && matchStatus != .canceled
+    }
+
+    /// First segment of the full address (e.g. "San Ángel, Ciudad de México" →
+    /// "San Ángel") — short enough to fit on a card's pin row.
+    var shortLocation: String {
+        let trimmed = location.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let first = trimmed.split(separator: ",").first else { return trimmed }
+        return first.trimmingCharacters(in: .whitespaces)
+    }
+
+    /// Location text for the pin row, falling back to a localized "no
+    /// location" label when the backend didn't provide an address.
+    var pinLocationText: String {
+        shortLocation.isEmpty ? L10n.Matches.noLocation : shortLocation
+    }
+
+    /// Straight-line distance in kilometers from `userCoordinate` to this
+    /// match's venue. Nil when either coordinate is unavailable.
+    func distanceKm(from userCoordinate: CLLocationCoordinate2D?) -> Double? {
+        guard let userCoordinate, let coordinate else { return nil }
+        let user = CLLocation(latitude: userCoordinate.latitude, longitude: userCoordinate.longitude)
+        let venue = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+        return user.distance(from: venue) / 1000
+    }
+
+    /// Distance in km from `userCoordinate`, formatted with the device
+    /// locale's decimal separator (e.g. "6,7 km"). Empty when unavailable.
+    func formattedDistance(from userCoordinate: CLLocationCoordinate2D?) -> String {
+        guard let km = distanceKm(from: userCoordinate) else { return "" }
+        return MatchFormatters.distanceString(km)
+    }
+
+    /// Combined "San Ángel · 3.8 km" text for single-line pin rows, falling
+    /// back to just the short location or just the distance when one side is missing.
+    func pinRowText(userCoordinate: CLLocationCoordinate2D?) -> String {
+        let distanceText = formattedDistance(from: userCoordinate)
+        return distanceText.isEmpty ? pinLocationText : "\(pinLocationText) · \(distanceText)"
     }
 }
 
@@ -337,9 +447,9 @@ struct MatchesListView: View {
                 avatarURLs: match.teamBPlayers.prefix(3).map { $0.avatarUrl },
                 playerCount: match.teamBPlayers.count
             ),
-            distance: match.distanceDisplay,
+            distance: match.formattedDistance(from: matchesViewModel.userCoordinate),
             fieldImageUrl: match.fieldImageUrl,
-            location: match.location,
+            location: match.pinLocationText,
             onTap: {
                 navigationPath.append(match)
             }

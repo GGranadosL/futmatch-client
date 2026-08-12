@@ -66,8 +66,18 @@ public struct FieldValidator {
     }
     
     // MARK: - Password Validation
-    
-    /// Validates password field
+
+    /// Validates password for login (minimum length only)
+    /// - Rules:
+    ///   - Minimum 8 characters
+    public static func validatePasswordForLogin(_ password: String) -> ValidationResult {
+        guard password.count >= 8 else {
+            return .invalid(L10n.Validation.minPasswordLength)
+        }
+        return .valid
+    }
+
+    /// Validates password field (full strength validation)
     /// - Rules:
     ///   - Minimum 8 characters
     ///   - At least 1 uppercase letter
@@ -77,12 +87,12 @@ public struct FieldValidator {
     ///   - Regex: ^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&.#\-_=+]).{8,}$
     public static func validatePassword(_ password: String) -> ValidationResult {
         let passwordRegex = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&.#\\-_=+]).{8,}$"
-        
+
         guard NSPredicate(format: "SELF MATCHES %@", passwordRegex).evaluate(with: password) else {
             let errors = getPasswordErrors(password)
             return .invalidWithDetails(errors)
         }
-        
+
         return .valid
     }
     

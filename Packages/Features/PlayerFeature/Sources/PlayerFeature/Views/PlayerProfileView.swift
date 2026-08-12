@@ -7,7 +7,18 @@ struct PlayerProfileView: View {
     @StateObject private var viewModel: PlayerProfileViewModel
     @Environment(\.dismiss) private var dismiss
 
-    init(userId: String, isDemoMode: Bool = false) {
+    private let isDemoMode: Bool
+    /// The match this profile was opened from, if any. When the player's last
+    /// match is this same match, the "last match" row stays non-tappable —
+    /// tapping it would just push right back to where we came from.
+    private let originMatchId: String?
+
+    @State private var isLoadingLastMatchDetail = false
+    @State private var lastMatchDetail: MatchItem?
+
+    init(userId: String, isDemoMode: Bool = false, originMatchId: String? = nil) {
+        self.isDemoMode = isDemoMode
+        self.originMatchId = originMatchId
         let factory = PlayerDependencyFactory(isDemoMode: isDemoMode)
         _viewModel = StateObject(wrappedValue: factory.makePlayerProfileViewModel(userId: userId))
     }
@@ -21,6 +32,14 @@ struct PlayerProfileView: View {
         .toolbar {
             ToolbarItem(placement: .navigationBarLeading) {
                 FMBackButton { dismiss() }
+            }
+        }
+        .navigationDestination(isPresented: Binding(
+            get: { lastMatchDetail != nil },
+            set: { if !$0 { lastMatchDetail = nil } }
+        )) {
+            if let detail = lastMatchDetail {
+                MatchDetailView(match: detail, isDemoMode: isDemoMode)
             }
         }
         .task { await viewModel.load() }
@@ -174,6 +193,7 @@ struct PlayerProfileView: View {
             Text(L10n.Profile.statistics)
                 .font(FMTypography.titleLarge)
                 .foregroundColor(FMColors.onBackground)
+                .padding(.horizontal, 24)
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 12) {
@@ -182,9 +202,9 @@ struct PlayerProfileView: View {
                     FMStatCard(icon: "sportscourt", value: stats.matchesPlayed, label: L10n.Profile.played)
                     FMStatCard(icon: "soccerball",  value: stats.totalGoals,    label: L10n.Profile.totalGoals)
                 }
+                .padding(.horizontal, 24)
             }
         }
-        .padding(.horizontal, 24)
     }
 
     // MARK: - Performance
@@ -234,41 +254,71 @@ struct PlayerProfileView: View {
                 .font(FMTypography.titleLarge)
                 .foregroundColor(FMColors.onBackground)
 
-            HStack(spacing: 14) {
-                Image(systemName: outcomeIcon(last.outcome))
-                    .font(.system(size: 24))
-                    .foregroundColor(outcomeColor(last.outcome))
-                    .frame(width: 44, height: 44)
-                    .background(Circle().fill(outcomeColor(last.outcome).opacity(0.12)))
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(outcomeLabel(last.outcome))
-                        .font(FMTypography.titleSmall)
-                        .foregroundColor(FMColors.onSurface)
-                    Text("\(relativeDate(last.playedAt)) - \(last.fieldName)")
-                        .font(FMTypography.bodySmall)
-                        .foregroundColor(FMColors.onSurfaceVariant)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
+            if last.matchId != originMatchId {
+                Button {
+                    // Guard against re-entry: the detail is fetched async before
+                    // navigating, so without this a rapid multi-tap would queue
+                    // several Tasks and push the detail screen N times.
+                    guard !isLoadingLastMatchDetail else { return }
+                    isLoadingLastMatchDetail = true
+                    Task {
+                        defer { isLoadingLastMatchDetail = false }
+                        lastMatchDetail = await viewModel.fetchMatchDetail(matchId: last.matchId)
+                    }
+                } label: {
+                    lastMatchRow(last)
                 }
+                .buttonStyle(.plain)
+                .disabled(isLoadingLastMatchDetail)
+            } else {
+                // Same match we navigated here from — leave it static rather
+                // than looping back to the screen the admin/player just left.
+                lastMatchRow(last)
+            }
+        }
+        .padding(.horizontal, 24)
+    }
 
-                Spacer()
+    private func lastMatchRow(_ last: PlayerLastMatch) -> some View {
+        HStack(spacing: 14) {
+            Image(systemName: outcomeIcon(last.outcome))
+                .font(.system(size: 24))
+                .foregroundColor(outcomeColor(last.outcome))
+                .frame(width: 44, height: 44)
+                .background(Circle().fill(outcomeColor(last.outcome).opacity(0.12)))
 
+            VStack(alignment: .leading, spacing: 2) {
+                Text(outcomeLabel(last.outcome))
+                    .font(FMTypography.titleSmall)
+                    .foregroundColor(FMColors.onSurface)
+                Text("\(relativeDate(last.playedAt)) - \(last.fieldName)")
+                    .font(FMTypography.bodySmall)
+                    .foregroundColor(FMColors.onSurfaceVariant)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
+
+            Spacer()
+
+            HStack(spacing: 4) {
                 Text("\(last.teamAScore) - \(last.teamBScore)")
                     .font(FMTypography.headlineMedium)
                     .foregroundColor(FMColors.onSurface)
+                if isLoadingLastMatchDetail && last.matchId != originMatchId {
+                    ProgressView()
+                        .tint(FMColors.primary)
+                }
             }
-            .padding(16)
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(FMColors.surfaceContainerLowest)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(FMColors.outlineVariant, lineWidth: 1)
-            )
         }
-        .padding(.horizontal, 24)
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(FMColors.surfaceContainerLowest)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(FMColors.outlineVariant, lineWidth: 1)
+        )
     }
 
     // MARK: - Helpers

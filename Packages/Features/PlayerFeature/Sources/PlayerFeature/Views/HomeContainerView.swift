@@ -26,15 +26,19 @@ public struct HomeContainerView: View {
 
     /// Callback for logout action
     public var onLogout: (() -> Void)?
+    /// Callback fired after the account was successfully deleted, once the local session must be torn down.
+    public var onAccountDeleted: (() -> Void)?
     private let isDemoMode: Bool
 
     public init(
         onLogout: (() -> Void)? = nil,
+        onAccountDeleted: (() -> Void)? = nil,
         isDemoMode: Bool = false,
         countryRepository: any CountryRepositoryProtocol = FallbackCountryRepository(),
         managedObjectContext: NSManagedObjectContext? = nil
     ) {
         self.onLogout = onLogout
+        self.onAccountDeleted = onAccountDeleted
         self.isDemoMode = isDemoMode
         let factory = PlayerDependencyFactory(isDemoMode: isDemoMode, countryRepository: countryRepository)
         let cacheRepo: MatchCoreDataCacheRepository?
@@ -48,10 +52,12 @@ public struct HomeContainerView: View {
         }
         _matchesViewModel = StateObject(wrappedValue: MatchesViewModel(
             fetchMatchesUseCase: factory.makeFetchMatchesUseCase(),
+            fetchCurrentLocationUseCase: factory.makeFetchCurrentLocationUseCase(),
             cacheRepo: cacheRepo
         ))
         _reservedViewModel = StateObject(wrappedValue: ReservedMatchesViewModel(
             fetchMyMatchesUseCase: factory.makeFetchMyMatchesUseCase(),
+            fetchCurrentLocationUseCase: factory.makeFetchCurrentLocationUseCase(),
             cacheRepo: reservedCacheRepo
         ))
         _homeViewModel = StateObject(wrappedValue: HomeViewModel(
@@ -82,6 +88,10 @@ public struct HomeContainerView: View {
             async let reserved: Void = reservedViewModel.load()
             // Single initial badge fetch — subsequent refreshes happen on foreground.
             async let badge: Void = notificationsViewModel.loadUnreadCount()
+            // Fire-and-forget: pays Stripe's one-time framework binding cost now,
+            // in parallel with the network loads above, instead of on first entry
+            // into Settings or the payment flow.
+            Task.detached(priority: .utility) { PaymentSDKWarmup.prewarm() }
             _ = await (home, reserved, badge)
         }
         // Prerasterize the default avatar placeholder at the same size as the real
@@ -160,7 +170,7 @@ public struct HomeContainerView: View {
 
             Tab(value: HomeTab.profile, role: nil) {
                 NavigationStack(path: $profileNavPath) {
-                    ProfileView(onLogout: onLogout, selectedTab: $selectedTab, navigationPath: $profileNavPath)
+                    ProfileView(onLogout: onLogout, onAccountDeleted: onAccountDeleted, selectedTab: $selectedTab, navigationPath: $profileNavPath)
                         .navigationDestination(for: MatchItem.self) { match in
                             MatchDetailView(match: match, isDemoMode: isDemoMode)
                         }
@@ -212,7 +222,7 @@ public struct HomeContainerView: View {
             case .reserved:
                 ReservedView(navigationPath: $navigationPath)
             case .profile:
-                ProfileView(onLogout: onLogout, selectedTab: $selectedTab, navigationPath: $navigationPath)
+                ProfileView(onLogout: onLogout, onAccountDeleted: onAccountDeleted, selectedTab: $selectedTab, navigationPath: $navigationPath)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -248,26 +258,17 @@ public struct HomeContainerView: View {
     /// branch shows the bundled default avatar if this returns without setting
     /// `profileTabImage`.
     private func loadProfileTabImage() async {
-        guard
-            let urlString = effectiveProfileImageUrl,
-            let url = URL(string: urlString)
-        else {
+        guard let urlString = effectiveProfileImageUrl else {
             profileTabImage = nil
             return
         }
-        do {
-            let (data, response) = try await URLSession.shared.data(from: url)
-            if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
-                return
-            }
-            guard let downloaded = UIImage(data: data) else {
-                return
-            }
-            // 30pt matches the visual weight of SF Symbols in the iOS 26 tab bar
-            // (which have built-in padding). `UIScreen.main.scale` keeps the bitmap
-            // retina (e.g. 90px on @3x) so the photo stays sharp.
-            profileTabImage = makeCircularIcon(from: downloaded, size: 30)
-        } catch {}
+        // Routed through the shared loader (memory → disk → network, deduped)
+        // so this doesn't re-download a photo ProfileView/FMTabBar already have.
+        guard let downloaded = await FMImageLoader.shared.load(urlString) else { return }
+        // 30pt matches the visual weight of SF Symbols in the iOS 26 tab bar
+        // (which have built-in padding). `UIScreen.main.scale` keeps the bitmap
+        // retina (e.g. 90px on @3x) so the photo stays sharp.
+        profileTabImage = makeCircularIcon(from: downloaded, size: 30)
     }
 
     /// Rasterizes a UIImage into a circular icon of the given size (alwaysOriginal).

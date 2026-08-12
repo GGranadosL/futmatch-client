@@ -12,18 +12,45 @@ FutMatch is a native iOS app (Swift/SwiftUI) for creating, managing, and booking
 # Build (from repo root)
 xcodebuild build -scheme FutMatch-Client -destination 'platform=iOS Simulator,name=iPhone 17' -project FutMatch-Client/FutMatch-Client.xcodeproj
 
-# Run all tests
-xcodebuild test -scheme FutMatch-Client -destination 'platform=iOS Simulator,name=iPhone 17' -project FutMatch-Client/FutMatch-Client.xcodeproj
-
-# Run tests for a specific SPM package
-cd Packages/Core/NetworkFramework && swift test
-cd Packages/Features/OnboardingFeature && swift test
-
 # Clean build
 xcodebuild clean build -scheme FutMatch-Client -project FutMatch-Client/FutMatch-Client.xcodeproj
 ```
 
 The main Xcode project is at `FutMatch-Client/FutMatch-Client.xcodeproj`. There is no lint config currently in place.
+
+### ⚠️ Running Tests — Read This First
+
+**Two obvious commands silently do the wrong thing. Do not use either:**
+
+| Command | What actually happens |
+|---|---|
+| `swift test` (any package) | **Always fails.** Every package either imports `UIKit` (unavailable when SwiftPM builds for macOS) or depends on Lottie/Firebase, which require macOS 10.15 while the packages declare 10.13. |
+| `xcodebuild test -scheme FutMatch-Client` | **Prints `** TEST SUCCEEDED **` while executing zero tests.** The app scheme has no test targets wired. Never treat this as a green suite. |
+
+Tests live in the SPM packages and run only through each package's own
+auto-generated scheme, against a **booted** simulator:
+
+```bash
+# Boot once per session (the first xcodebuild against a cold simulator can fail with "Invalid device state")
+xcrun simctl boot 'iPhone 17'
+
+# Then, per package — scheme name == package name
+cd Packages/Features/PlayerFeature && xcodebuild test -scheme PlayerFeature -destination 'platform=iOS Simulator,name=iPhone 17'
+cd Packages/Features/AdminFeature && xcodebuild test -scheme AdminFeature -destination 'platform=iOS Simulator,name=iPhone 17'
+cd Packages/Features/OnboardingFeature && xcodebuild test -scheme OnboardingFeature -destination 'platform=iOS Simulator,name=iPhone 17'
+```
+
+If a destination still errors with "Invalid device state", target the simulator by
+UDID instead: `xcrun simctl list devices available | grep 'iPhone 17'`.
+
+**Expect pre-existing breakage.** Because nothing runs these suites routinely, the
+test targets drift from the sources — stale mocks, assertions against refactored
+use cases, stub signatures missing parameters the tests already pass. As of
+2026-08-07: `PlayerFeature` passes (50 tests); `AdminFeature` compiles but has 3
+failures in the location-catalog tests (fallback list grew from `["MX"]` to
+`["MX", "US"]`); `OnboardingFeature`'s test target does not compile
+(`TestSupport.swift` missing a `challengeToken` argument). When you hit one of
+these, fix it — but say so, and keep it separate from the change you came to make.
 
 ## Architecture
 

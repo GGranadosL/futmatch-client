@@ -95,6 +95,12 @@ enum L10n {
         static var extraInfo: String {
             NSLocalizedString("newField.extraInfo", bundle: .module, comment: "")
         }
+        static var fieldTypeTitle: String {
+            NSLocalizedString("newField.fieldTypeTitle", bundle: .module, comment: "")
+        }
+        static var footwearTypeTitle: String {
+            NSLocalizedString("newField.footwearTypeTitle", bundle: .module, comment: "")
+        }
     }
 
     enum NewLocation {
@@ -244,6 +250,18 @@ enum L10n {
         }
         static var endTimeLabel: String {
             NSLocalizedString("newMatch.time.end", bundle: .module, comment: "")
+        }
+        static var timePlaceholder: String {
+            NSLocalizedString("newMatch.time.placeholder", bundle: .module, comment: "")
+        }
+        static var timeDone: String {
+            NSLocalizedString("newMatch.time.done", bundle: .module, comment: "")
+        }
+
+        enum Date {
+            static var pastError: String {
+                NSLocalizedString("newMatch.date.pastError", bundle: .module, comment: "")
+            }
         }
         static var priceLabel: String {
             NSLocalizedString("newMatch.price.label", bundle: .module, comment: "")
@@ -672,6 +690,9 @@ enum L10n {
         static var inProgress: String {
             NSLocalizedString("adminMatchStatus.inProgress", bundle: .module, comment: "")
         }
+        static var pendingResult: String {
+            NSLocalizedString("adminMatchStatus.pendingResult", bundle: .module, comment: "")
+        }
         static var completed: String {
             NSLocalizedString("adminMatchStatus.completed", bundle: .module, comment: "")
         }
@@ -716,6 +737,54 @@ enum L10n {
     enum AdminLocations {
         static var emptyList: String {
             NSLocalizedString("admin.emptyLocations", bundle: .module, comment: "")
+        }
+    }
+
+    enum DesktopEnrollment {
+        static var scanTitle: String {
+            NSLocalizedString("desktopEnrollment.scanTitle", bundle: .module, comment: "")
+        }
+        static var scanInstruction: String {
+            NSLocalizedString("desktopEnrollment.scanInstruction", bundle: .module, comment: "")
+        }
+        static var confirmTitle: String {
+            NSLocalizedString("desktopEnrollment.confirmTitle", bundle: .module, comment: "")
+        }
+        static var confirmSubtitle: String {
+            NSLocalizedString("desktopEnrollment.confirmSubtitle", bundle: .module, comment: "")
+        }
+        static var deviceLabel: String {
+            NSLocalizedString("desktopEnrollment.deviceLabel", bundle: .module, comment: "")
+        }
+        static var appVersionLabel: String {
+            NSLocalizedString("desktopEnrollment.appVersionLabel", bundle: .module, comment: "")
+        }
+        static var osVersionLabel: String {
+            NSLocalizedString("desktopEnrollment.osVersionLabel", bundle: .module, comment: "")
+        }
+        static var notAvailable: String {
+            NSLocalizedString("desktopEnrollment.notAvailable", bundle: .module, comment: "")
+        }
+        static var authorizeButton: String {
+            NSLocalizedString("desktopEnrollment.authorizeButton", bundle: .module, comment: "")
+        }
+        static var cancelButton: String {
+            NSLocalizedString("desktopEnrollment.cancelButton", bundle: .module, comment: "")
+        }
+        static var invalidQR: String {
+            NSLocalizedString("desktopEnrollment.invalidQR", bundle: .module, comment: "")
+        }
+        static var successMessage: String {
+            NSLocalizedString("desktopEnrollment.successMessage", bundle: .module, comment: "")
+        }
+        static var cameraDeniedTitle: String {
+            NSLocalizedString("desktopEnrollment.cameraDeniedTitle", bundle: .module, comment: "")
+        }
+        static var cameraDeniedMessage: String {
+            NSLocalizedString("desktopEnrollment.cameraDeniedMessage", bundle: .module, comment: "")
+        }
+        static var openSettings: String {
+            NSLocalizedString("desktopEnrollment.openSettings", bundle: .module, comment: "")
         }
     }
 }
