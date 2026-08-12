@@ -21,12 +21,15 @@ public struct AdminPanelView: View {
     @State private var showMatchesList = false
     @State private var locations: [AdminLocation] = []
     @State private var selectedMatch: AdminMatch? = nil
+    @State private var showDesktopScanner = false
 
     private let factory: AdminDependencyFactory
+    private let remoteConfig: AdminRemoteConfigProtocol
 
-    public init() {
+    public init(remoteConfig: AdminRemoteConfigProtocol = AdminRemoteConfig()) {
         let factory = AdminDependencyFactory()
         self.factory = factory
+        self.remoteConfig = remoteConfig
         _viewModel = StateObject(wrappedValue: factory.makeAdminHomeViewModel())
     }
 
@@ -114,6 +117,9 @@ public struct AdminPanelView: View {
                 .modifier(HideTabBarModifier())
             }
         }
+        .fullScreenCover(isPresented: $showDesktopScanner) {
+            DesktopEnrollmentScannerView(viewModel: factory.makeDesktopEnrollmentViewModel())
+        }
         .task {
             await viewModel.load()
             await loadLocations()
@@ -134,14 +140,7 @@ public struct AdminPanelView: View {
             HStack {
                 FMBrandLogo()
                 Spacer()
-                if #available(iOS 26.0, *) {
-                    GlassEffectContainer(spacing: 8) {
-                        playerButton
-                            .glassEffect(.regular.interactive(), in: .circle)
-                    }
-                } else {
-                    playerButton
-                }
+                headerActions
             }
 
             Text("admin")
@@ -152,6 +151,44 @@ public struct AdminPanelView: View {
         .padding(.horizontal, 24)
         .padding(.top, 8)
         .padding(.bottom, 4)
+    }
+
+    /// On iOS 26+ both actions share one Liquid Glass container; on older OSes
+    /// they render plainly over the solid background.
+    @ViewBuilder
+    private var headerActions: some View {
+        if #available(iOS 26.0, *) {
+            GlassEffectContainer(spacing: 8) {
+                HStack(spacing: 8) {
+                    if remoteConfig.isDesktopEnrollmentEnabled {
+                        desktopEnrollmentButton
+                            .glassEffect(.regular.interactive(), in: .circle)
+                    }
+                    playerButton
+                        .glassEffect(.regular.interactive(), in: .circle)
+                }
+            }
+        } else {
+            HStack(spacing: 8) {
+                if remoteConfig.isDesktopEnrollmentEnabled { desktopEnrollmentButton }
+                playerButton
+            }
+        }
+    }
+
+    /// Opens the QR scanner that authorizes a Futmatch Desktop installation.
+    /// Admin-only by design — the backend endpoints require the ADMIN role, so
+    /// this is deliberately absent from `OrganizerHomeView`.
+    private var desktopEnrollmentButton: some View {
+        Button {
+            showDesktopScanner = true
+        } label: {
+            Image(systemName: "qrcode.viewfinder")
+                .font(.system(size: 20, weight: .medium))
+                .foregroundColor(FMColors.onSurface)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        }
     }
 
     private var playerButton: some View {

@@ -62,7 +62,7 @@ final class DialCodeRemoteConfigRepository: DialCodeRepositoryProtocol {
 
         // 2. Try parsing from the currently active Remote Config value.
         if let dialCodes = parsedDialCodes(), !dialCodes.isEmpty {
-            persist(dialCodes)
+            await persistOnMainThread(dialCodes)
             return dialCodes
         }
 
@@ -95,8 +95,13 @@ final class DialCodeRemoteConfigRepository: DialCodeRepositoryProtocol {
         guard (try? await remoteConfig.fetch(withExpirationDuration: Self.fetchInterval)) != nil else { return }
         _ = try? await remoteConfig.activate()
         if let dialCodes = parsedDialCodes(), !dialCodes.isEmpty {
-            persist(dialCodes)
+            await persistOnMainThread(dialCodes)
         }
+    }
+
+    @MainActor
+    private func persistOnMainThread(_ dialCodes: [DialCode]) {
+        persist(dialCodes)
     }
 
     private func parsedDialCodes() -> [DialCode]? {

@@ -10,8 +10,8 @@ public struct Field: Equatable, Identifiable {
     public let capacity: Int
     public let description: String
     public let rules: String
-    public let footwearType: FootwearType?
-    public let fieldType: FieldType?
+    public let footwearType: String?
+    public let fieldType: String?
     public let hasParking: Bool
     public let extraInfo: String?
 
@@ -22,8 +22,8 @@ public struct Field: Equatable, Identifiable {
         capacity: Int,
         description: String,
         rules: String,
-        footwearType: FootwearType?,
-        fieldType: FieldType?,
+        footwearType: String?,
+        fieldType: String?,
         hasParking: Bool,
         extraInfo: String?
     ) {
@@ -50,8 +50,8 @@ public struct CreateFieldParams: Equatable {
     public let capacity: Int
     public let description: String
     public let rules: String
-    public let footwearType: FootwearType?
-    public let fieldType: FieldType?
+    public let footwearType: String?
+    public let fieldType: String?
     public let hasParking: Bool
     public let extraInfo: String?
 
@@ -61,8 +61,8 @@ public struct CreateFieldParams: Equatable {
         capacity: Int,
         description: String,
         rules: String,
-        footwearType: FootwearType?,
-        fieldType: FieldType?,
+        footwearType: String?,
+        fieldType: String?,
         hasParking: Bool,
         extraInfo: String?
     ) {

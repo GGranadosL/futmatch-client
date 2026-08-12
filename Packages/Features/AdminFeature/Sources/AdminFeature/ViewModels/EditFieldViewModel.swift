@@ -15,8 +15,9 @@ public final class EditFieldViewModel: ObservableObject {
     @Published public var description: String
     @Published public var rules: [FieldRuleDraft]
     @Published public var extraInfo: String
-    @Published public var fieldType: FieldType?
-    @Published public var footwearType: FootwearType?
+    @Published public var fieldType: String?
+    @Published public var footwearType: String?
+    @Published public private(set) var catalogs: FieldAttributeCatalogs = .fallback
 
     // MARK: - Submit State
 
@@ -27,6 +28,7 @@ public final class EditFieldViewModel: ObservableObject {
 
     private let originalField: AdminFieldItem
     private let updateFieldUseCase: UpdateFieldUseCaseProtocol
+    private let fetchCatalogsUseCase: FetchFieldAttributeCatalogsUseCaseProtocol
 
     public static let nameMaxLength = NewFieldViewModel.nameMaxLength
 
@@ -34,10 +36,12 @@ public final class EditFieldViewModel: ObservableObject {
 
     public init(
         field: AdminFieldItem,
-        updateFieldUseCase: UpdateFieldUseCaseProtocol
+        updateFieldUseCase: UpdateFieldUseCaseProtocol,
+        fetchCatalogsUseCase: FetchFieldAttributeCatalogsUseCaseProtocol
     ) {
         self.originalField = field
         self.updateFieldUseCase = updateFieldUseCase
+        self.fetchCatalogsUseCase = fetchCatalogsUseCase
 
         // Pre-fill from existing field
         self.name         = field.name
@@ -51,6 +55,12 @@ public final class EditFieldViewModel: ObservableObject {
         self.extraInfo    = field.extraInfo ?? ""
         self.fieldType    = field.fieldType
         self.footwearType = field.footwearType
+    }
+
+    // MARK: - Catalog
+
+    public func loadCatalogs() async {
+        catalogs = await fetchCatalogsUseCase.execute()
     }
 
     // MARK: - Validation (identical to NewFieldViewModel)

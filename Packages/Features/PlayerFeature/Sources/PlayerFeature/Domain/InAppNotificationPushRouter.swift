@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 
 extension Notification.Name {
     /// Posted when a remote push arrives that isn't a recognized `matches_updated`
@@ -19,6 +20,8 @@ public enum InAppNotificationPushRouter {
     /// that `MatchPushRouter` didn't already recognize as a matches-feed push.
     @discardableResult
     public static func handleRemoteNotification(_ userInfo: [AnyHashable: Any]) -> Bool {
+        let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "FutMatch", category: "Push")
+        logger.debug("InAppNotificationPushRouter: unrecognized push type, posting inAppNotificationsPushReceived")
         NotificationCenter.default.post(name: .inAppNotificationsPushReceived, object: nil)
         return true
     }

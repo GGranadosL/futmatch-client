@@ -12,6 +12,9 @@ protocol PaymentServiceProtocol {
     func pollPaymentStatus(matchId: String) async throws -> PaymentPollData?
     /// Fallback to the full status endpoint. Returns nil when no active payment exists.
     func fetchPaymentStatus(matchId: String) async throws -> PaymentStatusData?
+    /// Recover the Stripe inputs of an in-flight payment when locally cached data
+    /// is missing but a RESERVED reservation exists.
+    func fetchPendingMatchPayment(matchId: String) async throws -> JoinMatchData?
 }
 
 // MARK: - Implementation
@@ -63,5 +66,12 @@ final class PaymentService: PaymentServiceProtocol {
             endpoint: PaymentEndpoint.paymentStatus(matchId: matchId)
         )
         return response.data
+    }
+
+    func fetchPendingMatchPayment(matchId: String) async throws -> JoinMatchData? {
+        let response: PendingMatchPaymentResponse = try await apiClient.request(
+            endpoint: PaymentEndpoint.pendingMatchPayment(matchId: matchId)
+        )
+        return response.data.toJoinMatchData()
     }
 }

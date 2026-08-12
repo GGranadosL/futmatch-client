@@ -30,8 +30,8 @@ final class AdminFieldsCoreDataCacheRepository: AdminFieldsCacheRepositoryProtoc
                 entity.rules = item.rules
                 entity.extraInfo = item.extraInfo
                 entity.hasParking = item.hasParking
-                entity.fieldType = item.fieldType?.rawValue
-                entity.footwearType = item.footwearType?.rawValue
+                entity.fieldType = item.fieldType
+                entity.footwearType = item.footwearType
             }
             try self.context.save()
         }
@@ -74,8 +74,8 @@ final class AdminFieldsCoreDataCacheRepository: AdminFieldsCacheRepositoryProtoc
             rules: entity.rules,
             extraInfo: entity.extraInfo,
             hasParking: entity.hasParking,
-            fieldType: entity.fieldType.flatMap(FieldType.init(rawValue:)),
-            footwearType: entity.footwearType.flatMap(FootwearType.init(rawValue:))
+            fieldType: entity.fieldType,
+            footwearType: entity.footwearType
         )
     }
 

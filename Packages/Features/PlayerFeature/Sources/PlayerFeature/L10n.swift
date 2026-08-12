@@ -40,6 +40,9 @@ public enum L10n {
         public static var today: String {
             NSLocalizedString("home.nextGame.today", bundle: .module, comment: "")
         }
+        public static var tomorrow: String {
+            NSLocalizedString("home.nextGame.tomorrow", bundle: .module, comment: "")
+        }
         public static var viewDetail: String {
             NSLocalizedString("home.nextGame.viewDetail", bundle: .module, comment: "")
         }
@@ -194,7 +197,26 @@ public enum L10n {
             NSLocalizedString("common.copied", bundle: .module, comment: "")
         }
     }
-    
+
+    // MARK: - Match Status
+    public enum MatchStatus {
+        public static var scheduled: String {
+            NSLocalizedString("matchStatus.scheduled", bundle: .module, comment: "")
+        }
+        public static var inProgress: String {
+            NSLocalizedString("matchStatus.inProgress", bundle: .module, comment: "")
+        }
+        public static var pendingResult: String {
+            NSLocalizedString("matchStatus.pendingResult", bundle: .module, comment: "")
+        }
+        public static var completed: String {
+            NSLocalizedString("matchStatus.completed", bundle: .module, comment: "")
+        }
+        public static var canceled: String {
+            NSLocalizedString("matchStatus.canceled", bundle: .module, comment: "")
+        }
+    }
+
     // MARK: - Reserved
     public enum Reserved {
         public static var title: String {
@@ -396,6 +418,18 @@ public enum L10n {
         public static var paymentReusedNotice: String {
             NSLocalizedString("matchDetail.paymentReusedNotice", bundle: .module, comment: "")
         }
+        public static var goalsSummaryTitle: String {
+            NSLocalizedString("matchDetail.goalsSummaryTitle", bundle: .module, comment: "")
+        }
+        public static var goalsSummarySubtitle: String {
+            NSLocalizedString("matchDetail.goalsSummarySubtitle", bundle: .module, comment: "")
+        }
+        public static var bestPlayer: String {
+            NSLocalizedString("matchDetail.bestPlayer", bundle: .module, comment: "")
+        }
+        public static var externalGoals: String {
+            NSLocalizedString("matchDetail.externalGoals", bundle: .module, comment: "")
+        }
     }
 
     // MARK: - Settings
@@ -456,6 +490,28 @@ public enum L10n {
         }
         public static var version: String {
             NSLocalizedString("settings.version", bundle: .module, comment: "")
+        }
+    }
+
+    // MARK: - Delete Account
+    public enum DeleteAccount {
+        public static var dialogTitle: String {
+            NSLocalizedString("deleteAccount.dialogTitle", bundle: .module, comment: "")
+        }
+        public static var dialogMessage: String {
+            NSLocalizedString("deleteAccount.dialogMessage", bundle: .module, comment: "")
+        }
+        public static var passwordLabel: String {
+            NSLocalizedString("deleteAccount.passwordLabel", bundle: .module, comment: "")
+        }
+        public static var confirmButton: String {
+            NSLocalizedString("deleteAccount.confirmButton", bundle: .module, comment: "")
+        }
+        public static var successMessage: String {
+            NSLocalizedString("deleteAccount.successMessage", bundle: .module, comment: "")
+        }
+        public static var genericError: String {
+            NSLocalizedString("deleteAccount.genericError", bundle: .module, comment: "")
         }
     }
 
@@ -664,6 +720,22 @@ public enum L10n {
         }
         public static var statusRefunded: String {
             NSLocalizedString("paymentHistory.statusRefunded", bundle: .module, comment: "")
+        }
+    }
+
+    // MARK: - Pending Payment (recovery when local cache is missing)
+    public enum PendingPayment {
+        public static var notRecoverableTitle: String {
+            NSLocalizedString("matchDetail.pendingPayment.notRecoverableTitle", bundle: .module, comment: "")
+        }
+        public static var notRecoverableDefaultMessage: String {
+            NSLocalizedString("matchDetail.pendingPayment.notRecoverableDefaultMessage", bundle: .module, comment: "")
+        }
+        public static var retryLaterTitle: String {
+            NSLocalizedString("matchDetail.pendingPayment.retryLaterTitle", bundle: .module, comment: "")
+        }
+        public static var retryLaterDefaultMessage: String {
+            NSLocalizedString("matchDetail.pendingPayment.retryLaterDefaultMessage", bundle: .module, comment: "")
         }
     }
 }

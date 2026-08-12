@@ -8,13 +8,13 @@ struct ProfileView: View {
     @EnvironmentObject private var userSession: UserSession
     @EnvironmentObject private var homeViewModel: HomeViewModel
     var onLogout: (() -> Void)?
+    var onAccountDeleted: (() -> Void)?
     @Binding var selectedTab: HomeTab
     @Binding var navigationPath: NavigationPath
 
     @State private var showSettings = false
     @State private var showEditProfile = false
     @State private var showLogoutAlert = false
-    @State private var profileImage: Image? = nil
     @State private var isLoadingLastMatchDetail = false
 
     private var user: User? { userSession.currentUser }
@@ -61,12 +61,10 @@ struct ProfileView: View {
             style: .error
         )
         .navigationBarHidden(true)
-        .task(id: profilePicURL) {
-            await loadProfileImage()
-        }
         .navigationDestination(isPresented: $showSettings) {
             SettingsView(
                 onLogout: onLogout,
+                onAccountDeleted: onAccountDeleted,
                 paymentMethodsViewModel: PaymentMethodsViewModel(paymentService: PaymentService()),
                 paymentHistoryViewModelFactory: {
                     PaymentHistoryViewModel(paymentService: PaymentService())
@@ -141,7 +139,6 @@ struct ProfileView: View {
                 showEditProfile = true
             } label: {
                 FMAvatar(
-                    image: profileImage,
                     url: profilePicURL,
                     defaultImageName: user?.gender?.defaultAvatarAssetName ?? "defaultAvatar",
                     size: 100,
@@ -372,34 +369,6 @@ struct ProfileView: View {
         case .win: return .green
         case .loss: return .red
         case .draw: return .orange
-        }
-    }
-
-    private func loadProfileImage() async {
-        guard let url = profilePicURL else {
-            profileImage = nil
-            return
-        }
-
-        do {
-            var request = URLRequest(url: url)
-
-            // Add auth token for Cloudinary authenticated URLs
-            if url.absoluteString.contains("/authenticated/") {
-                // Try to get token from userSession
-                if let token = try? await userSession.getAuthToken() {
-                    request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-                }
-            }
-
-            let (data, response) = try await URLSession.shared.data(for: request)
-            if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
-                return
-            }
-            guard let downloaded = UIImage(data: data) else { return }
-            profileImage = Image(uiImage: downloaded)
-        } catch {
-            // Silently fail, fall back to default avatar
         }
     }
 }

@@ -20,8 +20,8 @@ struct CreateFieldRequest: Encodable {
         self.capacity = params.capacity
         self.description = params.description
         self.rules = params.rules
-        self.footwearType = params.footwearType?.rawValue
-        self.fieldType = params.fieldType?.rawValue
+        self.footwearType = params.footwearType
+        self.fieldType = params.fieldType
         self.hasParking = params.hasParking
         self.extraInfo = params.extraInfo
     }
@@ -50,8 +50,8 @@ struct UpdateFieldRequest: Encodable {
         self.capacity     = params.capacity
         self.description  = params.description
         self.rules        = params.rules
-        self.footwearType = params.footwearType?.rawValue
-        self.fieldType    = params.fieldType?.rawValue
+        self.footwearType = params.footwearType
+        self.fieldType    = params.fieldType
         self.hasParking   = params.hasParking
         self.extraInfo    = params.extraInfo
         self.locationId   = locationId
@@ -105,8 +105,8 @@ struct AdminFieldEntryDTO: Decodable {
             rules: field.rules,
             extraInfo: field.extraInfo,
             hasParking: field.hasParking ?? false,
-            fieldType: field.fieldType.flatMap(FieldType.init(rawValue:)),
-            footwearType: field.footwearType.flatMap(FootwearType.init(rawValue:)),
+            fieldType: field.fieldType,
+            footwearType: field.footwearType,
             locationId: field.location?.id,
             assignedLocation: assignedLocation
         )
@@ -181,8 +181,8 @@ struct FieldDTO: Decodable {
             capacity: capacity,
             description: description,
             rules: rules,
-            footwearType: footwearType.flatMap(FootwearType.init(rawValue:)),
-            fieldType: fieldType.flatMap(FieldType.init(rawValue:)),
+            footwearType: footwearType,
+            fieldType: fieldType,
             hasParking: hasParking ?? false,
             extraInfo: extraInfo
         )

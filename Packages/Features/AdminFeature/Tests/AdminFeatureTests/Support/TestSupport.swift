@@ -20,8 +20,8 @@ extension CreateFieldParams {
         capacity: Int = 10,
         description: String = "Una cancha",
         rules: String = "1. Sin tachones",
-        footwearType: FootwearType? = nil,
-        fieldType: FieldType? = nil,
+        footwearType: String? = nil,
+        fieldType: String? = nil,
         hasParking: Bool = false,
         extraInfo: String? = nil
     ) -> CreateFieldParams {
@@ -47,8 +47,8 @@ extension Field {
         capacity: Int = 10,
         description: String = "Una cancha",
         rules: String = "1. Sin tachones",
-        footwearType: FootwearType? = nil,
-        fieldType: FieldType? = nil,
+        footwearType: String? = nil,
+        fieldType: String? = nil,
         hasParking: Bool = false,
         extraInfo: String? = nil
     ) -> Field {

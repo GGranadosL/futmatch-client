@@ -15,6 +15,11 @@ public protocol AdminRemoteConfigProtocol {
     /// Hours before match start after which cancellation triggers refund processing.
     /// Remote Config key: `match_cancel_paid_threshold_hours`. Default: 6.
     var cancelMatchPaidThresholdHours: Int { get }
+
+    /// Whether the desktop-enrollment QR scanner button is shown in the admin
+    /// panel header. Remote Config key: `admin_desktop_enrollment_enabled`.
+    /// Default: true.
+    var isDesktopEnrollmentEnabled: Bool { get }
 }
 
 // MARK: - Default implementation (UserDefaults-backed, set by the app target)
@@ -25,6 +30,7 @@ public struct AdminRemoteConfig: AdminRemoteConfigProtocol {
     public static let maxImagesKey               = "fm_admin_field_max_images"
     public static let featureEnabledKey          = "fm_admin_feature_enabled"
     public static let cancelPaidThresholdHoursKey = "fm_admin_cancel_paid_threshold_hours"
+    public static let desktopEnrollmentEnabledKey = "fm_admin_desktop_enrollment_enabled"
 
     private let defaults: UserDefaults
 
@@ -45,5 +51,9 @@ public struct AdminRemoteConfig: AdminRemoteConfigProtocol {
     public var cancelMatchPaidThresholdHours: Int {
         let stored = defaults.integer(forKey: Self.cancelPaidThresholdHoursKey)
         return stored > 0 ? stored : 6
+    }
+
+    public var isDesktopEnrollmentEnabled: Bool {
+        (defaults.object(forKey: Self.desktopEnrollmentEnabledKey) as? Bool) ?? true
     }
 }

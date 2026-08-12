@@ -16,7 +16,12 @@ extension MatchItem {
         timeRange: String = "20:00 - 21:00",
         price: String = "$150",
         matchType: String = "Mixto",
-        spotsLeft: Int = 4
+        spotsLeft: Int = 4,
+        teamAPlayers: [MatchPlayer] = [],
+        teamBPlayers: [MatchPlayer] = [],
+        teamAMax: Int = 5,
+        teamBMax: Int = 5,
+        matchStatus: MatchStatus = .scheduled
     ) -> MatchItem {
         MatchItem(
             id: id,
@@ -24,7 +29,12 @@ extension MatchItem {
             timeRange: timeRange,
             price: price,
             matchType: matchType,
-            spotsLeft: spotsLeft
+            spotsLeft: spotsLeft,
+            teamAPlayers: teamAPlayers,
+            teamBPlayers: teamBPlayers,
+            teamAMax: teamAMax,
+            teamBMax: teamBMax,
+            matchStatus: matchStatus
         )
     }
 }

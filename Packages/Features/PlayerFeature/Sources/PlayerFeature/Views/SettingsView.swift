@@ -21,25 +21,34 @@ private struct SettingsRow: Identifiable {
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     var onLogout: (() -> Void)?
+    var onAccountDeleted: (() -> Void)?
     var paymentHistoryViewModelFactory: (() -> PaymentHistoryViewModel)?
 
     @StateObject private var paymentMethodsVM: PaymentMethodsViewModel
+    @StateObject private var deleteAccountVM: DeleteAccountViewModel
     @State private var presentCustomerSheet = false
     @State private var showPaymentHistory = false
     @State private var safariURL: URL? = nil
     @State private var showLogoutAlert = false
+    @State private var showDeleteAccountDialog = false
+    @State private var deleteAccountPassword = ""
+    @State private var showDeleteAccountSuccessToast = false
     private let linksConfig: LegalLinksProtocol
 
     init(
         onLogout: (() -> Void)? = nil,
+        onAccountDeleted: (() -> Void)? = nil,
         paymentMethodsViewModel: PaymentMethodsViewModel? = nil,
+        deleteAccountViewModel: DeleteAccountViewModel? = nil,
         paymentHistoryViewModelFactory: (() -> PaymentHistoryViewModel)? = nil,
         linksConfig: LegalLinksProtocol = LegalLinksConfig()
     ) {
         self.onLogout = onLogout
+        self.onAccountDeleted = onAccountDeleted
         self.paymentHistoryViewModelFactory = paymentHistoryViewModelFactory
         self.linksConfig = linksConfig
         _paymentMethodsVM = StateObject(wrappedValue: paymentMethodsViewModel ?? PaymentMethodsViewModel(paymentService: PaymentService()))
+        _deleteAccountVM = StateObject(wrappedValue: deleteAccountViewModel ?? DeleteAccountViewModel(deleteAccountUseCase: PlayerDependencyFactory().makeDeleteAccountUseCase()))
     }
 
     // MARK: - Row Data
@@ -89,48 +98,93 @@ struct SettingsView: View {
     // MARK: - Body
 
     var body: some View {
-        VStack(spacing: 0) {
-            List {
-                // General section
-                Section {
-                    ForEach(generalRows) { row in
-                        settingsRowView(row)
-                    }
-                }
-
-                // Account actions section
-                Section {
-                    Button {
-                        showLogoutAlert = true
-                    } label: {
-                        HStack(spacing: 14) {
-                            Image(systemName: "rectangle.portrait.and.arrow.right")
-                                .font(.system(size: 18, weight: .medium))
-                                .foregroundColor(FMColors.error)
-                                .frame(width: 28, height: 28)
-
-                            Text(L10n.Settings.logout)
-                                .font(FMTypography.bodyMedium)
-                                .foregroundColor(FMColors.error)
+        ZStack {
+            VStack(spacing: 0) {
+                List {
+                    // General section
+                    Section {
+                        ForEach(generalRows) { row in
+                            settingsRowView(row)
                         }
-                        .padding(.vertical, 4)
+                    }
+
+                    // Account actions section
+                    Section {
+                        Button {
+                            showLogoutAlert = true
+                        } label: {
+                            HStack(spacing: 14) {
+                                Image(systemName: "rectangle.portrait.and.arrow.right")
+                                    .font(.system(size: 18, weight: .medium))
+                                    .foregroundColor(FMColors.error)
+                                    .frame(width: 28, height: 28)
+
+                                Text(L10n.Settings.logout)
+                                    .font(FMTypography.bodyMedium)
+                                    .foregroundColor(FMColors.error)
+                            }
+                            .padding(.vertical, 4)
+                        }
+
+                        Button {
+                            showDeleteAccountDialog = true
+                        } label: {
+                            HStack(spacing: 14) {
+                                Image(systemName: "trash")
+                                    .font(.system(size: 18, weight: .medium))
+                                    .foregroundColor(FMColors.error)
+                                    .frame(width: 28, height: 28)
+
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(L10n.Settings.deleteAccount)
+                                        .font(FMTypography.bodyMedium)
+                                        .foregroundColor(FMColors.error)
+
+                                    Text(L10n.Settings.deleteAccountDesc)
+                                        .font(FMTypography.bodySmall)
+                                        .foregroundColor(FMColors.onSurfaceVariant)
+                                }
+                            }
+                            .padding(.vertical, 4)
+                        }
+                    }
+
+                    // Version footer
+                    Section {
+                        EmptyView()
+                    } footer: {
+                        Text(versionText)
+                            .font(FMTypography.bodySmall)
+                            .foregroundColor(FMColors.onSurfaceVariant)
+                            .frame(maxWidth: .infinity)
+                            .multilineTextAlignment(.center)
                     }
                 }
-
-                // Version footer
-                Section {
-                    EmptyView()
-                } footer: {
-                    Text(versionText)
-                        .font(FMTypography.bodySmall)
-                        .foregroundColor(FMColors.onSurfaceVariant)
-                        .frame(maxWidth: .infinity)
-                        .multilineTextAlignment(.center)
-                }
+                .listStyle(.insetGrouped)
             }
-            .listStyle(.insetGrouped)
+            .background(FMColors.background)
+
+            if showDeleteAccountDialog {
+                FMTextFieldConfirmationAlert(
+                    title: L10n.DeleteAccount.dialogTitle,
+                    message: L10n.DeleteAccount.dialogMessage,
+                    textFieldLabel: L10n.DeleteAccount.passwordLabel,
+                    text: $deleteAccountPassword,
+                    errorMessage: deleteAccountVM.errorMessage,
+                    primaryButtonTitle: L10n.DeleteAccount.confirmButton,
+                    secondaryButtonTitle: L10n.Common.cancel,
+                    isLoading: deleteAccountVM.isLoading,
+                    onPrimaryAction: {
+                        Task { await deleteAccountVM.deleteAccount(password: deleteAccountPassword) }
+                    },
+                    onSecondaryAction: {
+                        showDeleteAccountDialog = false
+                        deleteAccountPassword = ""
+                        deleteAccountVM.clearError()
+                    }
+                )
+            }
         }
-        .background(FMColors.background)
         .navigationBarBackButtonHidden(true)
         .toolbar {
             ToolbarItem(placement: .navigationBarLeading) {
@@ -187,6 +241,17 @@ struct SettingsView: View {
         } message: {
             Text(L10n.Profile.logoutMessage)
         }
+        .onChange(of: deleteAccountVM.succeeded) { succeeded in
+            guard succeeded else { return }
+            showDeleteAccountDialog = false
+            deleteAccountPassword = ""
+            showDeleteAccountSuccessToast = true
+            Task {
+                try? await Task.sleep(nanoseconds: 2_500_000_000)
+                onAccountDeleted?()
+            }
+        }
+        .fmToast(L10n.DeleteAccount.successMessage, isPresented: $showDeleteAccountSuccessToast, style: .success)
     }
 
     // MARK: - Row View

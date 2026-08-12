@@ -7,6 +7,7 @@ import FirebaseAppCheck
 import FirebaseMessaging
 import OnboardingFeature
 import PlayerFeature
+import AdminFeature
 import FMDesignSystem
 import PersistenceFramework
 import NetworkFramework
@@ -107,13 +108,21 @@ struct FutMatchApp: App {
         let state = AppState()
         state.onDidLogout = {
             let context = PersistenceController.shared.container.viewContext
-            // Clear both match caches on logout to avoid leaking data across accounts
-            for entityName in ["CachedMatchEntity", "CachedReservedMatchEntity", "CachedAdminFieldEntity"] {
-                let request = NSFetchRequest<NSFetchRequestResult>(entityName: entityName)
-                let delete = NSBatchDeleteRequest(fetchRequest: request)
-                _ = try? context.execute(delete)
+            // Clear both match caches on logout to avoid leaking data across accounts.
+            // Wrapped in `perform` — viewContext may be mid-merge from a background
+            // save (e.g. MatchCoreDataCacheRepository) at the exact moment logout
+            // fires, and touching it outside its own queue corrupts its object set.
+            context.perform {
+                for entityName in ["CachedMatchEntity", "CachedReservedMatchEntity", "CachedAdminFieldEntity"] {
+                    let request = NSFetchRequest<NSFetchRequestResult>(entityName: entityName)
+                    let delete = NSBatchDeleteRequest(fetchRequest: request)
+                    _ = try? context.execute(delete)
+                }
+                try? context.save()
             }
-            try? context.save()
+            // Clear both cache levels of FMImageCache so one account's photos
+            // (avatars, field images) never linger on disk for the next login.
+            FMImageCache.shared.clearAll()
             // Clear home cache so the next user doesn't see stale data
             UserDefaults.standard.removeObject(forKey: "home.cache.homeDataDTO")
             // Reset notification seen-count so the next user gets a fresh badge
@@ -148,20 +157,36 @@ struct FutMatchApp: App {
         APIClient.shared.addInterceptor(AuthTokenInterceptor {
             try? KeychainManager.shared.retrieve(for: .accessToken)
         })
+        // Image cache: let the shared loader attach a bearer token to
+        // authenticated Cloudinary URLs (own profile photo), resolve bare
+        // field-image keys via the admin fields API, and purge stale disk
+        // entries once at launch.
+        Task {
+            await FMImageLoader.shared.setAuthTokenProvider {
+                try? KeychainManager.shared.retrieve(for: .accessToken)
+            }
+        }
+        AdminDependencyFactory.registerImageDataFetcher()
+        FMImageCache.shared.purgeDiskIfNeeded()
         // App Check: attach an attestation token to every backend request so the
         // server can verify the call comes from a genuine app instance. Gated by the
         // same flag as the provider factory — without a provider, token() would just
         // fail and waste the per-request timeout.
-        // forcingRefresh: true ensures expired tokens are refreshed, preventing
-        // "Invalid App Check token" 401s after the app sits idle for hours/days.
+        // forcingRefresh is false so this reads the SDK's cached token: the SDK
+        // already refreshes it before expiry (isTokenAutoRefreshEnabled in AppDelegate),
+        // and forcing a refresh cost a network round-trip on *every* request, which
+        // blew past the interceptor timeout on slow connections and sent the request
+        // with no X-Firebase-AppCheck header at all.
         let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "FutMatch", category: "AppCheck")
         let appCheckTokenProvider: () async throws -> String? = {
             do {
-                return try await AppCheck.appCheck().token(forcingRefresh: true).token
+                return try await AppCheck.appCheck().token(forcingRefresh: false).token
             } catch {
                 // Surfaces why requests go out without X-Firebase-AppCheck
-                // (e.g. unregistered debug token, attestation failure).
-                logger.error("App Check token fetch failed: \(error.localizedDescription, privacy: .public)")
+                // (e.g. unregistered debug token, attestation failure). Logs the full
+                // error — App Attest failures carry the real reason in userInfo, which
+                // localizedDescription drops.
+                logger.error("App Check token fetch failed: \(String(describing: error), privacy: .public)")
                 return nil
             }
         }
@@ -242,6 +267,13 @@ struct RootView: View {
                             appState.logout()
                         }
                     },
+                    onAccountDeleted: {
+                        // The account is already deleted server-side (tokens revoked) —
+                        // wipe local session the same way a forced logout does, without
+                        // calling /auth/signOut again.
+                        userSession.clear()
+                        appState.forceLogout()
+                    },
                     isDemoMode: appState.isDemoMode,
                     countryRepository: countryRepository,
                     managedObjectContext: persistenceContainer.viewContext
@@ -267,7 +299,6 @@ struct RootView: View {
                 makeLoginView()
             }
         }
-        .animation(.easeInOut(duration: 0.3), value: appState.isLoggedIn)
     }
     
     /// Signs into Firebase with the stored custom token on app relaunch.

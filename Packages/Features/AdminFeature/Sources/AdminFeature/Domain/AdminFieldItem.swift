@@ -26,8 +26,8 @@ public struct AdminFieldItem: Identifiable, Equatable, Hashable {
     public let rules: String?
     public let extraInfo: String?
     public let hasParking: Bool
-    public let fieldType: FieldType?
-    public let footwearType: FootwearType?
+    public let fieldType: String?
+    public let footwearType: String?
 
     // MARK: - Location
 
@@ -46,8 +46,8 @@ public struct AdminFieldItem: Identifiable, Equatable, Hashable {
         rules: String? = nil,
         extraInfo: String? = nil,
         hasParking: Bool = false,
-        fieldType: FieldType? = nil,
-        footwearType: FootwearType? = nil,
+        fieldType: String? = nil,
+        footwearType: String? = nil,
         locationId: String? = nil,
         assignedLocation: AdminLocation? = nil
     ) {

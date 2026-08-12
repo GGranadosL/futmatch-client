@@ -1,5 +1,6 @@
 import Foundation
 import PersistenceFramework
+import AdminFeature
 
 // MARK: - MatchDetailViewModel
 
@@ -7,6 +8,7 @@ import PersistenceFramework
 final class MatchDetailViewModel: ObservableObject {
     @Published private(set) var match: MatchItem
     @Published private(set) var isLoadingDetail = false
+    @Published private(set) var fieldAttributeCatalog = FieldAttributeCatalog()
     /// Non-nil when detail load fails — shown as toast (data is always available from the list).
     @Published var detailError: String?
 
@@ -44,6 +46,17 @@ final class MatchDetailViewModel: ObservableObject {
     /// so no Stripe sheet was needed. View reacts by showing an informational banner.
     @Published private(set) var paymentWasReused = false
 
+    // MARK: - Pending Payment Recovery State (when local cache is missing)
+
+    /// True while `GET /payment/matches/{matchId}/pending` is in flight.
+    @Published private(set) var isRecoveringPayment = false
+    /// Set when recovery fails in a user-facing way. Dialog fires on `.notRecoverable`,
+    /// dialog with retry on `.retryLater`.
+    @Published private(set) var pendingPaymentIssue: PendingPaymentIssue?
+    /// Prevents multiple recovery attempts per reservation. Cleared when the
+    /// reservation expires or is cancelled.
+    private var hasAttemptedPendingRecovery = false
+
     // MARK: - Cancel State
 
     @Published private(set) var isCancelling = false
@@ -57,7 +70,7 @@ final class MatchDetailViewModel: ObservableObject {
 
     /// True when the current user is part of the match in any capacity (reserved or joined).
     var isCurrentUserInMatch: Bool {
-        guard let userId = KeychainManager.shared.userId else { return false }
+        guard let userId = currentUserId() else { return false }
         let all = (liveTeamAPlayers ?? []) + (liveTeamBPlayers ?? [])
         return all.contains { $0.playerId == userId }
     }
@@ -74,7 +87,12 @@ final class MatchDetailViewModel: ObservableObject {
     private let subscribePlayersUseCase: SubscribeMatchPlayersUseCaseProtocol
     private let cancelMatchUseCase: CancelMatchUseCaseProtocol
     private let leaveMatchUseCase: LeaveMatchUseCaseProtocol
-    private let keychainManager: KeychainManager
+    private let pendingPaymentStore: PendingPaymentStoreProtocol
+    private let fetchPendingPaymentUseCase: FetchPendingMatchPaymentUseCaseProtocol
+    private let fetchFieldAttributeCatalogsUseCase: FetchFieldAttributeCatalogsUseCaseProtocol
+    /// Resolves the signed-in user's id. Injected so the reservation and payment-recovery
+    /// branches are testable without touching the real Keychain.
+    private let currentUserId: () -> String?
 
     init(
         initialMatch: MatchItem,
@@ -84,7 +102,10 @@ final class MatchDetailViewModel: ObservableObject {
         subscribePlayersUseCase: SubscribeMatchPlayersUseCaseProtocol,
         cancelMatchUseCase: CancelMatchUseCaseProtocol,
         leaveMatchUseCase: LeaveMatchUseCaseProtocol,
-        keychainManager: KeychainManager = .shared
+        pendingPaymentStore: PendingPaymentStoreProtocol,
+        fetchPendingPaymentUseCase: FetchPendingMatchPaymentUseCaseProtocol,
+        fetchFieldAttributeCatalogsUseCase: FetchFieldAttributeCatalogsUseCaseProtocol,
+        currentUserId: @escaping () -> String? = { KeychainManager.shared.userId }
     ) {
         self.match = initialMatch
         self.fetchDetailUseCase = fetchDetailUseCase
@@ -93,7 +114,20 @@ final class MatchDetailViewModel: ObservableObject {
         self.subscribePlayersUseCase = subscribePlayersUseCase
         self.cancelMatchUseCase = cancelMatchUseCase
         self.leaveMatchUseCase = leaveMatchUseCase
-        self.keychainManager = keychainManager
+        self.pendingPaymentStore = pendingPaymentStore
+        self.fetchPendingPaymentUseCase = fetchPendingPaymentUseCase
+        self.fetchFieldAttributeCatalogsUseCase = fetchFieldAttributeCatalogsUseCase
+        self.currentUserId = currentUserId
+    }
+
+    // MARK: - Field Attribute Catalog
+
+    var shoeTypeDisplay: String { fieldAttributeCatalog.footwearName(for: match.shoeType) }
+    var fieldTypeDisplay: String { fieldAttributeCatalog.fieldTypeName(for: match.fieldType) }
+
+    func loadFieldAttributeCatalog() async {
+        let catalogs = await fetchFieldAttributeCatalogsUseCase.execute()
+        fieldAttributeCatalog = FieldAttributeCatalog(catalogs: catalogs)
     }
 
     // MARK: - Load Detail
@@ -128,7 +162,14 @@ final class MatchDetailViewModel: ObservableObject {
                 NotificationCenter.default.post(name: .matchMembershipDidChange, object: nil)
             } else {
                 joinData = data
-                persistJoinData(data)
+                pendingPaymentStore.save(data, matchId: match.id)
+                // The backend is already holding the spot at this point — the
+                // user shows up in `/match/my-matches` as RESERVED even though
+                // payment hasn't been captured yet. Without this the Home
+                // next-match card and the Reserved tab stay stale until a
+                // manual pull-to-refresh, because the Firestore observer below
+                // only signals on the RESERVED → JOINED transition.
+                NotificationCenter.default.post(name: .matchMembershipDidChange, object: nil)
             }
         } catch {
             guard !(error is CancellationError) else {
@@ -179,7 +220,7 @@ final class MatchDetailViewModel: ObservableObject {
     /// Clears in-memory and persisted join data (call after payment completes or reservation expires).
     func clearJoinData() {
         joinData = nil
-        try? keychainManager.delete(forKey: joinDataKeychainKey)
+        pendingPaymentStore.clear(matchId: match.id)
     }
 
     func clearJoinError() {
@@ -193,6 +234,58 @@ final class MatchDetailViewModel: ObservableObject {
 
     func clearLeaveError() {
         leaveError = nil
+    }
+
+    func clearPendingPaymentIssue() {
+        pendingPaymentIssue = nil
+    }
+
+    func retryPendingPaymentRecovery() {
+        pendingPaymentIssue = nil
+        Task { await recoverPendingPayment() }
+    }
+
+    // MARK: - Pending Payment Recovery
+
+    /// A reservation with less than this left is already dead for practical purposes:
+    /// the user cannot complete a Stripe payment in what remains, and the backend is
+    /// about to release the spot. Recovering payment data in that window only produces
+    /// a confusing "payment cannot be recovered" dialog while the user is being dropped.
+    private static let minimumRecoverableReservationWindow: TimeInterval = 15
+
+    /// True only while the current user holds a reservation with enough time left to
+    /// actually pay. Guards both the recovery trigger and the handling of its response.
+    private var hasRecoverableReservation: Bool {
+        guard let expiry = currentUserReservedUntil else { return false }
+        return expiry.timeIntervalSinceNow > Self.minimumRecoverableReservationWindow
+    }
+
+    private func recoverPendingPayment() async {
+        isRecoveringPayment = true
+        let result = await fetchPendingPaymentUseCase.execute(matchId: match.id)
+        isRecoveringPayment = false
+
+        // The reservation can expire while the request is in flight — that is exactly
+        // when the backend answers 409. Acting on the response then would raise a dialog
+        // about a reservation the user no longer has.
+        guard hasRecoverableReservation else { return }
+
+        switch result {
+        case .recovered(let data):
+            joinData = data
+            pendingPaymentStore.save(data, matchId: match.id)
+            // `.onChange(of: viewModel.joinData)` in the view will handle PaymentSheet setup.
+
+        case .notRecoverable(let message):
+            pendingPaymentIssue = .notRecoverable(message ?? L10n.PendingPayment.notRecoverableDefaultMessage)
+
+        case .retryLater(let message):
+            pendingPaymentIssue = .retryLater(message ?? L10n.PendingPayment.retryLaterDefaultMessage)
+
+        case .unavailable:
+            // Silently unavailable — no user-facing UI fires.
+            break
+        }
     }
 
     // MARK: - Leave Match
@@ -243,13 +336,13 @@ final class MatchDetailViewModel: ObservableObject {
     /// The payment SUCCESS overlay is NOT driven from here — it listens to the
     /// one-shot `paymentDidSucceed` signal so it only fires right after a real payment.
     func subscribeToPlayers() async {
-        let status = match.matchStatus.uppercased()
-        if status == "CANCELED" || status == "CANCELLED" || status == "COMPLETED" {
+        // Closed matches (COMPLETED/CANCELED) use a one-shot REST snapshot; others subscribe to Firestore
+        if match.matchStatus == .completed || match.matchStatus == .canceled {
             liveTeamAPlayers = match.teamAPlayers
             liveTeamBPlayers = match.teamBPlayers
             return
         }
-        let userId = KeychainManager.shared.userId
+        let userId = currentUserId()
         do {
             for try await snapshot in subscribePlayersUseCase.execute(matchId: match.id) {
                 playersError = nil
@@ -257,10 +350,25 @@ final class MatchDetailViewModel: ObservableObject {
                 liveTeamBPlayers = snapshot.teamBPlayers
                 if let userId {
                     currentUserReservedUntil = snapshot.reservationsByPlayerId[userId]
-                    // Restore joinData from Keychain when a reservation exists but joinData is not set
-                    // (happens when the app is relaunched with an active reservation)
-                    if currentUserReservedUntil != nil, joinData == nil {
-                        restoreJoinDataIfNeeded()
+                    // Try local cache first, then recover from backend if missing.
+                    if hasRecoverableReservation, joinData == nil, !hasAttemptedPendingRecovery {
+                        if let cached = pendingPaymentStore.load(matchId: match.id) {
+                            // Local cache hit — no network needed.
+                            joinData = cached
+                        } else {
+                            // Local miss — spawn a background recovery task. Running this inside
+                            // the for-await would stall the snapshot stream.
+                            hasAttemptedPendingRecovery = true
+                            Task { await recoverPendingPayment() }
+                        }
+                    }
+                    // The reservation is gone or already dying: drop any recovery dialog raised
+                    // for it — the user is being released from the match and can simply join
+                    // again, so a "payment cannot be recovered" alert is pure noise — and re-arm
+                    // recovery for whatever reservation comes next.
+                    if !hasRecoverableReservation {
+                        hasAttemptedPendingRecovery = false
+                        pendingPaymentIssue = nil
                     }
                     // Always reflect the joined state from Firestore so the action button
                     // auto-switches to "Leave match" the moment the backend confirms the user
@@ -277,18 +385,5 @@ final class MatchDetailViewModel: ObservableObject {
             guard !(error is CancellationError) else { return }
             playersError = error.localizedDescription
         }
-    }
-
-    // MARK: - Private Persistence
-
-    private var joinDataKeychainKey: String { "join_data_\(match.id)" }
-
-    private func persistJoinData(_ data: JoinMatchData) {
-        try? keychainManager.saveCodable(data, forKey: joinDataKeychainKey)
-    }
-
-    private func restoreJoinDataIfNeeded() {
-        guard joinData == nil else { return }
-        joinData = try? keychainManager.loadCodable(JoinMatchData.self, forKey: joinDataKeychainKey)
     }
 }

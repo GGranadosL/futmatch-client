@@ -104,10 +104,6 @@ struct MatchDetailView: View {
     /// Player whose public profile is being shown (drives navigation).
     @State private var selectedPlayerId: String? = nil
 
-    /// Cached field image — loaded once and kept stable so it doesn't
-    /// flash to the default when `loadDetail()` refreshes `match`.
-    @State private var fieldImage: UIImage? = nil
-
     init(match: MatchItem, isDemoMode: Bool = false) {
         self.isDemoMode = isDemoMode
         let factory = PlayerDependencyFactory(isDemoMode: isDemoMode)
@@ -118,7 +114,10 @@ struct MatchDetailView: View {
             pollPaymentStatusUseCase: factory.makePollPaymentStatusUseCase(),
             subscribePlayersUseCase: factory.makeSubscribeMatchPlayersUseCase(),
             cancelMatchUseCase: factory.makeCancelMatchUseCase(),
-            leaveMatchUseCase: factory.makeLeaveMatchUseCase()
+            leaveMatchUseCase: factory.makeLeaveMatchUseCase(),
+            pendingPaymentStore: factory.makePendingPaymentStore(),
+            fetchPendingPaymentUseCase: factory.makeFetchPendingMatchPaymentUseCase(),
+            fetchFieldAttributeCatalogsUseCase: factory.makeFetchFieldAttributeCatalogsUseCase()
         ))
     }
 
@@ -157,17 +156,15 @@ struct MatchDetailView: View {
     /// API-provided title/message for the error overlay. `nil` falls back to generic copy.
     @State private var overlayErrorTitle: String?
     @State private var overlayErrorMessage: String?
-
-    private var normalizedMatchStatus: String {
-        match.matchStatus.uppercased()
-    }
+    /// Triggers the pending payment issue alert (not recoverable or retry-later).
+    @State private var showPendingPaymentIssue = false
 
     private var isCompletedMatch: Bool {
-        normalizedMatchStatus == "COMPLETED"
+        match.matchStatus == .completed
     }
 
     private var isCanceledMatch: Bool {
-        normalizedMatchStatus == "CANCELED" || normalizedMatchStatus == "CANCELLED"
+        match.matchStatus == .canceled
     }
 
     private var isClosedMatch: Bool {
@@ -197,6 +194,16 @@ struct MatchDetailView: View {
 
     private var completedGoalsBadgeColor: Color {
         Color(red: 0.42, green: 0.31, blue: 0.60)
+    }
+
+    /// Gold/amber accent for the MVP callout and top-scorer row — no equivalent
+    /// token exists in `FMColors` today.
+    private var mvpAccentColor: Color {
+        Color(red: 0.83, green: 0.62, blue: 0.09)
+    }
+
+    private var mvpAccentBackground: Color {
+        mvpAccentColor.opacity(0.12)
     }
 
     private var winnerBadgeText: String? {
@@ -352,6 +359,55 @@ struct MatchDetailView: View {
                     .transition(.opacity)
                     .zIndex(5)
             }
+            if showPendingPaymentIssue, let issue = viewModel.pendingPaymentIssue {
+                switch issue {
+                case .notRecoverable(let message):
+                    FMConfirmationAlert(
+                        icon: "exclamationmark.circle.fill",
+                        iconColor: FMColors.error,
+                        iconBackgroundColor: FMColors.errorContainer,
+                        title: L10n.PendingPayment.notRecoverableTitle,
+                        message: message,
+                        primaryButtonTitle: L10n.MatchDetail.leaveMatch,
+                        primaryButtonColor: FMColors.error,
+                        secondaryButtonTitle: L10n.Common.ok,
+                        isLoading: viewModel.isLeaving,
+                        onPrimaryAction: {
+                            Task { await viewModel.leaveMatch() }
+                            showPendingPaymentIssue = false
+                        },
+                        onSecondaryAction: {
+                            showPendingPaymentIssue = false
+                            viewModel.clearPendingPaymentIssue()
+                        }
+                    )
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+                    .zIndex(6)
+
+                case .retryLater(let message):
+                    FMConfirmationAlert(
+                        icon: "clock.fill",
+                        iconColor: FMColors.primary,
+                        iconBackgroundColor: FMColors.primary.opacity(0.15),
+                        title: L10n.PendingPayment.retryLaterTitle,
+                        message: message,
+                        primaryButtonTitle: L10n.Common.retry,
+                        primaryButtonColor: FMColors.primary,
+                        secondaryButtonTitle: L10n.Common.ok,
+                        isLoading: viewModel.isRecoveringPayment,
+                        onPrimaryAction: {
+                            showPendingPaymentIssue = false
+                            viewModel.retryPendingPaymentRecovery()
+                        },
+                        onSecondaryAction: {
+                            showPendingPaymentIssue = false
+                            viewModel.clearPendingPaymentIssue()
+                        }
+                    )
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+                    .zIndex(6)
+                }
+            }
         }
         .animation(.easeInOut(duration: 0.25), value: viewModel.isJoining)
         .animation(.easeInOut(duration: 0.25), value: viewModel.isPollingPayment)
@@ -372,17 +428,22 @@ struct MatchDetailView: View {
             viewModel.clearPaymentConfirmationError()
         }
         .background(FMColors.background.ignoresSafeArea())
-        .navigationBarBackButtonHidden(true)
         // The hero image is full-bleed under the top safe area (`.ignoresSafeArea(.top)`).
-        // Hide the nav bar's background so the image shows through behind the floating
-        // back button instead of being covered by an opaque bar — otherwise the top of
-        // the image is clipped by a black strip (visible on iPhone 13 mini and similar).
-        .toolbarBackground(.hidden, for: .navigationBar)
-        .toolbarColorScheme(.dark, for: .navigationBar)
-        .toolbar {
-            ToolbarItem(placement: .navigationBarLeading) {
-                FMBackButton { dismiss() }
-            }
+        // A `ToolbarItem` back button forces the system nav bar to render, and its
+        // background can stay opaque even with `.toolbarBackground(.hidden)` — the top
+        // of the image ends up clipped by a solid strip (visible on iPhone 13 mini and
+        // similar). Hiding the bar entirely and floating the button ourselves sidesteps
+        // that system bar rendering altogether.
+        .navigationBarBackButtonHidden(true)
+        .toolbar(.hidden, for: .navigationBar)
+        // Hiding the nav bar above also disables iOS's native edge-swipe-to-go-back.
+        // Applied before the button overlay below so the button stays on top and
+        // fully tappable — the edge strip only wins hit-testing where the button isn't.
+        .edgeSwipeToGoBack { dismiss() }
+        .overlay(alignment: .topLeading) {
+            FMBackButton(action: { dismiss() }, isStandalone: true)
+                .padding(.leading, 16)
+                .padding(.top, 8)
         }
         .modifier(HideTabBarModifier())
         .navigationDestination(isPresented: Binding(
@@ -390,12 +451,12 @@ struct MatchDetailView: View {
             set: { if !$0 { selectedPlayerId = nil } }
         )) {
             if let id = selectedPlayerId {
-                PlayerProfileView(userId: id, isDemoMode: isDemoMode)
+                PlayerProfileView(userId: id, isDemoMode: isDemoMode, originMatchId: match.id)
             }
         }
         .task { await viewModel.loadDetail() }
         .task { await viewModel.subscribeToPlayers() }
-        .task { await loadFieldImage() }
+        .task { await viewModel.loadFieldAttributeCatalog() }
         .modifier(MatchDetailModifiers(view: self))
     }
 
@@ -499,6 +560,13 @@ struct MatchDetailView: View {
             } message: {
                 Text(viewModel.leaveError ?? "")
             }
+            .onChange(of: viewModel.pendingPaymentIssue) { issue in
+                // Follows the issue in both directions: the VM clears it as soon as the
+                // reservation is released, and the alert must come down with it.
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    showPendingPaymentIssue = issue != nil
+                }
+            }
             .onChange(of: shouldPresentPayment) { present in
                 guard present, let sheet = paymentSheet else {
                     shouldPresentPayment = false
@@ -525,6 +593,7 @@ struct MatchDetailView: View {
                 heroSection
                 infoBar
                 lineupSection
+                goalsSummarySection
                 if !isClosedMatch {
                     fieldDetailsSection
                     rulesSection
@@ -544,19 +613,15 @@ struct MatchDetailView: View {
     
     private var heroSection: some View {
         ZStack(alignment: .bottomLeading) {
-            // Field image — uses the pre-loaded @State image so it never
-            // flashes back to the default when loadDetail() refreshes `match`.
-            Group {
-                if let loaded = fieldImage {
-                    Image(uiImage: loaded)
-                        .resizable()
-                        .scaledToFill()
-                } else {
-                    Image("defaultField", bundle: .main)
-                        .resizable()
-                        .scaledToFill()
-                }
+            // Field image — FMRemoteImage seeds from the shared cache
+            // synchronously, so it never flashes back to the default when
+            // loadDetail() refreshes `match` with the same URL.
+            FMRemoteImage(urlString: match.fieldImageUrl) {
+                Image("defaultField", bundle: .main)
+                    .resizable()
+                    .scaledToFill()
             }
+            .scaledToFill()
             .frame(maxWidth: .infinity, minHeight: 260, maxHeight: 260)
             .clipped()
             .overlay(
@@ -694,7 +759,7 @@ struct MatchDetailView: View {
                 Spacer()
                 
                 if isCanceledMatch {
-                    Text("Cancelado")
+                    Text(L10n.MatchStatus.canceled)
                         .font(FMTypography.labelSmall)
                         .foregroundColor(FMColors.error)
                         .padding(.horizontal, 10)
@@ -709,7 +774,7 @@ struct MatchDetailView: View {
                         Image(systemName: "person.2.fill")
                             .font(.system(size: 12))
 
-                        Text(L10n.MatchDetail.spotsLeft(match.spotsLeft))
+                        Text(L10n.MatchDetail.spotsLeft(liveSpotsLeft))
                             .font(FMTypography.labelSmall)
                     }
                     .foregroundColor(FMColors.primary)
@@ -745,14 +810,30 @@ struct MatchDetailView: View {
         .padding(.top, 16)
     }
 
+    /// Spots remaining, derived from the live Firestore roster so the badge
+    /// tracks joins/leaves while the screen stays open. Falls back to the REST
+    /// snapshot until the first Firestore snapshot arrives.
+    private var liveSpotsLeft: Int {
+        guard let liveA = viewModel.liveTeamAPlayers,
+              let liveB = viewModel.liveTeamBPlayers else { return match.spotsLeft }
+        return max(0, (match.teamAMax + match.teamBMax) - (liveA.count + liveB.count))
+    }
+
     // MARK: - Lineup Section
-    
+
     private var lineupSection: some View {
         let isLoading = viewModel.liveTeamAPlayers == nil || viewModel.liveTeamBPlayers == nil
         let hasError = viewModel.playersError != nil
         let liveA = viewModel.liveTeamAPlayers ?? []
         let liveB = viewModel.liveTeamBPlayers ?? []
-        let perTeamMax = max(1, (match.spotsLeft + liveA.count + liveB.count) / 2)
+        // Capacity is fixed per match — the live roster must NOT alter it.
+        // Deriving it from `match.spotsLeft` (a frozen REST snapshot) plus the
+        // live Firestore counts made both teams lose a slot whenever anyone
+        // left, because the total dropped by 1 and the `/ 2` truncated it.
+        // `max(..., count)` guards a degraded MatchItem (e.g. the one built by
+        // HomeSuggestedMatchDTO) before loadDetail() brings the real capacity.
+        let maxA = max(match.teamAMax, liveA.count)
+        let maxB = max(match.teamBMax, liveB.count)
         return VStack(alignment: .leading, spacing: 16) {
             Text(lineupTitle)
                 .font(FMTypography.titleLarge)
@@ -781,7 +862,7 @@ struct MatchDetailView: View {
                 teamLineup(
                     name: L10n.Matches.teamA,
                     players: liveA,
-                    maxPlayers: perTeamMax,
+                    maxPlayers: maxA,
                     team: .teamA
                 )
 
@@ -789,7 +870,7 @@ struct MatchDetailView: View {
                 teamLineup(
                     name: L10n.Matches.teamB,
                     players: liveB,
-                    maxPlayers: perTeamMax,
+                    maxPlayers: maxB,
                     team: .teamB
                 )
             }
@@ -799,8 +880,8 @@ struct MatchDetailView: View {
     }
 
     private var lineupTitle: String {
-        if isCompletedMatch { return "Partido finalizado" }
-        if isCanceledMatch { return "Partido cancelado" }
+        if isCompletedMatch { return L10n.MatchStatus.completed }
+        if isCanceledMatch { return L10n.MatchStatus.canceled }
         return L10n.MatchDetail.currentLineup
     }
 
@@ -836,27 +917,31 @@ struct MatchDetailView: View {
             }
             .padding(.horizontal, 16)
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
-                    // Join slot always first — hidden for finished/canceled matches, once
-                    // joined, or while the match is still outside the join window.
-                    if !isCompletedMatch && !isCanceledMatch && !isBeforeJoinWindow {
-                        joinSlot(for: team)
-                    }
-
-                    // Existing players (joined + reserved)
-                    ForEach(players) { player in
-                        playerSlot(player: player)
-                    }
-
-                    // Empty slots to fill remaining capacity
-                    ForEach(0..<emptyCount, id: \.self) { _ in
-                        emptySlot
-                    }
+            HStack(spacing: 12) {
+                // Join slot always first — hidden for finished/canceled matches, once
+                // joined, or while the match is still outside the join window.
+                // Kept outside the ScrollView so it stays fixed in place while the
+                // player/empty slots scroll beside it.
+                if !isCompletedMatch && !isCanceledMatch && !isBeforeJoinWindow {
+                    joinSlot(for: team)
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 4)
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        // Existing players (joined + reserved)
+                        ForEach(players) { player in
+                            playerSlot(player: player)
+                        }
+
+                        // Empty slots to fill remaining capacity
+                        ForEach(0..<emptyCount, id: \.self) { _ in
+                            emptySlot
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
             }
+            .padding(.horizontal, 16)
         }
         .padding(.vertical, 16)
         .background(
@@ -868,7 +953,187 @@ struct MatchDetailView: View {
                 .stroke(FMColors.outlineVariant, lineWidth: 1)
         )
     }
-    
+
+    // MARK: - Goals Summary Section
+
+    @ViewBuilder
+    private var goalsSummarySection: some View {
+        if isCompletedMatch, let goalBreakdown = match.goalBreakdown {
+            VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "soccerball")
+                            .font(.system(size: 20))
+                            .foregroundColor(FMColors.primary)
+                        Text(L10n.MatchDetail.goalsSummaryTitle)
+                            .font(FMTypography.titleLarge)
+                            .foregroundColor(FMColors.onBackground)
+                    }
+                    Text(L10n.MatchDetail.goalsSummarySubtitle)
+                        .font(FMTypography.bodySmall)
+                        .foregroundColor(FMColors.onSurfaceVariant)
+                        .textCase(.uppercase)
+                }
+
+                if let teamAScore = match.teamAScore, let teamBScore = match.teamBScore {
+                    scoreCard(teamAScore: teamAScore, teamBScore: teamBScore)
+                }
+
+                if let bestPlayer = match.bestPlayer {
+                    bestPlayerCard(name: bestPlayer.name)
+                }
+
+                teamGoalsCard(name: L10n.Matches.teamA, total: match.teamAScore ?? 0, breakdown: goalBreakdown.teamA)
+                teamGoalsCard(name: L10n.Matches.teamB, total: match.teamBScore ?? 0, breakdown: goalBreakdown.teamB)
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 24)
+        }
+    }
+
+    private func scoreCard(teamAScore: Int, teamBScore: Int) -> some View {
+        HStack {
+            VStack(spacing: 4) {
+                Text(L10n.Matches.teamA)
+                    .font(FMTypography.labelLarge)
+                    .foregroundColor(FMColors.onSurfaceVariant)
+                Text("\(teamAScore)")
+                    .font(FMTypography.headlineMedium)
+                    .foregroundColor(FMColors.onSurface)
+                    .bold()
+            }
+            .frame(maxWidth: .infinity)
+
+            Text("—")
+                .font(FMTypography.titleLarge)
+                .foregroundColor(FMColors.onSurfaceVariant)
+
+            VStack(spacing: 4) {
+                Text(L10n.Matches.teamB)
+                    .font(FMTypography.labelLarge)
+                    .foregroundColor(FMColors.onSurfaceVariant)
+                Text("\(teamBScore)")
+                    .font(FMTypography.headlineMedium)
+                    .foregroundColor(FMColors.onSurface)
+                    .bold()
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .padding(.vertical, 16)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(FMColors.surfaceContainerLowest)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(FMColors.outlineVariant, lineWidth: 1)
+        )
+    }
+
+    private func bestPlayerCard(name: String) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: "trophy.fill")
+                .font(.system(size: 20))
+                .foregroundColor(mvpAccentColor)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(L10n.MatchDetail.bestPlayer)
+                    .font(FMTypography.labelSmall)
+                    .foregroundColor(mvpAccentColor)
+                Text(name)
+                    .font(FMTypography.labelLarge)
+                    .foregroundColor(FMColors.onSurface)
+                    .bold()
+            }
+
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(mvpAccentBackground)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(mvpAccentColor.opacity(0.4), lineWidth: 1)
+        )
+    }
+
+    private func teamGoalsCard(name: String, total: Int, breakdown: MatchTeamGoalBreakdown) -> some View {
+        let sortedGoals = breakdown.playerGoals.sorted { $0.goals > $1.goals }
+
+        return VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Text(name)
+                    .font(FMTypography.labelLarge)
+                    .foregroundColor(FMColors.onBackground)
+                Spacer()
+                Text("\(total)")
+                    .font(FMTypography.labelLarge)
+                    .foregroundColor(FMColors.primary)
+                    .bold()
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+
+            VStack(spacing: 0) {
+                ForEach(Array(sortedGoals.enumerated()), id: \.element.id) { index, playerGoal in
+                    playerGoalRow(
+                        name: playerGoal.name,
+                        goals: playerGoal.goals,
+                        isTopScorer: index == 0 && playerGoal.goals > 0,
+                        rowIndex: index
+                    )
+                }
+
+                if breakdown.externalGoals > 0 {
+                    playerGoalRow(
+                        name: L10n.MatchDetail.externalGoals,
+                        goals: breakdown.externalGoals,
+                        isTopScorer: false,
+                        rowIndex: sortedGoals.count
+                    )
+                }
+            }
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(FMColors.surfaceContainerLowest)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(FMColors.outlineVariant, lineWidth: 1)
+        )
+    }
+
+    private func playerGoalRow(name: String, goals: Int, isTopScorer: Bool, rowIndex: Int) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: "soccerball")
+                .font(.system(size: 14))
+                .foregroundColor(isTopScorer ? mvpAccentColor : FMColors.onSurfaceVariant)
+
+            Text(name)
+                .font(FMTypography.bodySmall)
+                .foregroundColor(FMColors.onSurface)
+
+            Spacer()
+
+            Text("\(goals)")
+                .font(FMTypography.labelLarge)
+                .foregroundColor(FMColors.onSurface)
+                .bold()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(rowBackground(isTopScorer: isTopScorer, rowIndex: rowIndex))
+    }
+
+    private func rowBackground(isTopScorer: Bool, rowIndex: Int) -> Color {
+        if isTopScorer { return mvpAccentBackground }
+        return rowIndex % 2 == 0 ? .clear : FMColors.surfaceContainerHigh
+    }
+
     // MARK: - Player Slot
     
     private func playerSlot(player: MatchPlayer) -> some View {
@@ -876,8 +1141,8 @@ struct MatchDetailView: View {
         let isReserved = player.status == .reserved
         let otherReserved = !isCurrentUser && isReserved
         let currentUserReserved = isCurrentUser && isReserved
-        // Tappable only for other (non-reserved, identified) players → opens their public profile.
-        let canOpenProfile = !isCurrentUser && !isReserved && !player.playerId.isEmpty
+        // Tappable for any non-reserved, identified player, including the current user → opens their profile.
+        let canOpenProfile = !isReserved && !player.playerId.isEmpty
 
         return VStack(spacing: 4) {
             ZStack {
@@ -936,17 +1201,13 @@ struct MatchDetailView: View {
 
     private func playerAvatar(url: String?, image: Image?, size: CGFloat) -> some View {
         Group {
-            if let urlString = url, let avatarURL = URL(string: urlString) {
-                AsyncImage(url: avatarURL) { phase in
-                    switch phase {
-                    case .success(let loaded):
-                        loaded.resizable().scaledToFill()
-                            .frame(width: size, height: size)
-                            .clipShape(Circle())
-                    default:
-                        FMAvatar(image: nil, size: size)
-                    }
+            if let urlString = url {
+                FMRemoteImage(urlString: urlString) {
+                    FMAvatar(image: nil, size: size)
                 }
+                .scaledToFill()
+                .frame(width: size, height: size)
+                .clipShape(Circle())
             } else {
                 FMAvatar(image: image, size: size)
             }
@@ -1055,13 +1316,13 @@ struct MatchDetailView: View {
                 .foregroundColor(FMColors.onBackground)
             
             VStack(spacing: 0) {
-                if !match.shoeType.isEmpty {
-                    detailRow(label: L10n.MatchDetail.shoeType, value: match.shoeType)
+                if !viewModel.shoeTypeDisplay.isEmpty {
+                    detailRow(label: L10n.MatchDetail.shoeType, value: viewModel.shoeTypeDisplay)
                     Divider().padding(.horizontal, 16)
                 }
-                
-                if !match.fieldType.isEmpty {
-                    detailRow(label: L10n.MatchDetail.fieldType, value: match.fieldType)
+
+                if !viewModel.fieldTypeDisplay.isEmpty {
+                    detailRow(label: L10n.MatchDetail.fieldType, value: viewModel.fieldTypeDisplay)
                     Divider().padding(.horizontal, 16)
                 }
                 
@@ -1260,7 +1521,11 @@ struct MatchDetailView: View {
         guard !isClosedMatch else { return }
         let resolved: JoinTeam
         if team == .auto {
-            resolved = match.teamAPlayers.count <= match.teamBPlayers.count ? .teamA : .teamB
+            // Balance against the live roster — the REST arrays are frozen at
+            // screen entry and can point the user at the team that just filled up.
+            let a = viewModel.liveTeamAPlayers ?? match.teamAPlayers
+            let b = viewModel.liveTeamBPlayers ?? match.teamBPlayers
+            resolved = a.count <= b.count ? .teamA : .teamB
         } else {
             resolved = team
         }
@@ -1338,6 +1603,9 @@ struct MatchDetailView: View {
         pendingTeam = nil
         paymentSheet = nil
         viewModel.clearJoinData()
+        // The reservation is over — take down any payment-recovery dialog immediately
+        // instead of waiting for the backend to drop the user from Firestore.
+        viewModel.clearPendingPaymentIssue()
         withAnimation(.easeInOut(duration: 0.25)) {
             showJoinOverlay = false
             hasJoined = false
@@ -1350,15 +1618,22 @@ struct MatchDetailView: View {
     // MARK: - Payment
 
     private var payButtonLabel: some View {
-        Text(L10n.JoinAlert.pay)
-            .font(FMTypography.labelLarge)
-            .foregroundColor(FMColors.onPrimary)
-            .padding(.horizontal, 28)
-            .padding(.vertical, 12)
-            .background(
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(FMColors.primary)
-            )
+        ZStack {
+            if viewModel.isRecoveringPayment {
+                ProgressView().tint(FMColors.onPrimary)
+            } else {
+                Text(L10n.JoinAlert.pay)
+                    .font(FMTypography.labelLarge)
+                    .foregroundColor(FMColors.onPrimary)
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 10)
+        .frame(minWidth: 44, minHeight: 36)
+        .background(
+            Capsule()
+                .fill(FMColors.primary)
+        )
     }
 
     private func requestLeave() {
@@ -1391,31 +1666,6 @@ struct MatchDetailView: View {
             paymentIntentClientSecret: clientSecret,
             configuration: config
         )
-    }
-
-    // MARK: - Field Image
-
-    private func loadFieldImage() async {
-        guard
-            let urlString = match.fieldImageUrl,
-            let url = URL(string: urlString)
-        else { return }
-
-        // Return immediately if already in the shared cache
-        if let cached = FMImageCache.shared.image(for: urlString) {
-            fieldImage = cached
-            return
-        }
-
-        do {
-            let (data, response) = try await URLSession.shared.data(from: url)
-            if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) { return }
-            guard let downloaded = UIImage(data: data) else { return }
-            FMImageCache.shared.store(downloaded, for: urlString)
-            fieldImage = downloaded
-        } catch {
-            // Silently fail — default image stays visible
-        }
     }
 
     private func handlePaymentResult(_ result: PaymentSheetResult) {

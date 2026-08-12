@@ -1,5 +1,6 @@
 import Foundation
 import SharedModels
+import AdminFeature
 
 // MARK: - PlayerDependencyFactory
 
@@ -8,6 +9,10 @@ public struct PlayerDependencyFactory {
     private static let sharedDemoMatchService  = MatchService(isDemoMode: true)
     private static let sharedMatchVersionStore = UserDefaultsMatchVersionStore()
     private static let sharedNotificationFetchTimestampStore = UserDefaultsNotificationFetchTimestampStore()
+    /// Shared across all ViewModels so every tab reuses the same resolved fix
+    /// instead of each one racing its own CLLocationManager (see
+    /// `CurrentLocationService`'s in-flight/caching logic).
+    private static let sharedCurrentLocationService = CurrentLocationService()
 
     private let isDemoMode: Bool
     private let countryRepository: CountryRepositoryProtocol
@@ -34,6 +39,16 @@ public struct PlayerDependencyFactory {
 
     public func makeUpdateFCMTokenUseCase() -> UpdateFCMTokenUseCaseProtocol {
         UpdateFCMTokenUseCase(deviceService: makeDeviceService())
+    }
+
+    // MARK: - Field Attribute Catalog
+    //
+    // Reuses AdminFeature's catalog use case directly — same Remote Config
+    // keys, same repository — so the terrain/footwear names shown here
+    // always match what an admin picked when creating the field.
+
+    func makeFetchFieldAttributeCatalogsUseCase() -> FetchFieldAttributeCatalogsUseCaseProtocol {
+        AdminDependencyFactory().makeFetchFieldAttributeCatalogsUseCase()
     }
 
     // MARK: - Match Services
@@ -84,6 +99,20 @@ public struct PlayerDependencyFactory {
         FetchMyMatchesUseCase(matchService: makeMatchService())
     }
 
+    // MARK: - Location
+
+    func makeCurrentLocationService() -> CurrentLocationProviding {
+        Self.sharedCurrentLocationService
+    }
+
+    func makeDeviceLocationRepository() -> DeviceLocationRepositoryProtocol {
+        DeviceLocationRepository(locationService: makeCurrentLocationService())
+    }
+
+    func makeFetchCurrentLocationUseCase() -> FetchCurrentLocationUseCaseProtocol {
+        FetchCurrentLocationUseCase(repository: makeDeviceLocationRepository())
+    }
+
     // MARK: - Payment Services
 
     func makePaymentService() -> PaymentServiceProtocol {
@@ -92,6 +121,17 @@ public struct PlayerDependencyFactory {
 
     func makePollPaymentStatusUseCase() -> PollPaymentStatusUseCaseProtocol {
         PollPaymentStatusUseCase(paymentService: makePaymentService())
+    }
+
+    func makePendingPaymentStore() -> PendingPaymentStoreProtocol {
+        KeychainPendingPaymentStore()
+    }
+
+    func makeFetchPendingMatchPaymentUseCase() -> FetchPendingMatchPaymentUseCaseProtocol {
+        FetchPendingMatchPaymentUseCase(
+            paymentService: makePaymentService(),
+            isDemoMode: isDemoMode
+        )
     }
 
     @MainActor
@@ -110,9 +150,27 @@ public struct PlayerDependencyFactory {
         ProfileService()
     }
 
+    // MARK: - Account
+
+    func makeAccountService() -> AccountServiceProtocol {
+        AccountService()
+    }
+
+    func makeAccountRepository() -> AccountRepositoryProtocol {
+        AccountRepository(service: makeAccountService())
+    }
+
+    func makeDeleteAccountUseCase() -> DeleteAccountUseCaseProtocol {
+        DeleteAccountUseCase(repository: makeAccountRepository())
+    }
+
     @MainActor
     func makePlayerProfileViewModel(userId: String) -> PlayerProfileViewModel {
-        PlayerProfileViewModel(userId: userId, profileService: makeProfileService())
+        PlayerProfileViewModel(
+            userId: userId,
+            profileService: makeProfileService(),
+            fetchMatchDetailUseCase: makeFetchMatchDetailUseCase()
+        )
     }
 
     // MARK: - Notifications

@@ -60,29 +60,32 @@ public enum MatchPlayerLevel: String, Codable, CaseIterable, Identifiable, Hasha
 
 /// Lifecycle state of a match as returned by the admin API.
 public enum AdminMatchStatus: String, Equatable {
-    case scheduled  = "SCHEDULED"
-    case inProgress = "IN_PROGRESS"
-    case completed  = "COMPLETED"
-    case canceled   = "CANCELED"
+    case scheduled     = "SCHEDULED"
+    case inProgress    = "IN_PROGRESS"
+    case pendingResult = "PENDING_RESULT"
+    case completed     = "COMPLETED"
+    case canceled      = "CANCELED"
 
     /// The backend emits both spellings for cancellation ("CANCELED"/"CANCELLED"),
     /// so raw-value decoding alone would misfile those matches under `.scheduled`.
     public init(backend value: String) {
         switch value.uppercased() {
-        case "IN_PROGRESS": self = .inProgress
-        case "COMPLETED":   self = .completed
+        case "IN_PROGRESS":    self = .inProgress
+        case "PENDING_RESULT": self = .pendingResult
+        case "COMPLETED":      self = .completed
         case "CANCELED",
-             "CANCELLED":   self = .canceled
-        default:            self = .scheduled
+             "CANCELLED":      self = .canceled
+        default:               self = .scheduled
         }
     }
 
     public var displayName: String {
         switch self {
-        case .scheduled:  return L10n.AdminMatchStatus.scheduled
-        case .inProgress: return L10n.AdminMatchStatus.inProgress
-        case .completed:  return L10n.AdminMatchStatus.completed
-        case .canceled:   return L10n.AdminMatchStatus.canceled
+        case .scheduled:     return L10n.AdminMatchStatus.scheduled
+        case .inProgress:    return L10n.AdminMatchStatus.inProgress
+        case .pendingResult: return L10n.AdminMatchStatus.pendingResult
+        case .completed:     return L10n.AdminMatchStatus.completed
+        case .canceled:      return L10n.AdminMatchStatus.canceled
         }
     }
 }

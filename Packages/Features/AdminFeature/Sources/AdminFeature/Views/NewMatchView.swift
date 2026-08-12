@@ -145,12 +145,17 @@ struct NewMatchView: View {
             FMDateField(
                 label: L10n.NewMatch.dateLabel,
                 date: $viewModel.date,
-                displayFormat: "dd/MMMM/yyyy"
+                displayFormat: "dd/MMMM/yyyy",
+                errorMessage: viewModel.dateError
             )
 
             HStack(spacing: 12) {
-                timeField(label: L10n.NewMatch.startTimeLabel, selection: $viewModel.startTime)
-                timeField(label: L10n.NewMatch.endTimeLabel, selection: $viewModel.endTime)
+                timeFieldButton(label: L10n.NewMatch.startTimeLabel, dropdownId: "startTime")
+                timeFieldButton(label: L10n.NewMatch.endTimeLabel, dropdownId: "endTime")
+            }
+
+            if let dropdownId = activeDropdownId, dropdownId == "startTime" || dropdownId == "endTime" {
+                timePickerPanel(dropdownId: dropdownId)
             }
         }
         .padding(16)
@@ -283,27 +288,104 @@ struct NewMatchView: View {
         }
     }
 
-    private func timeField(label: String, selection: Binding<Date>) -> some View {
-        ZStack(alignment: .leading) {
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(FMColors.secondary, lineWidth: 1)
-                .frame(height: 56)
+    private func timeBinding(for dropdownId: String) -> Binding<Date?> {
+        dropdownId == "startTime" ? $viewModel.startTime : $viewModel.endTime
+    }
 
-            Text(label)
-                .font(FMTypography.label)
-                .foregroundColor(FMColors.secondary)
-                .background(FMColors.background)
-                .padding(.horizontal, 4)
-                .offset(x: 12, y: -28)
+    private func defaultTimeSeed(for dropdownId: String) -> Date {
+        let hour = dropdownId == "startTime" ? 20 : 22
+        return Calendar.current.date(bySettingHour: hour, minute: 0, second: 0, of: Date()) ?? Date()
+    }
 
-            DatePicker("", selection: selection, displayedComponents: .hourAndMinute)
-                .labelsHidden()
-                .datePickerStyle(.compact)
-                .accentColor(FMColors.primary)
+    private func formattedTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
+    }
+
+    private func timeFieldButton(label: String, dropdownId: String) -> some View {
+        let selection = timeBinding(for: dropdownId)
+        let isExpanded = activeDropdownId == dropdownId
+
+        return Button {
+            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+            withAnimation(.easeInOut(duration: 0.2)) {
+                activeDropdownId = isExpanded ? nil : dropdownId
+            }
+        } label: {
+            ZStack(alignment: .leading) {
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(isExpanded ? FMColors.primary : FMColors.secondary, lineWidth: isExpanded ? 2 : 1)
+                    .frame(height: 56)
+
+                Text(label)
+                    .font(FMTypography.label)
+                    .foregroundColor(isExpanded ? FMColors.primary : FMColors.secondary)
+                    .background(FMColors.background)
+                    .padding(.horizontal, 4)
+                    .offset(x: 12, y: -28)
+
+                HStack {
+                    if let time = selection.wrappedValue {
+                        Text(formattedTime(time))
+                            .font(FMTypography.inputText)
+                            .foregroundColor(FMColors.primary)
+                    } else {
+                        Text(L10n.NewMatch.timePlaceholder)
+                            .font(FMTypography.inputText)
+                            .foregroundColor(FMColors.onSurfaceVariant)
+                    }
+
+                    Spacer()
+
+                    Image(systemName: "clock")
+                        .foregroundColor(FMColors.primary)
+                }
                 .padding(.horizontal, 16)
                 .frame(height: 56)
+            }
         }
+        .buttonStyle(.plain)
         .frame(maxWidth: .infinity)
+    }
+
+    private func timePickerPanel(dropdownId: String) -> some View {
+        let selection = timeBinding(for: dropdownId)
+        let pickerBinding = Binding<Date>(
+            get: { selection.wrappedValue ?? defaultTimeSeed(for: dropdownId) },
+            set: { selection.wrappedValue = $0 }
+        )
+
+        return VStack(spacing: 8) {
+            DatePicker("", selection: pickerBinding, displayedComponents: .hourAndMinute)
+                .datePickerStyle(.wheel)
+                .labelsHidden()
+
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    if selection.wrappedValue == nil {
+                        selection.wrappedValue = defaultTimeSeed(for: dropdownId)
+                    }
+                    activeDropdownId = nil
+                }
+            } label: {
+                Text(L10n.NewMatch.timeDone)
+                    .font(FMTypography.button)
+                    .foregroundColor(FMColors.primary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+            }
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(FMColors.background)
+                .shadow(color: .black.opacity(0.15), radius: 12, x: 0, y: 4)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(FMColors.onSurface, lineWidth: 1)
+        )
     }
 }
 

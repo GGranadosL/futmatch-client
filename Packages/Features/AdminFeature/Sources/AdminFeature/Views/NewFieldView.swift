@@ -80,6 +80,7 @@ struct NewFieldView: View {
             }
         }
         .fmToast("¡Cancha guardada exitosamente!", isPresented: $showSuccessToast, style: .success)
+        .task { await viewModel.loadCatalogs() }
     }
 
     // MARK: - General Section
@@ -205,20 +206,26 @@ struct NewFieldView: View {
 
     private var fieldTypeSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            sectionTitle("Tipo de cancha:")
+            sectionTitle(L10n.NewField.fieldTypeTitle)
             FMChipGroupOptional(
-                options: FieldType.allCases,
-                selected: $viewModel.fieldType
+                options: viewModel.catalogs.fieldTypes.map(\.code),
+                selected: $viewModel.fieldType,
+                displayText: { code in
+                    viewModel.catalogs.fieldTypes.first(where: { $0.code == code })?.displayName ?? code
+                }
             )
         }
     }
 
     private var footwearSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            sectionTitle("Tipo de calzado:")
+            sectionTitle(L10n.NewField.footwearTypeTitle)
             FMChipGroupOptional(
-                options: FootwearType.allCases,
-                selected: $viewModel.footwearType
+                options: viewModel.catalogs.footwearTypes.map(\.code),
+                selected: $viewModel.footwearType,
+                displayText: { code in
+                    viewModel.catalogs.footwearTypes.first(where: { $0.code == code })?.displayName ?? code
+                }
             )
         }
     }

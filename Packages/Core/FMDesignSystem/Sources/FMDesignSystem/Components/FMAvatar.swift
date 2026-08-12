@@ -36,23 +36,12 @@ public struct FMAvatar: View {
                     .frame(width: size, height: size)
                     .clipShape(Circle())
             } else if let url = url {
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .success(let loaded):
-                        loaded
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: size, height: size)
-                            .clipShape(Circle())
-                    case .failure:
-                        defaultAvatarView
-                    default:
-                        Circle()
-                            .fill(FMColors.primaryContainer)
-                            .frame(width: size, height: size)
-                            .overlay(ProgressView().tint(FMColors.onPrimaryContainer))
-                    }
+                FMRemoteImage(urlString: url.absoluteString) {
+                    defaultAvatarView
                 }
+                .scaledToFill()
+                .frame(width: size, height: size)
+                .clipShape(Circle())
             } else {
                 defaultAvatarView
             }

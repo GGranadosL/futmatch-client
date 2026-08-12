@@ -243,17 +243,13 @@ struct MatchSupervisionView: View {
 
     private func playerAvatar(player: AdminMatchPlayer) -> some View {
         Group {
-            if let url = player.avatarUrl, let avatarURL = URL(string: url) {
-                AsyncImage(url: avatarURL) { phase in
-                    switch phase {
-                    case .success(let img):
-                        img.resizable().scaledToFill()
-                            .frame(width: 44, height: 44)
-                            .clipShape(Circle())
-                    default:
-                        defaultAvatar(isExternal: player.isExternal)
-                    }
+            if let url = player.avatarUrl {
+                FMRemoteImage(urlString: url) {
+                    defaultAvatar(isExternal: player.isExternal)
                 }
+                .scaledToFill()
+                .frame(width: 44, height: 44)
+                .clipShape(Circle())
             } else {
                 defaultAvatar(isExternal: player.isExternal)
             }

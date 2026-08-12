@@ -1,6 +1,8 @@
 import CoreData
 import Foundation
 import SharedModels
+import NetworkFramework
+import FMDesignSystem
 
 // MARK: - AdminDependencyFactory
 
@@ -10,6 +12,21 @@ import SharedModels
 public struct AdminDependencyFactory {
 
     public init() {}
+
+    /// Registers `FMImageLoader`'s fallback for bare Cloudinary image keys
+    /// (field photos), which need to go through the authenticated
+    /// `GET /fields/image/{key}` redirect rather than a plain URL fetch.
+    /// Call once at app launch — same shape as `FieldImageLoader.load`, which
+    /// this replaces now that all field-image call sites share one loader.
+    public static func registerImageDataFetcher() {
+        Task {
+            await FMImageLoader.shared.setDataFetcher { imagePath in
+                try? await APIClient.shared.downloadData(
+                    endpoint: FieldEndpoint.getImage(imageName: imagePath)
+                )
+            }
+        }
+    }
 
     // MARK: - Repositories
 
@@ -47,9 +64,23 @@ public struct AdminDependencyFactory {
         CreateFieldUseCase(repository: makeFieldRepository())
     }
 
+    func makeFieldAttributeCatalogRepository() -> FieldAttributeCatalogRepositoryProtocol {
+        FieldAttributeCatalogRemoteConfigRepository()
+    }
+
+    /// Public — PlayerFeature reuses this to resolve the same field/footwear
+    /// catalog when displaying match details, so both features always agree
+    /// on the same Remote Config-backed values.
+    public func makeFetchFieldAttributeCatalogsUseCase() -> FetchFieldAttributeCatalogsUseCaseProtocol {
+        FetchFieldAttributeCatalogsUseCase(repository: makeFieldAttributeCatalogRepository())
+    }
+
     @MainActor
     func makeNewFieldViewModel() -> NewFieldViewModel {
-        NewFieldViewModel(createFieldUseCase: makeCreateFieldUseCase())
+        NewFieldViewModel(
+            createFieldUseCase: makeCreateFieldUseCase(),
+            fetchCatalogsUseCase: makeFetchFieldAttributeCatalogsUseCase()
+        )
     }
 
     func makeUpdateFieldUseCase() -> UpdateFieldUseCaseProtocol {
@@ -60,7 +91,8 @@ public struct AdminDependencyFactory {
     func makeEditFieldViewModel(field: AdminFieldItem) -> EditFieldViewModel {
         EditFieldViewModel(
             field: field,
-            updateFieldUseCase: makeUpdateFieldUseCase()
+            updateFieldUseCase: makeUpdateFieldUseCase(),
+            fetchCatalogsUseCase: makeFetchFieldAttributeCatalogsUseCase()
         )
     }
 
@@ -176,8 +208,20 @@ public struct AdminDependencyFactory {
         AdminMatchRepository(service: makeMatchAdminService())
     }
 
-    func makeFetchAdminMatchesUseCase() -> FetchAdminMatchesUseCaseProtocol {
+    func makeFetchAdminMatchesUseCase() -> FetchMatchesListUseCaseProtocol {
         FetchAdminMatchesUseCase(repository: makeAdminMatchRepository())
+    }
+
+    func makeMatchOrganizerService() -> MatchOrganizerServiceProtocol {
+        MatchOrganizerService()
+    }
+
+    func makeOrganizerMatchRepository() -> OrganizerMatchRepositoryProtocol {
+        OrganizerMatchRepository(service: makeMatchOrganizerService())
+    }
+
+    func makeFetchOrganizerMatchesUseCase() -> FetchMatchesListUseCaseProtocol {
+        FetchOrganizerMatchesUseCase(repository: makeOrganizerMatchRepository())
     }
 
     func makeCreateMatchUseCase() -> CreateMatchUseCaseProtocol {
@@ -187,6 +231,11 @@ public struct AdminDependencyFactory {
     @MainActor
     func makeAdminMatchesViewModel() -> AdminMatchesViewModel {
         AdminMatchesViewModel(fetchUseCase: makeFetchAdminMatchesUseCase())
+    }
+
+    @MainActor
+    func makeOrganizerMatchesViewModel() -> AdminMatchesViewModel {
+        AdminMatchesViewModel(fetchUseCase: makeFetchOrganizerMatchesUseCase())
     }
 
     @MainActor
@@ -285,6 +334,32 @@ public struct AdminDependencyFactory {
             match: match,
             updateUseCase: makeUpdateAdminMatchUseCase(),
             fetchFieldIdNamesUseCase: makeFetchFieldIdNamesUseCase()
+        )
+    }
+
+    // MARK: - Desktop Enrollment
+
+    func makeDesktopDeviceService() -> DesktopDeviceServiceProtocol {
+        DesktopDeviceService()
+    }
+
+    func makeDesktopEnrollmentRepository() -> DesktopEnrollmentRepositoryProtocol {
+        DesktopEnrollmentRepository(service: makeDesktopDeviceService())
+    }
+
+    func makeFetchDesktopEnrollmentDetailsUseCase() -> FetchDesktopEnrollmentDetailsUseCaseProtocol {
+        FetchDesktopEnrollmentDetailsUseCase(repository: makeDesktopEnrollmentRepository())
+    }
+
+    func makeApproveDesktopEnrollmentUseCase() -> ApproveDesktopEnrollmentUseCaseProtocol {
+        ApproveDesktopEnrollmentUseCase(repository: makeDesktopEnrollmentRepository())
+    }
+
+    @MainActor
+    func makeDesktopEnrollmentViewModel() -> DesktopEnrollmentViewModel {
+        DesktopEnrollmentViewModel(
+            fetchDetailsUseCase: makeFetchDesktopEnrollmentDetailsUseCase(),
+            approveUseCase: makeApproveDesktopEnrollmentUseCase()
         )
     }
 

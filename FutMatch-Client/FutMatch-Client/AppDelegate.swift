@@ -28,8 +28,6 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         // App Check must be installed BEFORE FirebaseApp.configure() so the very
         // first Firebase request carries an attestation token. Uses App Attest on
         // capable devices, DeviceCheck as fallback, and a debug provider in DEBUG.
-        // Gated by Config.isAppCheckEnabled (off in DEBUG until a debug token is
-        // registered) so a failing token exchange can't stall Firebase at launch.
         if Config.isAppCheckEnabled {
             #if DEBUG
             // Pin a fixed debug token so it only needs to be registered in Firebase console once.
@@ -39,6 +37,13 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
             AppCheck.setAppCheckProviderFactory(FutMatchAppCheckProviderFactory())
         }
         FirebaseApp.configure()
+        if Config.isAppCheckEnabled {
+            // Keep a valid token cached in the background so per-request reads hit
+            // the cache instead of paying a token exchange (see AppCheckInterceptor).
+            // Must come AFTER configure(): AppCheck.appCheck() builds the default
+            // App Check instance, which throws if the default FirebaseApp is missing.
+            AppCheck.appCheck().isTokenAutoRefreshEnabled = true
+        }
         Task { await adminRemoteConfig.fetchAndActivate() }
         Task { await legalLinksRemoteConfig.fetchAndActivate() }
         #if DEBUG
@@ -74,6 +79,9 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         _ application: UIApplication,
         didReceiveRemoteNotification userInfo: [AnyHashable: Any]
     ) async -> UIBackgroundFetchResult {
+        let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "FutMatch", category: "Push")
+        logger.debug("Remote push received: \(userInfo, privacy: .public)")
+
         let isMatchesPush = MatchPushRouter.handleRemoteNotification(userInfo)
         if !isMatchesPush {
             InAppNotificationPushRouter.handleRemoteNotification(userInfo)

@@ -212,14 +212,24 @@ struct HomeContentView: View {
 
     // MARK: - Next Game Section
 
+    private func nextGameDateLabel(for match: MatchItem) -> String {
+        let calendar = Calendar.current
+        if calendar.isDateInToday(match.startDate) {
+            return L10n.NextGame.today
+        } else if calendar.isDateInTomorrow(match.startDate) {
+            return L10n.NextGame.tomorrow
+        }
+        return match.date
+    }
+
     private var nextGameSection: some View {
         Group {
             if let match = nextMatch {
                 FMNextGameCard(
                     title: L10n.NextGame.title,
-                    dateLabel: match.date,
-                    time: match.timeRange,
-                    location: match.location,
+                    dateLabel: nextGameDateLabel(for: match),
+                    time: MatchFormatters.timeLabel(match.startDate),
+                    location: match.pinRowText(userCoordinate: reservedViewModel.userCoordinate),
                     detailLabel: L10n.NextGame.viewDetail,
                     fieldImageUrl: match.fieldImageUrl,
                     onDetailTap: {

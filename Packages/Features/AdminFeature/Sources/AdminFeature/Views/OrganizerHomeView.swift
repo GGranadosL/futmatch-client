@@ -4,15 +4,16 @@ import SharedModels
 
 // MARK: - OrganizerHomeView
 
-/// Home screen for users with the `ORGANIZER` role. Shows only match management —
-/// no fields or locations. Mirrors AdminMatchesListView logic without modification.
+/// Home screen for users with the `ORGANIZER` role. Read-only match supervision:
+/// the list comes from `/match/organizer/matches` (only the matches this organizer
+/// supervises), and there is no create-match entry point — creating matches is
+/// admin-only. No fields or locations either.
 public struct OrganizerHomeView: View {
     @EnvironmentObject private var userSession: UserSession
     @Environment(\.dismiss) private var dismiss
 
     @StateObject private var viewModel: AdminMatchesViewModel
     @State private var selectedTab: AdminMatchListTab = .upcoming
-    @State private var showNewMatch = false
     @State private var selectedMatch: AdminMatch? = nil
 
     private let factory: AdminDependencyFactory
@@ -20,7 +21,7 @@ public struct OrganizerHomeView: View {
     public init() {
         let factory = AdminDependencyFactory()
         self.factory = factory
-        _viewModel = StateObject(wrappedValue: factory.makeAdminMatchesViewModel())
+        _viewModel = StateObject(wrappedValue: factory.makeOrganizerMatchesViewModel())
     }
 
     // MARK: - Body
@@ -36,16 +37,6 @@ public struct OrganizerHomeView: View {
         .navigationBarHidden(true)
         .modifier(OrganizerHideTabBarModifier())
         .task { await viewModel.load() }
-        .navigationDestination(isPresented: $showNewMatch) {
-            NewMatchView(
-                viewModel: factory.makeNewMatchViewModel(),
-                subtitle: L10n.OrganizerHome.roleBadge,
-                onCreated: {
-                    showNewMatch = false
-                    Task { await viewModel.load() }
-                }
-            )
-        }
         .navigationDestination(isPresented: Binding(
             get: { selectedMatch != nil },
             set: { if !$0 { selectedMatch = nil } }
@@ -68,19 +59,10 @@ public struct OrganizerHomeView: View {
                 FMBrandLogo()
                 Spacer()
                 if #available(iOS 26.0, *) {
-                    GlassEffectContainer(spacing: 8) {
-                        HStack(spacing: 8) {
-                            addMatchButton
-                                .glassEffect(.regular.interactive(), in: .capsule)
-                            playerButton
-                                .glassEffect(.regular.interactive(), in: .circle)
-                        }
-                    }
+                    playerButton
+                        .glassEffect(.regular.interactive(), in: .circle)
                 } else {
-                    HStack(spacing: 8) {
-                        addMatchButton
-                        playerButton
-                    }
+                    playerButton
                 }
             }
 
@@ -123,16 +105,6 @@ public struct OrganizerHomeView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 24)
         .padding(.top, 8)
-    }
-
-    private var addMatchButton: some View {
-        Button { showNewMatch = true } label: {
-            Image(systemName: "plus")
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundColor(FMColors.primary)
-                .frame(width: 44, height: 44)
-                .contentShape(Rectangle())
-        }
     }
 
     // MARK: - Main Content

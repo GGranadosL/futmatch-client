@@ -3,7 +3,7 @@ import XCTest
 
 final class SubscribeMatchPlayersUseCaseTests: XCTestCase {
 
-    func test_execute_forwardsMatchId_andStreamsRepositorySnapshots() async {
+    func test_execute_forwardsMatchId_andStreamsRepositorySnapshots() async throws {
         let listener = MockMatchPlayersListener()
         listener.snapshotsToEmit = [.stub(), .stub()]
         let sut = SubscribeMatchPlayersUseCase(repository: listener)
@@ -11,7 +11,7 @@ final class SubscribeMatchPlayersUseCaseTests: XCTestCase {
         let stream = sut.execute(matchId: "m-1")
 
         var received = 0
-        for await _ in stream { received += 1 }
+        for try await _ in stream { received += 1 }
 
         XCTAssertEqual(listener.lastMatchId, "m-1")
         XCTAssertEqual(received, 2)

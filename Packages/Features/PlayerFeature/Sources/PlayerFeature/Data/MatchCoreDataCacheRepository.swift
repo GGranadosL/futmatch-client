@@ -46,7 +46,11 @@ final class MatchCoreDataCacheRepository: MatchCacheRepositoryProtocol {
                 entity.teamAPlayersJSON = self.encodePlayers(item.teamAPlayers)
                 entity.teamBPlayersJSON = self.encodePlayers(item.teamBPlayers)
                 entity.rulesJSON = self.encodeRules(item.rules)
-                entity.matchStatus = item.matchStatus
+                entity.matchStatus = item.matchStatus.rawValue
+                // 0/0 stands in for "no coordinate" — `MatchItem.coordinate`
+                // already rejects that pair, so it round-trips back to nil.
+                entity.latitude = item.latitude ?? 0
+                entity.longitude = item.longitude ?? 0
                 entity.cachedAt = Date()
             }
 
@@ -101,7 +105,9 @@ final class MatchCoreDataCacheRepository: MatchCacheRepositoryProtocol {
             hasParking: entity.hasParking,
             extraInfo: entity.extraInfo,
             rules: decodeRules(entity.rulesJSON),
-            matchStatus: entity.matchStatus
+            matchStatus: MatchStatus(backend: entity.matchStatus),
+            latitude: entity.latitude,
+            longitude: entity.longitude
         )
     }
 

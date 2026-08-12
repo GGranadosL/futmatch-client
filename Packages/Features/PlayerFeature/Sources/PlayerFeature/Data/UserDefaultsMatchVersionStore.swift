@@ -12,10 +12,25 @@ final class UserDefaultsMatchVersionStore: MatchVersionStoreProtocol {
     /// Public so the app target can clear it on logout without re-deriving it.
     public static let storageKey = "match.regionVersions"
 
+    /// Bump whenever the CoreData match cache gains a field that previously
+    /// cached rows can't supply (e.g. venue coordinates for the distance
+    /// label). Because the feed is versioned, a client holding the latest
+    /// `sinceVersion` gets `hasChanges: false` and would keep serving the
+    /// incomplete rows forever — so a schema bump drops the stored versions,
+    /// forcing one full refetch that refills the cache with the new fields.
+    /// Schema 2 → 3: changed matchStatus from String to MatchStatus enum.
+    private static let cacheSchemaVersion = 3
+    private static let schemaVersionKey = "match.cacheSchemaVersion"
+
     private let defaults: UserDefaults
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        // `integer(forKey:)` is 0 when absent, so pre-schema installs migrate too.
+        if defaults.integer(forKey: Self.schemaVersionKey) < Self.cacheSchemaVersion {
+            defaults.removeObject(forKey: Self.storageKey)
+            defaults.set(Self.cacheSchemaVersion, forKey: Self.schemaVersionKey)
+        }
     }
 
     func version(for region: String) -> Int64? {

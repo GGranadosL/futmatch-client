@@ -14,7 +14,7 @@
 		<string>remote-notification</string>
 	</array>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Usamos tu ubicación para centrar el mapa al crear canchas y ubicaciones cerca de ti.</string>
+	<string>Usamos tu ubicación para mostrarte qué tan lejos están los partidos y para centrar el mapa al crear canchas y ubicaciones cerca de ti.</string>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>comgooglemaps</string>

@@ -26,7 +26,9 @@
         <attribute name="fieldType" attributeType="String" defaultValueString=""/>
         <attribute name="hasParking" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
         <attribute name="id" attributeType="String" defaultValueString=""/>
+        <attribute name="latitude" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
         <attribute name="location" attributeType="String" defaultValueString=""/>
+        <attribute name="longitude" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
         <attribute name="matchStatus" attributeType="String" defaultValueString=""/>
         <attribute name="matchType" attributeType="String" defaultValueString=""/>
         <attribute name="price" attributeType="String" defaultValueString=""/>
@@ -51,7 +53,9 @@
         <attribute name="fieldType" attributeType="String" defaultValueString=""/>
         <attribute name="hasParking" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
         <attribute name="id" attributeType="String" defaultValueString=""/>
+        <attribute name="latitude" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
         <attribute name="location" attributeType="String" defaultValueString=""/>
+        <attribute name="longitude" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
         <attribute name="matchStatus" attributeType="String" defaultValueString=""/>
         <attribute name="matchType" attributeType="String" defaultValueString=""/>
         <attribute name="price" attributeType="String" defaultValueString=""/>

@@ -1,14 +1,6 @@
 import Foundation
 
-// MARK: - Protocol
-
-public protocol FetchAdminMatchesUseCaseProtocol {
-    func execute() async throws -> [AdminMatch]
-}
-
-// MARK: - Implementation
-
-struct FetchAdminMatchesUseCase: FetchAdminMatchesUseCaseProtocol {
+struct FetchAdminMatchesUseCase: FetchMatchesListUseCaseProtocol {
     private let repository: AdminMatchRepositoryProtocol
 
     init(repository: AdminMatchRepositoryProtocol) {

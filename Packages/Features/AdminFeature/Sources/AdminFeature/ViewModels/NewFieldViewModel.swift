@@ -13,8 +13,9 @@ public final class NewFieldViewModel: ObservableObject {
     @Published public var description: String = ""
     @Published public var rules: [FieldRuleDraft] = [FieldRuleDraft()]
     @Published public var extraInfo: String = ""
-    @Published public var fieldType: FieldType?
-    @Published public var footwearType: FootwearType?
+    @Published public var fieldType: String?
+    @Published public var footwearType: String?
+    @Published public private(set) var catalogs: FieldAttributeCatalogs = .fallback
 
     // MARK: - Submit State
 
@@ -23,12 +24,23 @@ public final class NewFieldViewModel: ObservableObject {
     @Published public private(set) var createdField: Field?
 
     private let createFieldUseCase: CreateFieldUseCaseProtocol
+    private let fetchCatalogsUseCase: FetchFieldAttributeCatalogsUseCaseProtocol
 
     /// Backend `name` limit.
     public static let nameMaxLength = 30
 
-    public init(createFieldUseCase: CreateFieldUseCaseProtocol) {
+    public init(
+        createFieldUseCase: CreateFieldUseCaseProtocol,
+        fetchCatalogsUseCase: FetchFieldAttributeCatalogsUseCaseProtocol
+    ) {
         self.createFieldUseCase = createFieldUseCase
+        self.fetchCatalogsUseCase = fetchCatalogsUseCase
+    }
+
+    // MARK: - Catalog
+
+    public func loadCatalogs() async {
+        catalogs = await fetchCatalogsUseCase.execute()
     }
 
     // MARK: - Validation

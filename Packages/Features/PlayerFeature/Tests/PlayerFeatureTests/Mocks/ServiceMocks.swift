@@ -1,5 +1,6 @@
 import Foundation
 import PersistenceFramework
+import AdminFeature
 @testable import PlayerFeature
 
 // MARK: - MockMatchService
@@ -161,6 +162,58 @@ final class MockPaymentService: PaymentServiceProtocol {
         lastStatusMatchId = matchId
         return try fetchPaymentStatusResult.get()
     }
+
+    var fetchPendingMatchPaymentResult: Result<JoinMatchData?, Error> = .success(.stub())
+    private(set) var fetchPendingMatchPaymentCallCount = 0
+    private(set) var lastPendingMatchId: String?
+    func fetchPendingMatchPayment(matchId: String) async throws -> JoinMatchData? {
+        fetchPendingMatchPaymentCallCount += 1
+        lastPendingMatchId = matchId
+        return try fetchPendingMatchPaymentResult.get()
+    }
+}
+
+// MARK: - MockPendingPaymentStore
+
+final class MockPendingPaymentStore: PendingPaymentStoreProtocol {
+    var stubbedData: JoinMatchData?
+    private(set) var loadCallCount = 0
+    private(set) var savedData: JoinMatchData?
+    private(set) var clearCallCount = 0
+
+    func load(matchId: String) -> JoinMatchData? {
+        loadCallCount += 1
+        return stubbedData
+    }
+
+    func save(_ data: JoinMatchData, matchId: String) {
+        savedData = data
+        stubbedData = data
+    }
+
+    func clear(matchId: String) {
+        clearCallCount += 1
+        stubbedData = nil
+    }
+}
+
+// MARK: - MockFetchFieldAttributeCatalogsUseCase
+
+final class MockFetchFieldAttributeCatalogsUseCase: FetchFieldAttributeCatalogsUseCaseProtocol {
+    var result: FieldAttributeCatalogs = .fallback
+    func execute() async -> FieldAttributeCatalogs { result }
+}
+
+// MARK: - MockFetchPendingMatchPaymentUseCase
+
+final class MockFetchPendingMatchPaymentUseCase: FetchPendingMatchPaymentUseCaseProtocol {
+    var result: PendingPaymentRecovery = .unavailable
+    private(set) var executeCallCount = 0
+
+    func execute(matchId: String) async -> PendingPaymentRecovery {
+        executeCallCount += 1
+        return result
+    }
 }
 
 // MARK: - MockDeviceService
@@ -198,7 +251,11 @@ final class MockJoinMatchUseCase: JoinMatchUseCaseProtocol {
 
 final class MockPollPaymentStatusUseCase: PollPaymentStatusUseCaseProtocol {
     var result: PaymentPollResult = .timeout
-    func execute(matchId: String) async -> PaymentPollResult { result }
+    private(set) var callCount = 0
+    func execute(matchId: String, intervalSeconds: Double, maxAttempts: Int) async -> PaymentPollResult {
+        callCount += 1
+        return result
+    }
 }
 
 // MARK: - MockSubscribeMatchPlayersUseCase

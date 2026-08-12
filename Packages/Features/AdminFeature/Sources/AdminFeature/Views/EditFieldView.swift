@@ -67,6 +67,7 @@ struct EditFieldView: View {
             }
         }
         .fmToast("¡Cancha actualizada!", isPresented: $showSuccessToast, style: .success)
+        .task { await viewModel.loadCatalogs() }
     }
 
     // MARK: - General Section
@@ -155,15 +156,27 @@ struct EditFieldView: View {
 
     private var fieldTypeSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            sectionTitle("Tipo de cancha:")
-            FMChipGroupOptional(options: FieldType.allCases, selected: $viewModel.fieldType)
+            sectionTitle(L10n.NewField.fieldTypeTitle)
+            FMChipGroupOptional(
+                options: viewModel.catalogs.fieldTypes.map(\.code),
+                selected: $viewModel.fieldType,
+                displayText: { code in
+                    viewModel.catalogs.fieldTypes.first(where: { $0.code == code })?.displayName ?? code
+                }
+            )
         }
     }
 
     private var footwearSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            sectionTitle("Tipo de calzado:")
-            FMChipGroupOptional(options: FootwearType.allCases, selected: $viewModel.footwearType)
+            sectionTitle(L10n.NewField.footwearTypeTitle)
+            FMChipGroupOptional(
+                options: viewModel.catalogs.footwearTypes.map(\.code),
+                selected: $viewModel.footwearType,
+                displayText: { code in
+                    viewModel.catalogs.footwearTypes.first(where: { $0.code == code })?.displayName ?? code
+                }
+            )
         }
     }
 

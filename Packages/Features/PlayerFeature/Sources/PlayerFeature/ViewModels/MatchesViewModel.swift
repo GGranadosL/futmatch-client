@@ -1,5 +1,7 @@
 import Foundation
 import Combine
+import CoreLocation
+import OSLog
 import PersistenceFramework
 import NetworkFramework
 
@@ -25,18 +27,25 @@ final class MatchesViewModel: ObservableObject {
     @Published var refreshFailed: Bool = false
     /// API-provided message for the refresh toast (nil → generic copy).
     @Published private(set) var refreshErrorMessage: String?
+    /// Device's current coordinate, resolved once per session — used to show
+    /// each match's distance on its card. Nil when permission was denied or
+    /// the location couldn't be determined.
+    @Published private(set) var userCoordinate: CLLocationCoordinate2D?
 
     private let fetchMatchesUseCase: FetchMatchesUseCaseProtocol
+    private let fetchCurrentLocationUseCase: FetchCurrentLocationUseCaseProtocol?
     private let cacheRepo: MatchCacheRepositoryProtocol?
     private let region: MatchRegion
     private var cancellables = Set<AnyCancellable>()
 
     init(
         fetchMatchesUseCase: FetchMatchesUseCaseProtocol,
+        fetchCurrentLocationUseCase: FetchCurrentLocationUseCaseProtocol? = nil,
         cacheRepo: MatchCacheRepositoryProtocol? = nil,
         region: MatchRegion = .default
     ) {
         self.fetchMatchesUseCase = fetchMatchesUseCase
+        self.fetchCurrentLocationUseCase = fetchCurrentLocationUseCase
         self.cacheRepo = cacheRepo
         self.region = region
         // Pre-load cache synchronously so the first render already has data
@@ -86,13 +95,30 @@ final class MatchesViewModel: ObservableObject {
             state = .loading
         }
 
+        // Resolve the device's coordinate so match cards can show a distance.
+        // Retries on every load until it succeeds — the shared service (see
+        // `CurrentLocationService`) caches a successful fix and fast-paths a
+        // denied/restricted status, so repeated calls are cheap once resolved
+        // or once permission is settled.
+        var resolvedLat = lat
+        var resolvedLon = lon
+        if resolvedLat == nil, resolvedLon == nil, userCoordinate == nil {
+            if let coordinate = await fetchCurrentLocationUseCase?.execute() {
+                userCoordinate = CLLocationCoordinate2D(latitude: coordinate.latitude, longitude: coordinate.longitude)
+                resolvedLat = coordinate.latitude
+                resolvedLon = coordinate.longitude
+            }
+        }
+
         // 2. Fetch fresh data from API (versioned — may report no changes)
         do {
-            let result = try await fetchMatchesUseCase.execute(region: region, lat: lat, lon: lon)
+            let result = try await fetchMatchesUseCase.execute(region: region, lat: resolvedLat, lon: resolvedLon)
+            let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "FutMatch", category: "Push")
             switch result {
             case .changed(let matches, _):
                 state = .loaded(groupByDate(matches))
                 try? cacheRepo?.saveMatches(matches)
+                logger.debug("Matches sync: changed, \(matches.count, privacy: .public) matches")
             case .unchanged:
                 // Region version unchanged — keep the current list. If nothing
                 // was loaded yet (e.g. cache miss), fall back to whatever cache holds.
@@ -101,6 +127,7 @@ final class MatchesViewModel: ObservableObject {
                 } else {
                     state = .loaded(groupByDate(cached))
                 }
+                logger.debug("Matches sync: unchanged")
             }
         } catch {
             guard !(error is CancellationError) else {
@@ -150,14 +177,17 @@ final class MatchesViewModel: ObservableObject {
     /// `hasChanges=false` if this client already has the latest version, so the
     /// extra call is cheap. Ignores pushes for other regions.
     private func observeRegionalUpdates() {
+        let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "FutMatch", category: "Push")
         NotificationCenter.default.publisher(for: .matchesRegionDidUpdate)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] note in
                 guard let self else { return }
                 if let pushedRegion = note.userInfo?["region"] as? String,
                    pushedRegion != self.region.key {
+                    logger.debug("Ignoring matchesRegionDidUpdate for region \(pushedRegion, privacy: .public) (self is \(self.region.key, privacy: .public))")
                     return
                 }
+                logger.debug("matchesRegionDidUpdate received — reloading matches (region: \(self.region.key, privacy: .public))")
                 Task { await self.reload() }
             }
             .store(in: &cancellables)

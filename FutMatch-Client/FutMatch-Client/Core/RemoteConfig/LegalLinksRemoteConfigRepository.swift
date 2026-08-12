@@ -59,17 +59,23 @@ final class LegalLinksRemoteConfigRepository: LegalLinksProtocol {
     /// Activates any pending config and kicks off a background refresh.
     func fetchAndActivate() async {
         _ = try? await remoteConfig.activate()
-        persistCurrentValue()
+        await persistCurrentValueOnMainThread()
 
         Task.detached(priority: .background) { [weak self] in
             guard let self else { return }
             guard (try? await self.remoteConfig.fetch(withExpirationDuration: Self.fetchInterval)) != nil else { return }
             _ = try? await self.remoteConfig.activate()
-            self.persistCurrentValue()
+            await self.persistCurrentValueOnMainThread()
         }
     }
 
     // MARK: - Private
+
+    /// Persiste en el main thread para evitar race conditions con UserDefaults.
+    @MainActor
+    private func persistCurrentValueOnMainThread() {
+        persistCurrentValue()
+    }
 
     private func persistCurrentValue() {
         let raw = remoteConfig.configValue(forKey: Self.remoteConfigKey).stringValue

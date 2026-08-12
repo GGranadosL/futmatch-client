@@ -101,3 +101,48 @@ struct PaymentStatusData: Decodable {
     let status: String
     let provider: String?
 }
+
+// MARK: - Pending Match Payment (GET /payment/matches/{matchId}/pending)
+
+/// Recovers the Stripe inputs of an in-flight payment when the user already holds a
+/// RESERVED spot in the match. Used only when the locally cached payment data is
+/// missing — another device, a reinstall, or a lost Keychain entry.
+struct PendingMatchPaymentResponse: Decodable {
+    let data: PendingMatchPaymentData
+}
+
+struct PendingMatchPaymentData: Decodable {
+    let clientSecret: String?
+    let paymentId: String
+    let provider: String
+    let amountInCents: Int
+    let currency: String
+    let customer: String?
+    let customerSessionClientSecret: String?
+    let publishableKey: String?
+    /// REMAINING reservation time, not a fresh window. Never used to seed the
+    /// countdown — that comes from Firestore's `reservationExpiresAt`.
+    let reservationTtlMs: Int
+    let existingPaymentStatus: String?
+}
+
+extension PendingMatchPaymentData {
+    /// Maps onto the join payload so the existing PaymentSheet and local-persistence
+    /// paths are reused unchanged. `reusedExistingPayment` is false: this is a payment
+    /// still waiting to be made, not one the backend already settled.
+    func toJoinMatchData() -> JoinMatchData {
+        JoinMatchData(
+            clientSecret: clientSecret,
+            paymentId: paymentId,
+            provider: provider,
+            amountInCents: amountInCents,
+            currency: currency,
+            customer: customer,
+            customerSessionClientSecret: customerSessionClientSecret,
+            publishableKey: publishableKey,
+            reservationTtlMs: reservationTtlMs,
+            reusedExistingPayment: false,
+            existingPaymentStatus: existingPaymentStatus
+        )
+    }
+}
