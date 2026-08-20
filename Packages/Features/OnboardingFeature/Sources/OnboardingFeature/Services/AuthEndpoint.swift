@@ -7,6 +7,8 @@ enum AuthEndpoint: APIEndpoint {
     case registerComplete(RegisterCompleteRequest)
     case registerResendCode(ResendRegistrationCodeRequest)
     case signIn(SignInRequest)
+    case googleResolve(GoogleResolveRequest)
+    case googleRegister(GoogleRegisterRequest)
     case mfaSend(MFASendRequest)
     case mfaVerify(MFAVerifyRequest)
     case forgotPassword(email: String)
@@ -25,6 +27,10 @@ enum AuthEndpoint: APIEndpoint {
             return "/auth/register/resend-code"
         case .signIn:
             return "/auth/signIn"
+        case .googleResolve:
+            return "/auth/google/resolve"
+        case .googleRegister:
+            return "/auth/google/register"
         case .mfaSend:
             return "/auth/mfa/send"
         case .mfaVerify:
@@ -44,7 +50,7 @@ enum AuthEndpoint: APIEndpoint {
     
     var method: HTTPMethod {
         switch self {
-        case .registerStart, .registerComplete, .registerResendCode, .signIn, .mfaSend, .mfaVerify, .forgotPassword, .verifyResetMFA, .refreshToken, .signOut:
+        case .registerStart, .registerComplete, .registerResendCode, .signIn, .googleResolve, .googleRegister, .mfaSend, .mfaVerify, .forgotPassword, .verifyResetMFA, .refreshToken, .signOut:
             return .post
         case .resetPassword:
             return .put
@@ -80,6 +86,10 @@ enum AuthEndpoint: APIEndpoint {
             return try? JSONEncoder().encode(request)
         case .signIn(let request):
             return try? JSONEncoder().encode(request)
+        case .googleResolve(let request):
+            return try? JSONEncoder().encode(request)
+        case .googleRegister(let request):
+            return try? JSONEncoder().encode(request)
         case .mfaSend(let request):
             return try? JSONEncoder().encode(request)
         case .mfaVerify(let request):
@@ -100,7 +110,7 @@ enum AuthEndpoint: APIEndpoint {
     
     var requiresAuth: Bool {
         switch self {
-        case .refreshToken, .registerStart, .registerComplete, .registerResendCode, .signIn, .mfaSend, .mfaVerify, .forgotPassword, .verifyResetMFA, .resetPassword:
+        case .refreshToken, .registerStart, .registerComplete, .registerResendCode, .signIn, .googleResolve, .googleRegister, .mfaSend, .mfaVerify, .forgotPassword, .verifyResetMFA, .resetPassword:
             return false
         case .signOut:
             return true

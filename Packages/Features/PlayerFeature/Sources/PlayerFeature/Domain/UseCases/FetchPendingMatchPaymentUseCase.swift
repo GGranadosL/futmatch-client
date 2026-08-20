@@ -63,7 +63,7 @@ struct FetchPendingMatchPaymentUseCase: FetchPendingMatchPaymentUseCaseProtocol 
 
             return .recovered(data)
         } catch {
-            guard !(error is CancellationError) else { return .unavailable }
+            guard !error.isCancellation else { return .unavailable }
 
             // Branch by errorCode first, then statusCode as fallback.
             let errorCode = error.apiErrorCode ?? ""

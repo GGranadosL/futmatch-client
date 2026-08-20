@@ -41,7 +41,14 @@ public final class OnboardingRepository: OnboardingRepositoryProtocol {
             entity.phoneCountryCode = draft.phoneCountryCode
             entity.phone = draft.phone
             entity.country = draft.country
+            // `countryISO` was previously dropped here, so a restored draft came
+            // back with the country name filled but no ISO code — leaving step 2
+            // silently invalid. Persisted now that the entity carries the field.
+            entity.countryISO = draft.countryISO
             entity.currentStep = Int16(draft.currentStep)
+            entity.googleIssuer = draft.googleIssuer
+            entity.googleSubject = draft.googleSubject
+            entity.googlePictureURL = draft.googlePictureURL
             entity.createdAt = draft.createdAt
             entity.updatedAt = Date()
 
@@ -76,7 +83,11 @@ public final class OnboardingRepository: OnboardingRepositoryProtocol {
             phoneCountryCode: entity.phoneCountryCode,
             phone: entity.phone,
             country: entity.country,
+            countryISO: entity.countryISO ?? "",
             currentStep: Int(entity.currentStep),
+            googleIssuer: entity.googleIssuer,
+            googleSubject: entity.googleSubject,
+            googlePictureURL: entity.googlePictureURL,
             createdAt: entity.createdAt,
             updatedAt: entity.updatedAt
         )

@@ -81,7 +81,7 @@ final class AdminRemoteConfigRepository: AdminRemoteConfigProtocol {
     /// Activates any pending config and kicks off a background refresh.
     func fetchAndActivate() async {
         _ = try? await remoteConfig.activate()
-        await persistCurrentValuesOnMainThread()
+        persistCurrentValuesOnMainThread()
 
         Task.detached(priority: .background) { [weak self] in
             guard let self else { return }

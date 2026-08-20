@@ -21,10 +21,13 @@ struct OnboardingStep4View: View {
     }
 
     private var formattedBirthDate: String {
+        // Step 4 is only reachable after Step 1's "Next step" gate (`isStep1Valid`),
+        // which requires a picked birth date — this should always be non-nil here.
+        guard let birthDate = viewModel.birthDate else { return "" }
         let formatter = DateFormatter()
         formatter.dateFormat = "dd MMMM yyyy"
         formatter.locale = Locale.current
-        return formatter.string(from: viewModel.birthDate)
+        return formatter.string(from: birthDate)
     }
     
     var body: some View {

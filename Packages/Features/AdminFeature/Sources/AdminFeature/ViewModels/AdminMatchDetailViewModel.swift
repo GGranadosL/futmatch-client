@@ -72,7 +72,7 @@ final class AdminMatchDetailViewModel: ObservableObject {
                 liveTeamAPlayers = a
                 liveTeamBPlayers = b
             } catch {
-                guard !(error is CancellationError) else { return }
+                guard !error.isCancellation else { return }
                 playersError = error.localizedDescription
             }
             return
@@ -84,7 +84,7 @@ final class AdminMatchDetailViewModel: ObservableObject {
                 liveTeamBPlayers = snapshot.teamBPlayers
             }
         } catch {
-            guard !(error is CancellationError) else { return }
+            guard !error.isCancellation else { return }
             playersError = error.localizedDescription
         }
     }

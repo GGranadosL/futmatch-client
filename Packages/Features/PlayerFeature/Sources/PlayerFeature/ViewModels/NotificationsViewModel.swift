@@ -24,54 +24,51 @@ final class NotificationsViewModel: ObservableObject {
     }
 
     @Published private(set) var state: State = .idle
-    /// Number of notifications where `isRead == false`.
-    /// Used by HomeView to show the bell badge.
+    /// Number of notifications the user hasn't seen yet — unread server-side AND not
+    /// in the local seen-ID set. Used by HomeView to show the bell badge.
     @Published private(set) var unreadCount: Int = 0
     /// Populated after a tap triggers a successful match-detail fetch.
     @Published private(set) var pendingNavigation: MatchItem? = nil
     @Published private(set) var isNavigating: Bool = false
 
-    /// Number of unread notifications the user has already seen.
-    /// Persisted across foreground/background cycles so the badge only bumps
-    /// when the server returns MORE unread items than what the user last saw.
-    private static let seenCountKey = "notifications.seenUnreadCount"
-    private var lastSeenCount: Int {
-        get { UserDefaults.standard.integer(forKey: Self.seenCountKey) }
-        set { UserDefaults.standard.set(newValue, forKey: Self.seenCountKey) }
-    }
+    /// Most recent list the server returned, kept so `markAsSeen()` can persist the
+    /// seen IDs immediately instead of waiting on another round-trip.
+    private var lastKnownItems: [NotificationItem] = []
 
     private let notificationService: NotificationServiceProtocol
     private let fetchNotificationsUseCase: FetchNotificationsUseCaseProtocol
     private let fetchMatchDetailUseCase: FetchMatchDetailUseCaseProtocol
+    private let seenStore: SeenNotificationStoreProtocol
     private var cancellables = Set<AnyCancellable>()
 
     init(
         notificationService: NotificationServiceProtocol,
         fetchNotificationsUseCase: FetchNotificationsUseCaseProtocol,
-        fetchMatchDetailUseCase: FetchMatchDetailUseCaseProtocol
+        fetchMatchDetailUseCase: FetchMatchDetailUseCaseProtocol,
+        seenStore: SeenNotificationStoreProtocol
     ) {
         self.notificationService = notificationService
         self.fetchNotificationsUseCase = fetchNotificationsUseCase
         self.fetchMatchDetailUseCase = fetchMatchDetailUseCase
+        self.seenStore = seenStore
         observePushNotifications()
     }
 
     // MARK: - Load
 
     /// Lightweight background fetch — only updates `unreadCount`, used by HomeView badge.
-    /// Only shows a badge when the server returns MORE unread items than the user last saw,
-    /// so visiting the notifications screen permanently suppresses the old count even
-    /// after the app returns from background.
+    /// Counts only notifications the user hasn't already been shown on the notifications
+    /// screen, so visiting it suppresses those permanently while a genuinely new one
+    /// still lights the badge back up.
     func loadUnreadCount(forceRefresh: Bool = false) async {
         do {
             guard let items = try await fetchNotificationsUseCase.execute(forceRefresh: forceRefresh) else {
                 return // Skipped — not stale enough and not forced, keep current badge.
             }
-            let serverCount = items.filter { !$0.isRead }.count
-            // Only surface a badge for items beyond what the user already acknowledged.
-            unreadCount = max(0, serverCount - lastSeenCount)
+            absorb(items)
+            recomputeUnreadCount()
         } catch {
-            guard !(error is CancellationError) else { return }
+            guard !error.isCancellation else { return }
             /* silent — badge stays at previous value */
         }
     }
@@ -92,12 +89,13 @@ final class NotificationsViewModel: ObservableObject {
             }
             let sections = groupByDate(items)
             state = sections.isEmpty ? .empty : .loaded(sections)
-            // Persist the current server count so future polls don't re-trigger the badge.
-            let serverCount = items.filter { !$0.isRead }.count
-            lastSeenCount = serverCount
-            unreadCount = 0
+            absorb(items)
+            // The user is looking at this exact list right now, so everything in it
+            // counts as seen — including anything that arrived after the eager
+            // `markAsSeen()` that ran when the screen opened.
+            markAsSeen()
         } catch {
-            guard !(error is CancellationError) else { return }
+            guard !error.isCancellation else { return }
             // Only surface the error full-screen if we have nothing else to show;
             // otherwise keep the stale-but-valid list visible.
             if !hasData { state = .failed(error.localizedDescription) }
@@ -119,25 +117,44 @@ final class NotificationsViewModel: ObservableObject {
             .store(in: &cancellables)
     }
 
-    /// Clears the badge and persists the current server count so background polls
-    /// don't restore it unless NEW unread notifications arrive.
+    /// Clears the badge and persists the IDs behind it, so background polls don't
+    /// restore it unless a NEW notification arrives.
+    ///
+    /// Persists straight away rather than deferring to the `load()` that follows:
+    /// that call can be throttled by the shared fetch timestamp, cancelled when the
+    /// user taps back, or fail on the network — and any of those used to leave the
+    /// badge permanently stuck at its old value.
     func markAsSeen() {
-        // Snapshot current unreadCount as the new baseline before load() runs.
-        // load() will overwrite lastSeenCount with the precise server value.
+        seenStore.markSeen(Set(lastKnownItems.map(\.id)))
         unreadCount = 0
     }
 
-
     /// Resets all notification state on logout so the next user starts clean.
     func clearOnLogout() {
-        lastSeenCount = 0
+        seenStore.clear()
+        lastKnownItems = []
         unreadCount = 0
         state = .idle
+    }
+
+    // MARK: - Badge Bookkeeping
+
+    /// Records the latest server list and drops seen IDs it no longer contains,
+    /// keeping the persisted set bounded by the feed's page size.
+    private func absorb(_ items: [NotificationItem]) {
+        lastKnownItems = items
+        seenStore.prune(keeping: Set(items.map(\.id)))
+    }
+
+    private func recomputeUnreadCount() {
+        let seen = seenStore.seenIds
+        unreadCount = lastKnownItems.filter { !$0.isRead && !seen.contains($0.id) }.count
     }
 
     // MARK: - Delete (optimistic)
 
     func delete(id: String) async {
+        lastKnownItems.removeAll { $0.id == id }
         // Remove immediately from UI
         if case .loaded(let sections) = state {
             let updated = sections.compactMap { section -> NotificationSection? in

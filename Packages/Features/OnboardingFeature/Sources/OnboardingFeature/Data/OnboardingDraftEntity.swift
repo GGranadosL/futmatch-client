@@ -10,7 +10,14 @@ final class OnboardingDraftEntity: NSManagedObject {
     @NSManaged var phoneCountryCode: String
     @NSManaged var phone: String
     @NSManaged var country: String
+    @NSManaged var countryISO: String?
     @NSManaged var currentStep: Int16
+    /// Google identity this draft belongs to. `nil` for a password sign-up.
+    /// `(googleIssuer, googleSubject)` is the durable key the backend uses,
+    /// and is what a resumed Google onboarding is matched against.
+    @NSManaged var googleIssuer: String?
+    @NSManaged var googleSubject: String?
+    @NSManaged var googlePictureURL: String?
     @NSManaged var createdAt: Date
     @NSManaged var updatedAt: Date
 

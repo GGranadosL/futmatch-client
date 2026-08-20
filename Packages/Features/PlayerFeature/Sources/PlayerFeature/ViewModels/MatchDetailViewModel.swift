@@ -138,7 +138,7 @@ final class MatchDetailViewModel: ObservableObject {
         do {
             match = try await fetchDetailUseCase.execute(matchId: match.id)
         } catch {
-            guard !(error is CancellationError) else {
+            guard !error.isCancellation else {
                 isLoadingDetail = false
                 return
             }
@@ -172,7 +172,7 @@ final class MatchDetailViewModel: ObservableObject {
                 NotificationCenter.default.post(name: .matchMembershipDidChange, object: nil)
             }
         } catch {
-            guard !(error is CancellationError) else {
+            guard !error.isCancellation else {
                 isJoining = false
                 return
             }
@@ -299,7 +299,7 @@ final class MatchDetailViewModel: ObservableObject {
             matchLeft = true
             NotificationCenter.default.post(name: .matchMembershipDidChange, object: nil)
         } catch {
-            guard !(error is CancellationError) else {
+            guard !error.isCancellation else {
                 isLeaving = false
                 return
             }
@@ -317,7 +317,7 @@ final class MatchDetailViewModel: ObservableObject {
             matchCancelled = true
             NotificationCenter.default.post(name: .matchMembershipDidChange, object: nil)
         } catch {
-            guard !(error is CancellationError) else {
+            guard !error.isCancellation else {
                 isCancelling = false
                 return
             }
@@ -382,7 +382,7 @@ final class MatchDetailViewModel: ObservableObject {
                 }
             }
         } catch {
-            guard !(error is CancellationError) else { return }
+            guard !error.isCancellation else { return }
             playersError = error.localizedDescription
         }
     }

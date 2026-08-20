@@ -130,7 +130,7 @@ final class MatchesViewModel: ObservableObject {
                 logger.debug("Matches sync: unchanged")
             }
         } catch {
-            guard !(error is CancellationError) else {
+            guard !error.isCancellation else {
                 isRefreshing = false
                 return
             }

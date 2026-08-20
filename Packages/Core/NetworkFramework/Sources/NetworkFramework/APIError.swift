@@ -76,6 +76,18 @@ public extension Error {
         return errorCode
     }
 
+    /// True for a cancelled request, whether it surfaces as Swift's own
+    /// `CancellationError`, a cancelled `URLSession` task (`URLError.cancelled`),
+    /// or either of those wrapped in `APIError.networkError` by `APIClient`.
+    var isCancellation: Bool {
+        if self is CancellationError { return true }
+        if let urlError = self as? URLError, urlError.code == .cancelled { return true }
+        if let apiError = self as? APIError, case let .networkError(underlying) = apiError {
+            return underlying.isCancellation
+        }
+        return false
+    }
+
     /// The HTTP status code behind this error. Use as a fallback when the backend
     /// didn't send an `errorCode`. `.notFound` reports 404 — `APIClient` collapses
     /// 404 responses into that case and discards the body.

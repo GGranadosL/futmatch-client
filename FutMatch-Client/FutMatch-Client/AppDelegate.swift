@@ -4,10 +4,10 @@ import OSLog
 import FirebaseCore
 import FirebaseAppCheck
 import FirebaseMessaging
+import GoogleSignIn
 import PlayerFeature
 import PersistenceFramework
 import IQKeyboardManagerSwift
-import IQKeyboardToolbarManager
 #if DEBUG
 import Pulse
 import PulseUI
@@ -67,6 +67,17 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         Messaging.messaging().apnsToken = deviceToken
     }
 
+    /// Completes the Google OAuth round trip. Safari hands the callback URL back
+    /// through the app's registered `REVERSED_CLIENT_ID` scheme, and the sign-in
+    /// continuation stays pending until the SDK is given it here.
+    func application(
+        _ app: UIApplication,
+        open url: URL,
+        options: [UIApplication.OpenURLOptionsKey: Any] = [:]
+    ) -> Bool {
+        GIDSignIn.sharedInstance.handle(url)
+    }
+
     // MARK: - Data-only Push (regional matches refresh / in-app notifications)
 
     /// Handles data-only pushes. Regional `matches_updated` payloads are routed
@@ -75,7 +86,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     /// notification was created server-side (there's no distinguishing `type`
     /// for those yet), and routed to refresh the notifications feed instead.
     /// Fires in foreground and background (for `content-available` messages).
-    func application(
+    nonisolated func application(
         _ application: UIApplication,
         didReceiveRemoteNotification userInfo: [AnyHashable: Any]
     ) async -> UIBackgroundFetchResult {

@@ -21,7 +21,7 @@ final class PaymentHistoryViewModel: ObservableObject {
         do {
             payments = try await paymentService.fetchPaymentHistory()
         } catch {
-            guard !(error is CancellationError) else { return }
+            guard !error.isCancellation else { return }
             self.error = error.localizedDescription
             payments = []
         }

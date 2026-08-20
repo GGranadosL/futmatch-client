@@ -4,7 +4,32 @@ import Foundation
 
 /// Centralizes all validation logic based on backend rules
 public struct FieldValidator {
-    
+
+    /// Minimum age required to register, in years.
+    public static let minimumAge = 18
+
+    // MARK: - Cached Patterns
+    //
+    // `NSPredicate(format: "SELF MATCHES %@", ...)` compiles an ICU regex on every call.
+    // These run on every keystroke via the ViewModels' computed `is*Valid` properties, so
+    // building them fresh each time was measurable overhead on the same path that also
+    // triggers a SwiftUI re-render. Compiling them once as `static let` amortizes that cost.
+
+    /// Letters (incl. accents) and spaces only.
+    private static let namePredicate = NSPredicate(format: "SELF MATCHES %@", "^[\\p{L}\\s]*$")
+    private static let emailPredicate = NSPredicate(
+        format: "SELF MATCHES %@", "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+    )
+    private static let phonePredicate = NSPredicate(format: "SELF MATCHES %@", "^\\+?[1-9]\\d{1,14}$")
+    private static let passwordPredicate = NSPredicate(
+        format: "SELF MATCHES %@",
+        "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&.#\\-_=+]).{8,}$"
+    )
+    private static let uppercaseCharacterSet = CharacterSet.uppercaseLetters
+    private static let lowercaseCharacterSet = CharacterSet.lowercaseLetters
+    private static let digitCharacterSet = CharacterSet.decimalDigits
+    private static let specialCharacterSet = CharacterSet(charactersIn: "@$!%*?&.#-_=+")
+
     // MARK: - Name/LastName Validation
     
     /// Validates name or lastName field
@@ -24,9 +49,7 @@ public struct FieldValidator {
             return .invalid(L10n.Validation.maxCharacters(30))
         }
         
-        // Unicode pattern that allows letters (including accents) and spaces
-        let nameRegex = "^[\\p{L}\\s]*$"
-        guard NSPredicate(format: "SELF MATCHES %@", nameRegex).evaluate(with: trimmed) else {
+        guard namePredicate.evaluate(with: trimmed) else {
             return .invalid(L10n.Validation.onlyLetters)
         }
         
@@ -40,12 +63,10 @@ public struct FieldValidator {
     ///   - Must match standard email format
     ///   - Regex: ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$
     public static func validateEmail(_ email: String) -> ValidationResult {
-        let emailRegex = "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
-        
-        guard NSPredicate(format: "SELF MATCHES %@", emailRegex).evaluate(with: email) else {
+        guard emailPredicate.evaluate(with: email) else {
             return .invalid(L10n.Validation.invalidEmail)
         }
-        
+
         return .valid
     }
     
@@ -56,12 +77,10 @@ public struct FieldValidator {
     ///   - Must be a valid phone number
     ///   - Regex: ^\+?[1-9]\d{1,14}$
     public static func validatePhone(_ phone: String) -> ValidationResult {
-        let phoneRegex = "^\\+?[1-9]\\d{1,14}$"
-        
-        guard NSPredicate(format: "SELF MATCHES %@", phoneRegex).evaluate(with: phone) else {
+        guard phonePredicate.evaluate(with: phone) else {
             return .invalid(L10n.Validation.invalidPhone)
         }
-        
+
         return .valid
     }
     
@@ -86,36 +105,34 @@ public struct FieldValidator {
     ///   - At least 1 special character (@$!%*?&.#-_=+)
     ///   - Regex: ^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&.#\-_=+]).{8,}$
     public static func validatePassword(_ password: String) -> ValidationResult {
-        let passwordRegex = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&.#\\-_=+]).{8,}$"
-
-        guard NSPredicate(format: "SELF MATCHES %@", passwordRegex).evaluate(with: password) else {
+        guard passwordPredicate.evaluate(with: password) else {
             let errors = getPasswordErrors(password)
             return .invalidWithDetails(errors)
         }
 
         return .valid
     }
-    
+
     /// Returns detailed password validation errors
     public static func getPasswordErrors(_ password: String) -> [String] {
         var errors: [String] = []
-        
+
         if password.count < 8 {
             errors.append(L10n.Validation.minPasswordLength)
         }
-        if password.range(of: "[A-Z]", options: .regularExpression) == nil {
+        if !password.unicodeScalars.contains(where: uppercaseCharacterSet.contains) {
             errors.append(L10n.Validation.requiresUppercase)
         }
-        if password.range(of: "[a-z]", options: .regularExpression) == nil {
+        if !password.unicodeScalars.contains(where: lowercaseCharacterSet.contains) {
             errors.append(L10n.Validation.requiresLowercase)
         }
-        if password.range(of: "[0-9]", options: .regularExpression) == nil {
+        if !password.unicodeScalars.contains(where: digitCharacterSet.contains) {
             errors.append(L10n.Validation.requiresNumber)
         }
-        if password.range(of: "[@$!%*?&.#\\-_=+]", options: .regularExpression) == nil {
+        if !password.unicodeScalars.contains(where: specialCharacterSet.contains) {
             errors.append(L10n.Validation.requiresSpecialChar)
         }
-        
+
         return errors
     }
     
@@ -130,8 +147,8 @@ public struct FieldValidator {
         let calendar = Calendar.current
         let ageComponents = calendar.dateComponents([.year], from: date, to: Date())
         
-        guard let age = ageComponents.year, age >= 18 else {
-            return .invalid(L10n.Validation.minimumAge(18))
+        guard let age = ageComponents.year, age >= minimumAge else {
+            return .invalid(L10n.Validation.minimumAge(minimumAge))
         }
         
         return .valid
@@ -142,8 +159,8 @@ public struct FieldValidator {
         let calendar = Calendar.current
         let ageComponents = calendar.dateComponents([.year], from: birthDate, to: Date())
         
-        guard let age = ageComponents.year, age >= 18 else {
-            return .invalid(L10n.Validation.minimumAge(18))
+        guard let age = ageComponents.year, age >= minimumAge else {
+            return .invalid(L10n.Validation.minimumAge(minimumAge))
         }
         
         return .valid

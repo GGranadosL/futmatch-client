@@ -9,6 +9,7 @@ public struct PlayerDependencyFactory {
     private static let sharedDemoMatchService  = MatchService(isDemoMode: true)
     private static let sharedMatchVersionStore = UserDefaultsMatchVersionStore()
     private static let sharedNotificationFetchTimestampStore = UserDefaultsNotificationFetchTimestampStore()
+    private static let sharedSeenNotificationStore = UserDefaultsSeenNotificationStore()
     /// Shared across all ViewModels so every tab reuses the same resolved fix
     /// instead of each one racing its own CLLocationManager (see
     /// `CurrentLocationService`'s in-flight/caching logic).
@@ -187,7 +188,16 @@ public struct PlayerDependencyFactory {
         return NotificationsViewModel(
             notificationService: service,
             fetchNotificationsUseCase: fetchNotificationsUseCase,
-            fetchMatchDetailUseCase: makeFetchMatchDetailUseCase()
+            fetchMatchDetailUseCase: makeFetchMatchDetailUseCase(),
+            seenStore: Self.sharedSeenNotificationStore
         )
+    }
+
+    /// Clears the notification badge's seen-ID set and the fetch-timestamp safety
+    /// net. Call on logout so the next account gets a badge computed from scratch
+    /// and isn't throttled by this account's recent activity.
+    public func clearNotificationState() {
+        Self.sharedSeenNotificationStore.clear()
+        Self.sharedNotificationFetchTimestampStore.clear()
     }
 }

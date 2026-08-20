@@ -189,7 +189,7 @@ public final class UserSession: ObservableObject {
             currentUser = user
             try? cache?.save(user)
         } catch {
-            guard !(error is CancellationError) else {
+            guard !error.isCancellation else {
                 isLoading = false
                 return
             }

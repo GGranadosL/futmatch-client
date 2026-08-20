@@ -108,7 +108,6 @@ struct ForgotPasswordEmailView: View {
                 .padding(.bottom, 24)
             }
         }
-        .hideKeyboardOnTap()
     }
 }
 
@@ -230,7 +229,6 @@ struct ForgotPasswordVerificationView: View {
                 .padding(.bottom, 24)
             }
         }
-        .hideKeyboardOnTap()
         .onAppear {
             // Auto-focus the text field when view appears
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
@@ -364,7 +362,6 @@ struct ForgotPasswordNewPasswordView: View {
                 .padding(.bottom, 24)
             }
         }
-        .hideKeyboardOnTap()
     }
 }
 

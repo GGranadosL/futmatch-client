@@ -3,6 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "FMDesignSystem",
+    defaultLocalization: "en",
     platforms: [
         .iOS(.v16)
     ],

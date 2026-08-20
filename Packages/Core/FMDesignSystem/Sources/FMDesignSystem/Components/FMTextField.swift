@@ -28,14 +28,24 @@ private struct UIKitTextField: UIViewRepresentable {
     func makeUIView(context: Context) -> UITextField {
         let field = UITextField()
         field.delegate = context.coordinator
-        field.setContentHuggingPriority(.defaultHigh, for: .vertical)
+        // No vertical content-hugging here: the field is meant to fill the full
+        // height of FMTextField's 56pt box (see `.frame(maxHeight: .infinity)` in
+        // FMTextField's body). Hugging shrank it to ~20pt, leaving the rest of the
+        // box untappable and letting taps there fall through to window-level
+        // dismiss-keyboard gestures instead.
         field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         field.addTarget(
             context.coordinator,
             action: #selector(Coordinator.textChanged(_:)),
             for: .editingChanged
         )
-        configureField(field)
+        // Static configuration that never changes after creation.
+        field.autocorrectionType = .no
+        field.borderStyle = .none
+        field.backgroundColor = .clear
+        field.passwordRules = nil
+        field.tintColor = UIColor(FMColors.primary)
+        applyDynamicConfiguration(to: field)
         if onPrevious != nil || onNext != nil {
             field.inputAccessoryView = context.coordinator.makeToolbar()
         }
@@ -46,10 +56,7 @@ private struct UIKitTextField: UIViewRepresentable {
         if uiView.text != text {
             uiView.text = text
         }
-        if uiView.isSecureTextEntry != isSecure {
-            uiView.isSecureTextEntry = isSecure
-        }
-        configureField(uiView)
+        applyDynamicConfiguration(to: uiView)
 
         // Programmatic focus — only trigger when state actually changes
         let shouldBeFocused = externalFocus
@@ -66,26 +73,33 @@ private struct UIKitTextField: UIViewRepresentable {
         context.coordinator.updateToolbar(hasPrevious: hasPrevious, hasNext: hasNext)
     }
 
-    /// Shared configuration for `makeUIView` and `updateUIView`.
-    /// When no explicit `contentType` is provided we set an empty-string
-    /// raw value which tells UIKit "this field has no semantic type" and
-    /// prevents the password autofill heuristic from kicking in.
-    private func configureField(_ field: UITextField) {
-        if let type = contentType {
-            field.textContentType = type
-        } else {
-            field.textContentType = .oneTimeCode
+    /// Config that can change across renders (props are `var`, not `let`). Called on every
+    /// `updateUIView` — i.e. on every keystroke — so each property is only written when it
+    /// actually changed, to avoid nudging UIKit into reconfiguring the input views of a field
+    /// that's already first responder.
+    private func applyDynamicConfiguration(to field: UITextField) {
+        // An explicit-empty content type tells UIKit "this field has no semantic type",
+        // which suppresses the password-autofill heuristic without opting the field into
+        // the one-time-code/SMS autofill lookup that `.oneTimeCode` would trigger on focus.
+        let resolvedContentType = contentType ?? UITextContentType(rawValue: "")
+        if field.textContentType != resolvedContentType {
+            field.textContentType = resolvedContentType
         }
-        field.isSecureTextEntry = isSecure
-        field.keyboardType = keyboardType
-        field.autocapitalizationType = autocapitalization
-        field.autocorrectionType = .no
-        field.font = font
-        field.textColor = textColor
-        field.tintColor = UIColor(FMColors.primary)
-        field.borderStyle = .none
-        field.backgroundColor = .clear
-        field.passwordRules = nil
+        if field.isSecureTextEntry != isSecure {
+            field.isSecureTextEntry = isSecure
+        }
+        if field.keyboardType != keyboardType {
+            field.keyboardType = keyboardType
+        }
+        if field.autocapitalizationType != autocapitalization {
+            field.autocapitalizationType = autocapitalization
+        }
+        if field.font != font {
+            field.font = font
+        }
+        if field.textColor != textColor {
+            field.textColor = textColor
+        }
     }
 
     final class Coordinator: NSObject, UITextFieldDelegate {
@@ -131,12 +145,12 @@ private struct UIKitTextField: UIViewRepresentable {
         }
 
         func textFieldDidBeginEditing(_ textField: UITextField) {
-            parent.externalFocus = true
+            if !parent.externalFocus { parent.externalFocus = true }
             parent.onFocusChange(true)
         }
 
         func textFieldDidEndEditing(_ textField: UITextField) {
-            parent.externalFocus = false
+            if parent.externalFocus { parent.externalFocus = false }
             parent.onFocusChange(false)
         }
 
@@ -268,16 +282,23 @@ public struct FMTextField: View {
                             font: .systemFont(ofSize: 16),
                             textColor: UIColor(FMColors.primary),
                             onFocusChange: { focused in
-                                withAnimation(.easeInOut(duration: 0.15)) {
-                                    isFocused = focused
-                                }
+                                // The floating label already animates itself via
+                                // `.animation(_:value: shouldShowLabel)` above; wrapping this
+                                // write in its own `withAnimation` re-invalidated the whole
+                                // enclosing screen at the same moment UIKit was animating the
+                                // keyboard in, which is part of what made focus feel laggy.
+                                isFocused = focused
                             },
                             onPrevious: navOnPrevious,
                             onNext: navOnNext,
                             hasPrevious: navHasPrevious,
                             hasNext: navHasNext
                         )
+                        // Fill the full 56pt box instead of hugging to the text's intrinsic
+                        // height, so the whole field is tappable, not just its vertical center.
+                        .frame(maxHeight: .infinity)
                     }
+                    .contentShape(Rectangle())
                     .padding(.horizontal, 16)
                     
                     // Trailing Icon

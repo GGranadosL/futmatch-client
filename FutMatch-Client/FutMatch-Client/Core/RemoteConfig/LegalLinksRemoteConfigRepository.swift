@@ -13,6 +13,7 @@ import SharedModels
 ///  1. Activate any previously-fetched (but not yet active) config.
 ///  2. Parse and persist the now-active value.
 ///  3. Trigger a background refresh for the next launch.
+@MainActor
 final class LegalLinksRemoteConfigRepository: LegalLinksProtocol {
 
     // MARK: - Keys (must match Firebase Console exactly)
@@ -59,23 +60,17 @@ final class LegalLinksRemoteConfigRepository: LegalLinksProtocol {
     /// Activates any pending config and kicks off a background refresh.
     func fetchAndActivate() async {
         _ = try? await remoteConfig.activate()
-        await persistCurrentValueOnMainThread()
+        persistCurrentValue()
 
         Task.detached(priority: .background) { [weak self] in
             guard let self else { return }
             guard (try? await self.remoteConfig.fetch(withExpirationDuration: Self.fetchInterval)) != nil else { return }
             _ = try? await self.remoteConfig.activate()
-            await self.persistCurrentValueOnMainThread()
+            await self.persistCurrentValue()
         }
     }
 
     // MARK: - Private
-
-    /// Persiste en el main thread para evitar race conditions con UserDefaults.
-    @MainActor
-    private func persistCurrentValueOnMainThread() {
-        persistCurrentValue()
-    }
 
     private func persistCurrentValue() {
         let raw = remoteConfig.configValue(forKey: Self.remoteConfigKey).stringValue

@@ -16,6 +16,15 @@ public enum L10n {
         public static var subtitle: String {
             NSLocalizedString("onboarding.step1.subtitle", bundle: .module, comment: "")
         }
+        /// Header shown instead of `title`/`subtitle` when this step opened from a
+        /// Google sign-up — the "start from scratch" copy doesn't fit an account
+        /// that already has a verified email and a name.
+        public static var googleTitle: String {
+            NSLocalizedString("onboarding.step1.googleTitle", bundle: .module, comment: "")
+        }
+        public static var googleSubtitle: String {
+            NSLocalizedString("onboarding.step1.googleSubtitle", bundle: .module, comment: "")
+        }
         public static var firstName: String {
             NSLocalizedString("onboarding.step1.firstName", bundle: .module, comment: "")
         }
@@ -24,6 +33,9 @@ public enum L10n {
         }
         public static var dateOfBirth: String {
             NSLocalizedString("onboarding.step1.dateOfBirth", bundle: .module, comment: "")
+        }
+        public static var dateOfBirthPlaceholder: String {
+            NSLocalizedString("onboarding.step1.dateOfBirthPlaceholder", bundle: .module, comment: "")
         }
         public static var gender: String {
             NSLocalizedString("onboarding.step1.gender", bundle: .module, comment: "")
@@ -65,6 +77,10 @@ public enum L10n {
         public static var passwordMinLength: String {
             NSLocalizedString("onboarding.step2.error.passwordMinLength", bundle: .module, comment: "")
         }
+        /// Shown under the locked email field during a Google sign-up.
+        public static var googleEmailVerified: String {
+            NSLocalizedString("onboarding.step2.googleEmailVerified", bundle: .module, comment: "")
+        }
     }
     
     // MARK: - Step 3: Football Profile
@@ -77,6 +93,17 @@ public enum L10n {
         }
         public static var uploadPhoto: String {
             NSLocalizedString("onboarding.step3.uploadPhoto", bundle: .module, comment: "")
+        }
+        /// Shorter label for the "Subir foto" pill next to "Usar foto de Google" —
+        /// `uploadPhoto` above stays as-is for the confirmation dialog title and
+        /// the non-Google caption, where the extra length isn't competing for space.
+        public static var uploadPhotoShort: String {
+            NSLocalizedString("onboarding.step3.uploadPhotoShort", bundle: .module, comment: "")
+        }
+        /// The other pill in a Google sign-up: reverts to Google's own picture
+        /// after the user tried a custom one.
+        public static var useGooglePhoto: String {
+            NSLocalizedString("onboarding.step3.useGooglePhoto", bundle: .module, comment: "")
         }
         public static var mainPosition: String {
             NSLocalizedString("onboarding.step3.mainPosition", bundle: .module, comment: "")
@@ -198,6 +225,21 @@ public enum L10n {
         public static var errorTitle: String {
             NSLocalizedString("login.error.title", bundle: .module, comment: "")
         }
+        public static var continueWithGoogle: String {
+            NSLocalizedString("login.continueWithGoogle", bundle: .module, comment: "")
+        }
+        public static var googleCancelled: String {
+            NSLocalizedString("login.google.cancelled", bundle: .module, comment: "")
+        }
+        public static var googleGenericError: String {
+            NSLocalizedString("login.google.error.generic", bundle: .module, comment: "")
+        }
+        /// Appended to a failed email/password attempt: Google accounts have no
+        /// password, so "wrong credentials" is a dead end unless we point at the
+        /// Google button.
+        public static var googleAccountHint: String {
+            NSLocalizedString("login.google.accountHint", bundle: .module, comment: "")
+        }
     }
     
     // MARK: - Forgot Password
@@ -305,6 +347,12 @@ public enum L10n {
         }
         public static var verify: String {
             NSLocalizedString("mfa.verify", bundle: .module, comment: "")
+        }
+        public static var wrongEmail: String {
+            NSLocalizedString("mfa.wrongEmail", bundle: .module, comment: "")
+        }
+        public static var changeEmail: String {
+            NSLocalizedString("mfa.changeEmail", bundle: .module, comment: "")
         }
     }
     

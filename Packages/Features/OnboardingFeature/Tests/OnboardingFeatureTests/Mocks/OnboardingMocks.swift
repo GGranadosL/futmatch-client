@@ -38,20 +38,44 @@ final class MockAuthService: AuthServiceProtocol {
         return try signInResult.get()
     }
 
+    // googleResolve
+    var googleResolveResult: Result<GoogleAuthResponse, Error> = .success(.stubSignUpRequired())
+    private(set) var googleResolveCallCount = 0
+    private(set) var lastGoogleResolveIdToken: String?
+    private(set) var lastGoogleResolveDeviceId: String?
+    func googleResolve(idToken: String, deviceId: String?) async throws -> GoogleAuthResponse {
+        googleResolveCallCount += 1
+        lastGoogleResolveIdToken = idToken
+        lastGoogleResolveDeviceId = deviceId
+        return try googleResolveResult.get()
+    }
+
+    // googleRegister
+    var googleRegisterResult: Result<GoogleAuthResponse, Error> = .success(.stubAuthenticated())
+    private(set) var googleRegisterCallCount = 0
+    private(set) var lastGoogleRegisterRequest: GoogleRegisterRequest?
+    func googleRegister(_ request: GoogleRegisterRequest) async throws -> GoogleAuthResponse {
+        googleRegisterCallCount += 1
+        lastGoogleRegisterRequest = request
+        return try googleRegisterResult.get()
+    }
+
     // mfaSend
     var mfaSendResult: Result<MFASendResponse, Error> = .success(.stub())
     private(set) var mfaSendCallCount = 0
-    private(set) var lastMFASendUserId: String?
-    func mfaSend(userId: String, deviceId: String) async throws -> MFASendResponse {
+    private(set) var lastMFASendChallengeToken: String?
+    func mfaSend(challengeToken: String) async throws -> MFASendResponse {
         mfaSendCallCount += 1
-        lastMFASendUserId = userId
+        lastMFASendChallengeToken = challengeToken
         return try mfaSendResult.get()
     }
 
     // mfaVerify
     var mfaVerifyResult: Result<MFAVerifyResponse, Error> = .success(.stub())
+    private(set) var lastMFAVerifyChallengeToken: String?
     private(set) var lastMFAVerifyCode: String?
-    func mfaVerify(userId: String, deviceId: String, code: String) async throws -> MFAVerifyResponse {
+    func mfaVerify(challengeToken: String, code: String) async throws -> MFAVerifyResponse {
+        lastMFAVerifyChallengeToken = challengeToken
         lastMFAVerifyCode = code
         return try mfaVerifyResult.get()
     }
@@ -96,7 +120,7 @@ final class MockAuthService: AuthServiceProtocol {
     func registerResendCode(email: String) async throws -> ResendRegistrationCodeResponse {
         fatalError("registerResendCode not stubbed")
     }
-    func refreshToken(userId: String, deviceId: String, refreshToken: String) async throws -> RefreshTokenResponse {
+    func refreshToken(refreshToken: String) async throws -> RefreshTokenResponse {
         fatalError("refreshToken not stubbed")
     }
 }
@@ -150,5 +174,30 @@ final class MockKeychain: KeychainManaging {
 
     func clearAuthData() throws {
         [.accessToken, .refreshToken, .userId, .firebaseToken, .fcmToken].forEach { storage[$0] = nil }
+    }
+}
+
+// MARK: - MockGoogleAuthProvider
+
+@MainActor
+final class MockGoogleAuthProvider: GoogleAuthProviding {
+
+    var signInResult: Result<GoogleAccount, Error> = .success(.stub())
+    private(set) var signInCallCount = 0
+    func signIn() async throws -> GoogleAccount {
+        signInCallCount += 1
+        return try signInResult.get()
+    }
+
+    var refreshedIdTokenResult: Result<String, Error> = .success("fresh-id-token")
+    private(set) var refreshedIdTokenCallCount = 0
+    func refreshedIdToken() async throws -> String {
+        refreshedIdTokenCallCount += 1
+        return try refreshedIdTokenResult.get()
+    }
+
+    private(set) var signOutCallCount = 0
+    func signOut() {
+        signOutCallCount += 1
     }
 }

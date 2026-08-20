@@ -82,11 +82,15 @@
     <entity name="OnboardingDraftEntity" representedClassName="OnboardingDraftEntity" syncable="YES">
         <attribute name="birthDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="country" attributeType="String" defaultValueString=""/>
+        <attribute name="countryISO" optional="YES" attributeType="String"/>
         <attribute name="createdAt" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="currentStep" attributeType="Integer 16" defaultValueString="1" usesScalarValueType="YES"/>
         <attribute name="email" attributeType="String" defaultValueString=""/>
         <attribute name="firstName" attributeType="String" defaultValueString=""/>
         <attribute name="gender" optional="YES" attributeType="String"/>
+        <attribute name="googleIssuer" optional="YES" attributeType="String"/>
+        <attribute name="googlePictureURL" optional="YES" attributeType="String"/>
+        <attribute name="googleSubject" optional="YES" attributeType="String"/>
         <attribute name="lastName" attributeType="String" defaultValueString=""/>
         <attribute name="phone" attributeType="String" defaultValueString=""/>
         <attribute name="phoneCountryCode" attributeType="String" defaultValueString="+52"/>

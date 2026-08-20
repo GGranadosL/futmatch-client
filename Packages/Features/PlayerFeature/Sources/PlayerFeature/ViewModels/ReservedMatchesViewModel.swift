@@ -71,7 +71,7 @@ final class ReservedMatchesViewModel: ObservableObject {
             myMatches = fresh
             try? cacheRepo?.saveMatches(fresh)
         } catch {
-            guard !(error is CancellationError) else {
+            guard !error.isCancellation else {
                 isLoading = false
                 return
             }

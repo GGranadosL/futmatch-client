@@ -13,6 +13,7 @@ import SharedModels
 ///  3. Fall back to the UserDefaults cache if Remote Config has no value.
 ///  4. Fetch fresh values from Firebase (background) and persist to cache.
 ///  5. Return the hardcoded `Country.fallback` list as last resort.
+@MainActor
 final class CountryRemoteConfigRepository: CountryRepositoryProtocol {
 
     // MARK: - Constants
@@ -62,7 +63,7 @@ final class CountryRemoteConfigRepository: CountryRepositoryProtocol {
 
         // 2. Try parsing from the currently active Remote Config value.
         if let countries = parsedCountries(), !countries.isEmpty {
-            await persistOnMainThread(countries)
+            persist(countries)
             return countries
         }
 
@@ -95,13 +96,8 @@ final class CountryRemoteConfigRepository: CountryRepositoryProtocol {
         guard (try? await remoteConfig.fetch(withExpirationDuration: Self.fetchInterval)) != nil else { return }
         _ = try? await remoteConfig.activate()
         if let countries = parsedCountries(), !countries.isEmpty {
-            await persistOnMainThread(countries)
+            persist(countries)
         }
-    }
-
-    @MainActor
-    private func persistOnMainThread(_ countries: [Country]) {
-        persist(countries)
     }
 
     private func parsedCountries() -> [Country]? {
