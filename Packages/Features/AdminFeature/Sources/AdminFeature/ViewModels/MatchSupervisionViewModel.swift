@@ -190,7 +190,7 @@ final class MatchSupervisionViewModel: ObservableObject {
                 registeredPlayersLoaded = true
             }
         } catch {
-            guard !(error is CancellationError) else { return }
+            guard !error.isCancellation else { return }
             playersError = error.localizedDescription
         }
     }

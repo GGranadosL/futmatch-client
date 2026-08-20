@@ -46,7 +46,7 @@ final class PaymentMethodsViewModel: ObservableObject {
             )
             self.customerSheet = sheet
         } catch {
-            guard !(error is CancellationError) else { return }
+            guard !error.isCancellation else { return }
             self.error = Self.message(for: error)
         }
         isLoading = false

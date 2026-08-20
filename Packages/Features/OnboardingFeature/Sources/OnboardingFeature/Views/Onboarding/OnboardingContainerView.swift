@@ -21,13 +21,31 @@ public struct OnboardingContainerView: View {
     /// - Parameters:
     ///   - fetchCountriesUseCase: Country data source. Defaults to `FallbackCountryRepository`.
     ///   - fetchDialCodesUseCase: Dial-code data source. Defaults to `FallbackDialCodeRepository`.
+    ///   - googleAccount: set when the flow was started from "Continue with Google".
+    ///     Prefills what Google gave us, drops the password field, and finishes
+    ///     through `/auth/google/register` instead of the email-code flow.
+    ///   - registerGoogleUserUseCase: required whenever `googleAccount` is set.
+    ///   - saveOnboardingDraftUseCase: draft auto-save. Passing `nil` disables
+    ///     draft persistence entirely, which is what previews and tests want.
+    ///   - getOnboardingDraftUseCase: draft restore, matched to this flow's identity.
+    ///   - clearOnboardingDraftUseCase: draft cleanup after a successful sign-up.
     ///   - onRegistrationComplete: Called after successful registration + email verification.
     public init(
         fetchCountriesUseCase: (any FetchCountriesUseCaseProtocol)? = nil,
         fetchDialCodesUseCase: (any FetchDialCodesUseCaseProtocol)? = nil,
+        googleAccount: GoogleAccount? = nil,
+        registerGoogleUserUseCase: (any RegisterGoogleUserUseCaseProtocol)? = nil,
+        saveOnboardingDraftUseCase: (any SaveOnboardingDraftUseCaseProtocol)? = nil,
+        getOnboardingDraftUseCase: (any GetOnboardingDraftUseCaseProtocol)? = nil,
+        clearOnboardingDraftUseCase: (any ClearOnboardingDraftUseCaseProtocol)? = nil,
         onRegistrationComplete: (() -> Void)? = nil
     ) {
         _viewModel = StateObject(wrappedValue: OnboardingViewModel(
+            registerGoogleUserUseCase: registerGoogleUserUseCase,
+            googleAccount: googleAccount,
+            saveOnboardingDraftUseCase: saveOnboardingDraftUseCase,
+            getOnboardingDraftUseCase: getOnboardingDraftUseCase,
+            clearOnboardingDraftUseCase: clearOnboardingDraftUseCase,
             fetchCountriesUseCase: fetchCountriesUseCase,
             fetchDialCodesUseCase: fetchDialCodesUseCase
         ))
@@ -62,7 +80,6 @@ public struct OnboardingContainerView: View {
                 ))
                 .animation(.easeInOut(duration: 0.3), value: viewModel.currentStep)
             }
-            .hideKeyboardOnTap()
             .background(FMColors.background.ignoresSafeArea())
             .navigationTitle(L10n.stepCounter(viewModel.currentStep, 4))
             .navigationBarTitleDisplayMode(.inline)

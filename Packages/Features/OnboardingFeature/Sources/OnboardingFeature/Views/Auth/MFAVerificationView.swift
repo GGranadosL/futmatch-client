@@ -8,15 +8,24 @@ struct MFAVerificationView: View {
     @Environment(\.scenePhase) private var scenePhase
 
     var onVerificationSuccess: (() -> Void)?
+    /// Pops back to the login form with the email field focused. The resend endpoint
+    /// is keyed by `mfaChallengeToken`, so a mistyped address can only be fixed by
+    /// re-running login — this is the affordance that tells the user so.
+    var onChangeEmail: (() -> Void)?
 
     @State private var countdown: Int = 60
     /// Absolute expiry date — source of truth for the countdown, survives background/relaunch.
     @State private var countdownExpiry: Date
     @State private var timer: Timer?
 
-    init(viewModel: LoginViewModel, onVerificationSuccess: (() -> Void)? = nil) {
+    init(
+        viewModel: LoginViewModel,
+        onVerificationSuccess: (() -> Void)? = nil,
+        onChangeEmail: (() -> Void)? = nil
+    ) {
         self.viewModel = viewModel
         self.onVerificationSuccess = onVerificationSuccess
+        self.onChangeEmail = onChangeEmail
         let seconds = viewModel.resendCodeTimeInSeconds
         self._countdown = State(initialValue: seconds)
         self._countdownExpiry = State(initialValue: Date().addingTimeInterval(Double(seconds)))
@@ -99,10 +108,54 @@ struct MFAVerificationView: View {
                 .font(FMTypography.caption)
                 .foregroundColor(FMColors.onSurfaceVariant)
                 .multilineTextAlignment(.center)
-            
-            Text(viewModel.email)
-                .font(FMTypography.captionMedium)
+
+            emailChip
+
+            changeEmailLink
+        }
+    }
+
+    /// The address the code was sent to, boxed so it reads as a value to double-check
+    /// rather than as a tail of the subtitle above it. A mistyped domain that still
+    /// passes email validation (`gmial.com`, `gmail.con`) is the common failure here,
+    /// and this is the last point where the user can catch it.
+    private var emailChip: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "envelope.fill")
+                .font(.system(size: 14, weight: .medium))
                 .foregroundColor(FMColors.primary)
+
+            Text(viewModel.email)
+                .font(FMTypography.titleMedium)
+                .foregroundColor(FMColors.onSurface)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                // Truncate in the middle so the domain — the half that's usually
+                // wrong — stays visible on long addresses.
+                .truncationMode(.middle)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(Capsule().fill(FMColors.surfaceContainerLowest))
+        .overlay(Capsule().stroke(FMColors.outlineVariant, lineWidth: 1))
+        .padding(.top, 4)
+        .accessibilityElement(children: .combine)
+    }
+
+    private var changeEmailLink: some View {
+        Button {
+            onChangeEmail?()
+        } label: {
+            HStack(spacing: 4) {
+                Text(L10n.MFA.wrongEmail)
+                    .font(FMTypography.caption)
+                    .foregroundColor(FMColors.onSurfaceVariant)
+
+                Text(L10n.MFA.changeEmail)
+                    .font(FMTypography.captionMedium)
+                    .foregroundColor(FMColors.primary)
+            }
+            .contentShape(Rectangle())
         }
     }
     
@@ -178,7 +231,9 @@ struct MFAVerificationView: View {
 
 // MARK: - Preview
 #Preview {
-    NavigationStack {
-        MFAVerificationView(viewModel: LoginViewModel())
+    let viewModel = LoginViewModel()
+    viewModel.email = "jingowork@gmail.com"
+    return NavigationStack {
+        MFAVerificationView(viewModel: viewModel)
     }
 }

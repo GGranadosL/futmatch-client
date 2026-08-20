@@ -1,0 +1,26 @@
+{
+  "images": [
+    {
+      "filename": "google_dark.png",
+      "idiom": "universal",
+      "scale": "1x"
+    },
+    {
+      "filename": "google_dark@2x.png",
+      "idiom": "universal",
+      "scale": "2x"
+    },
+    {
+      "filename": "google_dark@3x.png",
+      "idiom": "universal",
+      "scale": "3x"
+    }
+  ],
+  "properties": {
+    "template-rendering-intent": "original"
+  },
+  "info": {
+    "author": "xcode",
+    "version": 1
+  }
+}

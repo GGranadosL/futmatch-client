@@ -987,7 +987,7 @@ struct MatchDetailView: View {
                 teamGoalsCard(name: L10n.Matches.teamB, total: match.teamBScore ?? 0, breakdown: goalBreakdown.teamB)
             }
             .padding(.horizontal, 20)
-            .padding(.top, 24)
+            .padding(.vertical, 24)
         }
     }
 

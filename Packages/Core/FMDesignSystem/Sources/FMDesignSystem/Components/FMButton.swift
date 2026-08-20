@@ -3,29 +3,41 @@ import SwiftUI
 /// Primary Button - FutMatch Style
 public struct FMPrimaryButton: View {
     let title: String
+    /// Optional leading glyph. Inherits the button's foreground colour, so pass a
+    /// template image (an SF Symbol) rather than a coloured asset.
+    let icon: Image?
     let isLoading: Bool
     let isEnabled: Bool
     let action: () -> Void
-    
+
     public init(
         title: String,
+        icon: Image? = nil,
         isLoading: Bool = false,
         isEnabled: Bool = true,
         action: @escaping () -> Void
     ) {
         self.title = title
+        self.icon = icon
         self.isLoading = isLoading
         self.isEnabled = isEnabled
         self.action = action
     }
-    
+
     public var body: some View {
         Button(action: action) {
-            HStack {
+            HStack(spacing: 8) {
                 if isLoading {
                     ProgressView()
                         .progressViewStyle(CircularProgressViewStyle(tint: .white))
                 } else {
+                    if let icon {
+                        icon
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 20, height: 20)
+                    }
+
                     Text(title)
                         .font(FMTypography.button)
                 }
@@ -97,7 +109,12 @@ public struct FMTextButton: View {
 #Preview {
     VStack(spacing: 20) {
         FMPrimaryButton(title: "Siguiente paso") {}
-        
+
+        FMPrimaryButton(
+            title: "Iniciar sesión",
+            icon: Image(systemName: "person.crop.circle.fill")
+        ) {}
+
         FMPrimaryButton(title: "Loading...", isLoading: true) {}
         
         FMPrimaryButton(title: "Disabled", isEnabled: false) {}

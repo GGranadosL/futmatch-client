@@ -94,31 +94,53 @@ struct OnboardingStep2View: View {
 
                 // Form Fields
                 VStack(spacing: 20) {
-                    FMTextField(
-                        label: L10n.Step2.email,
-                        text: $viewModel.email,
-                        keyboardType: .emailAddress,
-                        errorMessage: !viewModel.email.isEmpty && !viewModel.isEmailValid ? L10n.Step2.invalidEmail : nil
-                    )
-                    .focused($focusEmail)
-                    .keyboardNavigation(
-                        hasPrevious: false, hasNext: true,
-                        onPrevious: {},
-                        onNext: { focusPassword = true; focusEmail = false }
-                    )
+                    if viewModel.isGoogleFlow {
+                        // The email came from a Google-verified token and is not
+                        // even part of the register request — editing it would be
+                        // a lie. Shown read-only so the user can still confirm
+                        // which account they are signing up with.
+                        VStack(alignment: .leading, spacing: 6) {
+                            FMTextField(
+                                label: L10n.Step2.email,
+                                text: .constant(viewModel.email),
+                                keyboardType: .emailAddress
+                            )
+                            .disabled(true)
+                            .opacity(0.7)
 
-                    FMTextField(
-                        label: L10n.Step2.password,
-                        text: $viewModel.password,
-                        isSecure: true,
-                        errorMessage: passwordErrorMessage
-                    )
-                    .focused($focusPassword)
-                    .keyboardNavigation(
-                        hasPrevious: true, hasNext: true,
-                        onPrevious: { focusEmail = true; focusPassword = false },
-                        onNext: { focusPhone = true; focusPassword = false }
-                    )
+                            Text(L10n.Step2.googleEmailVerified)
+                                .font(FMTypography.caption)
+                                .foregroundColor(FMColors.onSurfaceVariant)
+                        }
+                    } else {
+                        FMTextField(
+                            label: L10n.Step2.email,
+                            text: $viewModel.email,
+                            keyboardType: .emailAddress,
+                            errorMessage: !viewModel.email.isEmpty && !viewModel.isEmailValid ? L10n.Step2.invalidEmail : nil
+                        )
+                        .focused($focusEmail)
+                        .keyboardNavigation(
+                            hasPrevious: false, hasNext: true,
+                            onPrevious: {},
+                            onNext: { focusPassword = true; focusEmail = false }
+                        )
+
+                        // Google accounts are stored with `password = null`, so
+                        // there is nothing to collect here.
+                        FMTextField(
+                            label: L10n.Step2.password,
+                            text: $viewModel.password,
+                            isSecure: true,
+                            errorMessage: passwordErrorMessage
+                        )
+                        .focused($focusPassword)
+                        .keyboardNavigation(
+                            hasPrevious: true, hasNext: true,
+                            onPrevious: { focusEmail = true; focusPassword = false },
+                            onNext: { focusPhone = true; focusPassword = false }
+                        )
+                    }
 
                     // Phone with country code dropdown
                     HStack(alignment: .top, spacing: 12) {
@@ -142,7 +164,9 @@ struct OnboardingStep2View: View {
                         )
                         .focused($focusPhone)
                         .keyboardNavigation(
-                            hasPrevious: true, hasNext: false,
+                            // No password field to step back into on the Google
+                            // flow, and the email above it is read-only.
+                            hasPrevious: !viewModel.isGoogleFlow, hasNext: false,
                             onPrevious: { focusPassword = true; focusPhone = false },
                             onNext: {}
                         )

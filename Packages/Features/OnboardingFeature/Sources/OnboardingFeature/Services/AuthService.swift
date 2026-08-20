@@ -7,6 +7,8 @@ public protocol AuthServiceProtocol {
     func registerComplete(email: String, verificationCode: String) async throws -> RegisterCompleteResponse
     func registerResendCode(email: String) async throws -> ResendRegistrationCodeResponse
     func signIn(email: String, password: String, deviceId: String?) async throws -> SignInResponse
+    func googleResolve(idToken: String, deviceId: String?) async throws -> GoogleAuthResponse
+    func googleRegister(_ request: GoogleRegisterRequest) async throws -> GoogleAuthResponse
     func mfaSend(challengeToken: String) async throws -> MFASendResponse
     func mfaVerify(challengeToken: String, code: String) async throws -> MFAVerifyResponse
     func forgotPassword(email: String) async throws -> ForgotPasswordResponse
@@ -57,6 +59,21 @@ public class AuthService: AuthServiceProtocol {
         return response
     }
     
+    // MARK: - Google
+
+    public func googleResolve(idToken: String, deviceId: String? = nil) async throws -> GoogleAuthResponse {
+        let request = GoogleResolveRequest(idToken: idToken, deviceId: deviceId)
+        let endpoint = AuthEndpoint.googleResolve(request)
+        let response: GoogleAuthResponse = try await apiClient.request(endpoint: endpoint)
+        return response
+    }
+
+    public func googleRegister(_ request: GoogleRegisterRequest) async throws -> GoogleAuthResponse {
+        let endpoint = AuthEndpoint.googleRegister(request)
+        let response: GoogleAuthResponse = try await apiClient.request(endpoint: endpoint)
+        return response
+    }
+
     // MARK: - MFA
 
     public func mfaSend(challengeToken: String) async throws -> MFASendResponse {
@@ -114,12 +131,14 @@ public class AuthService: AuthServiceProtocol {
 }
 
 // MARK: - Auth Errors
-public enum AuthError: LocalizedError {
+public enum AuthError: LocalizedError, Equatable {
     case invalidCredentials
     case tokenExpired
     case networkError
     case firebaseSignInFailed
     case missingChallengeToken
+    /// A Google endpoint reported success but the payload carried no tokens.
+    case missingGoogleSession
 
     public var errorDescription: String? {
         switch self {
@@ -133,6 +152,8 @@ public enum AuthError: LocalizedError {
             return "No se pudo completar la autenticación. Intenta de nuevo."
         case .missingChallengeToken:
             return "No se pudo continuar con la verificación. Intenta iniciar sesión de nuevo."
+        case .missingGoogleSession:
+            return L10n.Login.googleGenericError
         }
     }
 }

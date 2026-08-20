@@ -17,14 +17,15 @@ final class LoginUseCaseTests: XCTestCase {
         XCTAssertEqual(auth.signInCallCount, 1)
         XCTAssertEqual(auth.lastSignInEmail, "a@b.com")
         XCTAssertFalse(result.requiresMFA)
-        XCTAssertEqual(result.userId, "u-9")
+        XCTAssertNil(result.challengeToken)
         XCTAssertEqual(keychain.storage[.accessToken], "access")
+        XCTAssertEqual(keychain.storage[.userId], "u-9")
         XCTAssertEqual(auth.mfaSendCallCount, 0)
     }
 
     func test_execute_mfaRequired_sendsCode_doesNotSaveTokens() async throws {
         let auth = MockAuthService()
-        auth.signInResult = .success(.stub(authCode: "SUCCESS_NEED_MFA", withTokens: false))
+        auth.signInResult = .success(.stub(authCode: "SUCCESS_NEED_MFA", withTokens: false, challengeToken: "ch-1"))
         auth.mfaSendResult = .success(.stub(resendCodeTimeInSeconds: 45))
         let keychain = MockKeychain()
         let sut = LoginUseCase(authService: auth, keychainManager: keychain)
@@ -33,8 +34,26 @@ final class LoginUseCaseTests: XCTestCase {
 
         XCTAssertTrue(result.requiresMFA)
         XCTAssertEqual(result.resendCodeTimeInSeconds, 45)
+        XCTAssertEqual(result.challengeToken, "ch-1")
         XCTAssertEqual(auth.mfaSendCallCount, 1)
+        XCTAssertEqual(auth.lastMFASendChallengeToken, "ch-1")
         XCTAssertNil(keychain.storage[.accessToken])
+    }
+
+    func test_execute_mfaRequired_withoutChallengeToken_throws() async {
+        let auth = MockAuthService()
+        auth.signInResult = .success(.stub(authCode: "SUCCESS_NEED_MFA", withTokens: false, challengeToken: nil))
+        let sut = LoginUseCase(authService: auth, keychainManager: MockKeychain())
+
+        do {
+            _ = try await sut.execute(email: "a@b.com", password: "pw")
+            XCTFail("Expected missingChallengeToken")
+        } catch {
+            guard case AuthError.missingChallengeToken = error else {
+                return XCTFail("Expected .missingChallengeToken, got \(error)")
+            }
+        }
+        XCTAssertEqual(auth.mfaSendCallCount, 0, "Must not request a code without a token to key it to")
     }
 
     func test_execute_noMFA_missingTokens_throwsInvalidCredentials() async {
@@ -83,8 +102,9 @@ final class LoginUseCaseTests: XCTestCase {
         auth.mfaSendResult = .success(.stub(newCodeSent: true, expiresInSeconds: 200, resendCodeTimeInSeconds: 60))
         let sut = LoginUseCase(authService: auth, keychainManager: MockKeychain())
 
-        let result = try await sut.sendMFACode(userId: "u-1", deviceId: "d-1")
+        let result = try await sut.sendMFACode(challengeToken: "ch-1")
 
+        XCTAssertEqual(auth.lastMFASendChallengeToken, "ch-1")
         XCTAssertTrue(result.newCodeSent)
         XCTAssertEqual(result.expiresInSeconds, 200)
         XCTAssertEqual(result.resendCodeTimeInSeconds, 60)
@@ -98,11 +118,12 @@ final class LoginUseCaseTests: XCTestCase {
         let keychain = MockKeychain()
         let sut = LoginUseCase(authService: auth, keychainManager: keychain)
 
-        let result = try await sut.verifyMFACode(userId: "u-7", deviceId: "d-7", code: "123456")
+        let result = try await sut.verifyMFACode(challengeToken: "ch-1", code: "123456")
 
+        XCTAssertEqual(auth.lastMFAVerifyChallengeToken, "ch-1")
         XCTAssertEqual(auth.lastMFAVerifyCode, "123456")
         XCTAssertFalse(result.requiresMFA)
-        XCTAssertEqual(result.userId, "u-7")
+        XCTAssertEqual(keychain.storage[.userId], "u-7")
         XCTAssertEqual(keychain.storage[.accessToken], "access")
     }
 }

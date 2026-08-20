@@ -13,6 +13,7 @@ import SharedModels
 ///  3. Fall back to the UserDefaults cache if Remote Config has no value.
 ///  4. Fetch fresh values from Firebase (blocking on first launch) and persist to cache.
 ///  5. Return the hardcoded `DialCode.fallback` list as last resort.
+@MainActor
 final class DialCodeRemoteConfigRepository: DialCodeRepositoryProtocol {
 
     // MARK: - Constants
@@ -62,7 +63,7 @@ final class DialCodeRemoteConfigRepository: DialCodeRepositoryProtocol {
 
         // 2. Try parsing from the currently active Remote Config value.
         if let dialCodes = parsedDialCodes(), !dialCodes.isEmpty {
-            await persistOnMainThread(dialCodes)
+            persist(dialCodes)
             return dialCodes
         }
 
@@ -95,13 +96,8 @@ final class DialCodeRemoteConfigRepository: DialCodeRepositoryProtocol {
         guard (try? await remoteConfig.fetch(withExpirationDuration: Self.fetchInterval)) != nil else { return }
         _ = try? await remoteConfig.activate()
         if let dialCodes = parsedDialCodes(), !dialCodes.isEmpty {
-            await persistOnMainThread(dialCodes)
+            persist(dialCodes)
         }
-    }
-
-    @MainActor
-    private func persistOnMainThread(_ dialCodes: [DialCode]) {
-        persist(dialCodes)
     }
 
     private func parsedDialCodes() -> [DialCode]? {

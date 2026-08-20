@@ -32,7 +32,7 @@ final class PlayerProfileViewModel: ObservableObject {
             let profile = try await profileService.fetchPublicProfile(userId: userId)
             state = .loaded(profile)
         } catch {
-            guard !(error is CancellationError) else { return }
+            guard !error.isCancellation else { return }
             state = .failed(error.localizedDescription)
         }
     }

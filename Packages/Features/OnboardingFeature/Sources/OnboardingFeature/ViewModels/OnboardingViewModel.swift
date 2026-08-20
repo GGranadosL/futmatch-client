@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import UIKit
 import Combine
 import NetworkFramework
 import SharedModels
@@ -13,8 +14,21 @@ public class OnboardingViewModel: ObservableObject {
     // MARK: - Step 1: Personal Info
     @Published public var firstName: String = ""
     @Published public var lastName: String = ""
-    @Published public var birthDate: Date = Calendar.current.date(byAdding: .year, value: -18, to: Date()) ?? Date()
+    /// `nil` until the user actually picks a date — no default is pre-selected, so the field
+    /// can't be silently left at a value the user never chose.
+    @Published public var birthDate: Date? = nil
     @Published public var gender: GenderOption? = nil
+
+    /// Dates the birth-date picker may offer. Capping the upper bound at the minimum age
+    /// makes an under-age selection impossible, so the user never fills the form only to
+    /// find the "Next step" button disabled.
+    public var birthDateRange: ClosedRange<Date> {
+        let calendar = Calendar.current
+        let now = Date()
+        let upper = calendar.date(byAdding: .year, value: -FieldValidator.minimumAge, to: now) ?? now
+        let lower = calendar.date(byAdding: .year, value: -120, to: now) ?? upper
+        return lower...upper
+    }
     
     // MARK: - Step 2: Contact & Account
     @Published public var email: String = ""
@@ -39,6 +53,10 @@ public class OnboardingViewModel: ObservableObject {
     @Published public var profileImageData: Data? = nil
     @Published public var playerPosition: PositionOption? = nil
     @Published public var level: LevelOption = .intermediate
+    /// `true` while `useGooglePhoto()` is downloading. Drives the loading state on
+    /// the "Usar foto de Google" pill and disables both photo-source pills so a
+    /// second tap can't race the fetch in flight.
+    @Published public var isLoadingGooglePhoto: Bool = false
     
     // MARK: - UI State
     @Published public var isLoading: Bool = false
@@ -48,10 +66,27 @@ public class OnboardingViewModel: ObservableObject {
     @Published public var isVerificationComplete: Bool = false
     @Published public var resendCodeTimeInSeconds: Int = 60
     @Published public var isDraftRestored: Bool = false
-    
+
+    // MARK: - Google
+    /// Non-nil when this onboarding was started from "Continue with Google".
+    /// Drives every branch below: no password, a locked email, and a register
+    /// call that skips the email verification step entirely.
+    public let googleAccount: GoogleAccount?
+
+    public var isGoogleFlow: Bool { googleAccount != nil }
+
+    /// Whether the backend should import Google's avatar or leave the account
+    /// without one. Picking a photo in step 3 fills `profileImageData`, and that
+    /// image is uploaded separately after registration — importing Google's on
+    /// top of it would just overwrite the user's choice.
+    var profilePictureSource: ProfilePictureSource {
+        profileImageData == nil ? .google : .custom
+    }
+
     // MARK: - Use Cases
     private let registerUserUseCase: RegisterUserUseCaseProtocol
     private let verifyCodeUseCase: VerifyCodeUseCaseProtocol
+    private let registerGoogleUserUseCase: RegisterGoogleUserUseCaseProtocol?
     private let saveOnboardingDraftUseCase: SaveOnboardingDraftUseCaseProtocol?
     private let getOnboardingDraftUseCase: GetOnboardingDraftUseCaseProtocol?
     private let clearOnboardingDraftUseCase: ClearOnboardingDraftUseCaseProtocol?
@@ -65,6 +100,8 @@ public class OnboardingViewModel: ObservableObject {
     public init(
         registerUserUseCase: RegisterUserUseCaseProtocol? = nil,
         verifyCodeUseCase: VerifyCodeUseCaseProtocol? = nil,
+        registerGoogleUserUseCase: RegisterGoogleUserUseCaseProtocol? = nil,
+        googleAccount: GoogleAccount? = nil,
         saveOnboardingDraftUseCase: SaveOnboardingDraftUseCaseProtocol? = nil,
         getOnboardingDraftUseCase: GetOnboardingDraftUseCaseProtocol? = nil,
         clearOnboardingDraftUseCase: ClearOnboardingDraftUseCaseProtocol? = nil,
@@ -74,16 +111,23 @@ public class OnboardingViewModel: ObservableObject {
         let authService = AuthService()
         self.registerUserUseCase = registerUserUseCase ?? RegisterUserUseCase(authService: authService)
         self.verifyCodeUseCase = verifyCodeUseCase ?? VerifyCodeUseCase(authService: authService)
+        self.registerGoogleUserUseCase = registerGoogleUserUseCase
+        self.googleAccount = googleAccount
         self.saveOnboardingDraftUseCase = saveOnboardingDraftUseCase
         self.getOnboardingDraftUseCase = getOnboardingDraftUseCase
         self.clearOnboardingDraftUseCase = clearOnboardingDraftUseCase
         self.fetchCountriesUseCase = fetchCountriesUseCase ?? FetchCountriesUseCase(repository: FallbackCountryRepository())
         self.fetchDialCodesUseCase = fetchDialCodesUseCase ?? FetchDialCodesUseCase(repository: FallbackDialCodeRepository())
 
+        // Google's values go in first so a matching draft can still override them
+        // with whatever the user actually typed before they walked away.
+        applyGooglePrefill()
+
         Task {
             await loadDraft()
             await loadCountries()
             await loadDialCodes()
+            await useGooglePhoto()
         }
     }
 
@@ -97,6 +141,65 @@ public class OnboardingViewModel: ObservableObject {
     func loadDialCodes() async {
         let result = await fetchDialCodesUseCase.execute()
         dialCodes = result
+    }
+
+    // MARK: - Google Prefill
+
+    /// Copies across everything Google actually gives us. Basic scopes carry only
+    /// name, email and picture — birth date, gender and phone are not available,
+    /// so those steps still have to be filled in by hand.
+    private func applyGooglePrefill() {
+        guard let account = googleAccount else { return }
+        firstName = Self.sanitizedName(account.givenName)
+        lastName = Self.sanitizedName(account.familyName)
+        email = account.email
+        profilePicURL = account.pictureURL ?? ""
+    }
+
+    /// Trims a Google display name down to what `FieldValidator.validateName`
+    /// accepts (letters and spaces, 30 max).
+    ///
+    /// Google names routinely contain hyphens and apostrophes — "Jean-Luc",
+    /// "O'Brien". Prefilling those verbatim leaves step 1 blocked with every field
+    /// visibly populated and no error the user can act on, so they get cleaned here
+    /// rather than by loosening validation for everyone.
+    static func sanitizedName(_ raw: String) -> String {
+        let allowed = raw.filter { $0.isLetter || $0.isWhitespace }
+        let collapsed = allowed.split(separator: " ").joined(separator: " ")
+        return String(collapsed.prefix(30))
+    }
+
+    /// Switches the avatar back to Google's photo — the counterpart of picking a
+    /// custom one in Step 3.
+    ///
+    /// Clears `profileImageData` first: that property is what `profilePictureSource`
+    /// reads to decide `.google` vs `.custom`, so this is what "undoes" a previously
+    /// picked custom photo, even before the download below finishes.
+    ///
+    /// Deliberately does not touch `profileImageData` afterwards, and never did:
+    /// that property means "the user picked their own photo, upload it after
+    /// registering". Google's picture is imported server-side from the verified
+    /// token instead, so writing it here would both re-upload it and flip
+    /// `profilePictureSource` back to `.custom`.
+    ///
+    /// Called once at init to show Google's photo up front, and again from the
+    /// "Usar foto de Google" pill in Step 3 — which also doubles as the retry path
+    /// if the initial silent download failed (e.g. no network yet at launch).
+    public func useGooglePhoto() async {
+        profileImageData = nil
+
+        guard let urlString = googleAccount?.pictureURL,
+              let url = URL(string: urlString) else { return }
+
+        isLoadingGooglePhoto = true
+        defer { isLoadingGooglePhoto = false }
+
+        // A failed fetch leaves whatever was on screen before rather than blanking
+        // the avatar — the user can just tap the pill again once they have signal.
+        guard let (data, _) = try? await URLSession.shared.data(from: url),
+              let image = UIImage(data: data) else { return }
+
+        profileImage = Image(uiImage: image)
     }
     
     // MARK: - Navigation
@@ -139,13 +242,16 @@ public class OnboardingViewModel: ObservableObject {
     }
     
     public var isBirthDateValid: Bool {
+        guard let birthDate else { return false }
         return FieldValidator.validateBirthDate(birthDate).isValid
     }
     
     // Step 2 Validations
     public var isStep2Valid: Bool {
+        // Google accounts are stored with `password = null` — there is no field to
+        // fill and nothing to validate.
         return isEmailValid
-            && isPasswordValid
+            && (isGoogleFlow || isPasswordValid)
             && isPhoneValid
             && !countryCode.isEmpty
             && !countryISO.isEmpty
@@ -184,20 +290,40 @@ public class OnboardingViewModel: ObservableObject {
     public func submitRegistration() async {
         isLoading = true
         errorMessage = nil
-        
+
         do {
-            let request = buildRegisterRequest()
-            let result = try await registerUserUseCase.execute(request: request)
-            
-            if result.success {
-                resendCodeTimeInSeconds = result.resendCodeTimeInSeconds
-                showVerification = true
+            if isGoogleFlow {
+                try await submitGoogleRegistration()
+            } else {
+                let request = buildRegisterRequest()
+                let result = try await registerUserUseCase.execute(request: request)
+
+                if result.success {
+                    resendCodeTimeInSeconds = result.resendCodeTimeInSeconds
+                    showVerification = true
+                }
             }
         } catch {
             errorMessage = error.localizedDescription
         }
-        
+
         isLoading = false
+    }
+
+    /// Registers a Google account and lands the user straight on the success screen.
+    ///
+    /// There is no verification code to enter: Google already handed us a verified
+    /// email, so `/auth/google/register` creates the account and returns a session
+    /// in one call. Setting `isVerificationComplete` is what the container watches
+    /// to show `RegistrationSuccessView`, so the code screen is bypassed entirely.
+    private func submitGoogleRegistration() async throws {
+        guard let registerGoogleUserUseCase else {
+            throw AuthError.missingGoogleSession
+        }
+
+        try await registerGoogleUserUseCase.execute(buildGoogleRegistrationInput())
+        await clearDraftAfterSuccess()
+        isVerificationComplete = true
     }
     
     // MARK: - Verification
@@ -244,7 +370,10 @@ public class OnboardingViewModel: ObservableObject {
     // MARK: - Private Helpers
     
     private func buildRegisterRequest() -> RegisterStartRequest {
-        let birthDateTimestamp = Int64(birthDate.timeIntervalSince1970 * 1000)
+        // `birthDate` is guaranteed non-nil by the time this runs: the UI disables
+        // "Next step" on Step 1 (`isStep1Valid`) until the user picks one, and
+        // submission only happens after all 4 steps are complete.
+        let birthDateTimestamp = Int64((birthDate ?? Date()).timeIntervalSince1970 * 1000)
 
         // Profile picture is uploaded separately after email verification via /user/profile-pic endpoint,
         // not during initial registration.
@@ -261,6 +390,25 @@ public class OnboardingViewModel: ObservableObject {
             profilePic: nil,
             level: level.toPlayerLevel(),
             userRole: .player
+        )
+    }
+
+    /// The Google counterpart of `buildRegisterRequest`.
+    ///
+    /// No email and no password: the backend takes the email from the verified ID
+    /// token. The phone keeps the same `cleanedPhone` shape the password sign-up
+    /// sends — both land in the same `users.phone` column.
+    private func buildGoogleRegistrationInput() -> GoogleRegistrationInput {
+        GoogleRegistrationInput(
+            name: firstName.trimmingCharacters(in: .whitespaces),
+            lastName: lastName.trimmingCharacters(in: .whitespaces),
+            phone: cleanedPhone,
+            country: countryISO,
+            birthDate: Int64((birthDate ?? Date()).timeIntervalSince1970 * 1000),
+            gender: gender?.toGender() ?? .male,
+            playerPosition: playerPosition?.toPlayerPosition() ?? .midfielder,
+            level: level.toPlayerLevel(),
+            profilePictureSource: profilePictureSource
         )
     }
 }
@@ -348,17 +496,24 @@ extension OnboardingViewModel {
             phone: phone,
             country: country,
             countryISO: countryISO,
-            currentStep: currentStep
+            currentStep: currentStep,
+            googleIssuer: googleAccount?.issuer,
+            googleSubject: googleAccount?.subject,
+            googlePictureURL: googleAccount?.pictureURL
         )
-        
+
+        // The Google ID token is never written anywhere — the backend forbids it.
+        // A resumed sign-up mints a fresh one through `refreshedIdToken()`.
         try? await useCase.execute(draft, password: password.isEmpty ? nil : password)
     }
-    
+
     /// Load saved draft on initialization
     private func loadDraft() async {
         guard let useCase = getOnboardingDraftUseCase else { return }
-        
-        if let result = try? await useCase.execute() {
+
+        // The use case only hands back a draft belonging to this flow: the Google
+        // identity that's signing up, or a password draft when there is none.
+        if let result = try? await useCase.execute(googleIdentity: googleAccount?.draftIdentity) {
             await restoreDraft(result.draft, password: result.password)
         }
     }
@@ -367,7 +522,11 @@ extension OnboardingViewModel {
     private func restoreDraft(_ draft: OnboardingDraft, password: String?) async {
         firstName = draft.firstName
         lastName = draft.lastName
-        birthDate = draft.birthDate ?? self.birthDate
+        if let draftedBirthDate = draft.birthDate {
+            // A draft saved before the user's last birthday can fall outside the picker range.
+            let range = birthDateRange
+            birthDate = min(max(draftedBirthDate, range.lowerBound), range.upperBound)
+        }
         if let genderValue = draft.gender, let gender = GenderOption(rawValue: genderValue) {
             self.gender = gender
         }

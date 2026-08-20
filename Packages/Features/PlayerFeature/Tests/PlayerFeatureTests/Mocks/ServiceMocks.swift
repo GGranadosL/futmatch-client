@@ -376,6 +376,31 @@ final class MockFetchNotificationsUseCase: FetchNotificationsUseCaseProtocol {
     }
 }
 
+// MARK: - MockSeenNotificationStore
+
+final class MockSeenNotificationStore: SeenNotificationStoreProtocol {
+    private(set) var seenIds: Set<String> = []
+    private(set) var clearCallCount = 0
+
+    init(seenIds: Set<String> = []) {
+        self.seenIds = seenIds
+    }
+
+    func markSeen(_ ids: Set<String>) {
+        guard !ids.isEmpty else { return }
+        seenIds.formUnion(ids)
+    }
+
+    func prune(keeping ids: Set<String>) {
+        seenIds.formIntersection(ids)
+    }
+
+    func clear() {
+        clearCallCount += 1
+        seenIds = []
+    }
+}
+
 // MARK: - MockNotificationFetchTimestampStore
 
 final class MockNotificationFetchTimestampStore: NotificationFetchTimestampStoreProtocol {

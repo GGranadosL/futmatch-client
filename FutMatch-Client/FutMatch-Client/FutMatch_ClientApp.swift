@@ -5,6 +5,7 @@ import OSLog
 import FirebaseAuth
 import FirebaseAppCheck
 import FirebaseMessaging
+import GoogleSignIn
 import OnboardingFeature
 import PlayerFeature
 import AdminFeature
@@ -82,6 +83,16 @@ class AppState: ObservableObject {
         isLoggingOut = true
         logoutError = nil
 
+        // Tear the session down *before* awaiting the network. /auth/signOut is a
+        // full round trip, and `RootView.onLogout` already cleared `UserSession`
+        // synchronously — so awaiting first left Home on screen for the whole call
+        // with an empty profile behind it, rendering every `?? "—"` placeholder.
+        // The sign-out request still authenticates: it reads the access token from
+        // the Keychain, which `logoutUseCase` only clears once the call succeeds.
+        onDidLogout?()
+        isDemoMode = false
+        isLoggedIn = false
+
         do {
             try await logoutUseCase.execute()
         } catch {
@@ -89,9 +100,6 @@ class AppState: ObservableObject {
             // Still logout locally even if API fails
             try? KeychainManager.shared.clearAuthData()
         }
-        onDidLogout?()
-        isDemoMode = false
-        isLoggedIn = false
         isLoggingOut = false
     }
 }
@@ -125,16 +133,18 @@ struct FutMatchApp: App {
             FMImageCache.shared.clearAll()
             // Clear home cache so the next user doesn't see stale data
             UserDefaults.standard.removeObject(forKey: "home.cache.homeDataDTO")
-            // Reset notification seen-count so the next user gets a fresh badge
-            UserDefaults.standard.removeObject(forKey: "notifications.seenUnreadCount")
-            // Drop the fetch-timestamp safety net so the next account's first
-            // fetch isn't throttled by this account's recent activity.
-            UserDefaults.standard.removeObject(forKey: "notification.lastFetchedAt")
+            // Reset the notification badge's seen-ID set and the fetch-timestamp
+            // safety net so the next user gets a fresh badge and an unthrottled fetch.
+            PlayerDependencyFactory().clearNotificationState()
             // Drop persisted regional matches versions so the next account
             // re-fetches the full list instead of sending a stale sinceVersion.
             PlayerDependencyFactory().clearMatchVersions()
             // Stop receiving regional matches auto-refresh pushes for this device.
             Messaging.messaging().unsubscribe(fromTopic: MatchRegion.default.topic)
+            // Drop the Google session too, so the next "Continue with Google"
+            // shows the account picker instead of silently re-entering the
+            // account that just signed out.
+            GIDSignIn.sharedInstance.signOut()
         }
         return state
     }()
@@ -350,9 +360,22 @@ struct RootView: View {
             countryRepository: countryRepository,
             dialCodeRepository: dialCodeRepository
         )
+        // Only offered once the project actually has both client ids; otherwise
+        // the button would open a sheet that can only fail.
+        let googleAuth: GoogleSignInService? = GoogleSignInService.isConfigured
+            ? GoogleSignInService()
+            : nil
         LoginView(
             fetchCountriesUseCase: factory.makeFetchCountriesUseCase(),
             fetchDialCodesUseCase: factory.makeFetchDialCodesUseCase(),
+            googleAuth: googleAuth,
+            signInWithGoogleUseCase: factory.makeSignInWithGoogleUseCase(),
+            makeRegisterGoogleUserUseCase: googleAuth.map { auth in
+                { factory.makeRegisterGoogleUserUseCase(googleAuth: auth) }
+            },
+            saveOnboardingDraftUseCase: factory.makeSaveOnboardingDraftUseCase(),
+            getOnboardingDraftUseCase: factory.makeGetOnboardingDraftUseCase(),
+            clearOnboardingDraftUseCase: factory.makeClearOnboardingDraftUseCase(),
             onLoginSuccess: { appState.isLoggedIn = true },
             firebaseSignIn: { token in
                 try await Auth.auth().signIn(withCustomToken: token)

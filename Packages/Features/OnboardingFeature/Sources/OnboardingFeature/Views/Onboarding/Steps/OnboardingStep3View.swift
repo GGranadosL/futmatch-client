@@ -90,10 +90,33 @@ struct OnboardingStep3View: View {
                     .onTapGesture {
                         showImageSourceSheet = true
                     }
-                    
-                    Text(L10n.Step3.uploadPhoto)
-                        .font(FMTypography.captionMedium)
-                        .foregroundColor(FMColors.primary)
+
+                    if viewModel.isGoogleFlow {
+                        // Explicit source picker: which photo actually goes in the
+                        // register request is otherwise invisible to the user.
+                        // Reuses `FMChip`'s selected/unselected styling — same
+                        // checkmark-and-fill language as the position chips below.
+                        FlowLayout(spacing: 8) {
+                            FMChip(
+                                text: L10n.Step3.useGooglePhoto,
+                                isSelected: viewModel.profileImageData == nil
+                            ) {
+                                Task { await viewModel.useGooglePhoto() }
+                            }
+
+                            FMChip(
+                                text: L10n.Step3.uploadPhotoShort,
+                                isSelected: viewModel.profileImageData != nil
+                            ) {
+                                showImageSourceSheet = true
+                            }
+                        }
+                        .disabled(viewModel.isLoadingGooglePhoto)
+                    } else {
+                        Text(L10n.Step3.uploadPhoto)
+                            .font(FMTypography.captionMedium)
+                            .foregroundColor(FMColors.primary)
+                    }
                 }
                 .padding(.vertical, 16)
                 

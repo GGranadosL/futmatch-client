@@ -77,7 +77,6 @@ struct VerificationCodeView: View {
                 .padding(.horizontal, 24)
                 .animation(.easeInOut(duration: 0.2), value: viewModel.errorMessage)
             }
-            .hideKeyboardOnTap()
             
             // Bottom Section
             VStack(spacing: 16) {

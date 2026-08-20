@@ -65,7 +65,7 @@ final class HomeViewModel: ObservableObject {
             hasData = true
             loadFailed = false
         } catch {
-            guard !(error is CancellationError) else {
+            guard !error.isCancellation else {
                 isLoading = false
                 return
             }

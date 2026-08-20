@@ -631,7 +631,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Femenino"
+            "value" : "Mujer"
           }
         }
       }
@@ -648,7 +648,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Masculino"
+            "value" : "Hombre"
           }
         }
       }
@@ -772,6 +772,23 @@
         }
       }
     },
+    "onboarding.step1.dateOfBirthPlaceholder" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Select your date of birth"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Selecciona tu fecha de nacimiento"
+          }
+        }
+      }
+    },
     "onboarding.step1.firstName" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -836,6 +853,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Cuéntanos un poco sobre ti para comenzar."
+          }
+        }
+      }
+    },
+    "onboarding.step1.googleSubtitle" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Google already verified your email. We just need a few more details."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Google ya verificó tu correo. Sólo necesitamos algunos datos más."
+          }
+        }
+      }
+    },
+    "onboarding.step1.googleTitle" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Complete your profile"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Completa tu perfil"
           }
         }
       }
@@ -1159,6 +1210,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Subir foto de perfil"
+          }
+        }
+      }
+    },
+    "onboarding.step3.uploadPhotoShort" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Upload photo"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Subir foto"
+          }
+        }
+      }
+    },
+    "onboarding.step3.useGooglePhoto" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use Google photo"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Usar foto de Google"
           }
         }
       }
@@ -1771,6 +1856,125 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "VERIFICACIÓN"
+          }
+        }
+      }
+    },
+    "login.continueWithGoogle" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continue with Google"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continuar con Google"
+          }
+        }
+      }
+    },
+    "login.google.accountHint" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "If you signed up with Google, use the “Continue with Google” button."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Si te registraste con Google, usa el botón “Continuar con Google”."
+          }
+        }
+      }
+    },
+    "login.google.cancelled" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Google sign-in was cancelled."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se canceló el inicio de sesión con Google."
+          }
+        }
+      }
+    },
+    "login.google.error.generic" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Google sign-in could not be completed. Please try again."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo completar el inicio de sesión con Google. Inténtalo de nuevo."
+          }
+        }
+      }
+    },
+    "mfa.changeEmail" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Change"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cambiar"
+          }
+        }
+      }
+    },
+    "mfa.wrongEmail" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wrong email?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Correo incorrecto?"
+          }
+        }
+      }
+    },
+    "onboarding.step2.googleEmailVerified" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Email verified by Google"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Correo verificado por Google"
           }
         }
       }

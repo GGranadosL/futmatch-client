@@ -9,8 +9,8 @@ public enum Gender: String, Codable, Equatable, CaseIterable {
 
     public var displayName: String {
         switch self {
-        case .male: return "Masculino"
-        case .female: return "Femenino"
+        case .male: return "Hombre"
+        case .female: return "Mujer"
         case .other: return "Otro"
         }
     }
