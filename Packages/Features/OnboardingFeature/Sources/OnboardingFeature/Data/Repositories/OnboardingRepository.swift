@@ -46,9 +46,10 @@ public final class OnboardingRepository: OnboardingRepositoryProtocol {
             // silently invalid. Persisted now that the entity carries the field.
             entity.countryISO = draft.countryISO
             entity.currentStep = Int16(draft.currentStep)
-            entity.googleIssuer = draft.googleIssuer
-            entity.googleSubject = draft.googleSubject
-            entity.googlePictureURL = draft.googlePictureURL
+            entity.socialProvider = draft.provider?.rawValue
+            entity.socialIssuer = draft.socialIssuer
+            entity.socialSubject = draft.socialSubject
+            entity.socialPictureURL = draft.socialPictureURL
             entity.createdAt = draft.createdAt
             entity.updatedAt = Date()
 
@@ -74,6 +75,14 @@ public final class OnboardingRepository: OnboardingRepositoryProtocol {
 
         guard let entity = result else { return nil }
 
+        // Rows written before this build carry `socialIssuer`/`socialSubject`
+        // (renamed at the CoreData level from `googleIssuer`/`googleSubject`) but
+        // no `socialProvider`, since that column didn't exist yet. Every draft
+        // written back then could only have come from Google, so infer it from
+        // the issuer rather than losing the identity outright.
+        let provider = entity.socialProvider.flatMap(AuthProvider.init(rawValue:))
+            ?? (entity.socialIssuer == AuthProvider.google.issuer ? .google : nil)
+
         let draft = OnboardingDraft(
             firstName: entity.firstName,
             lastName: entity.lastName,
@@ -85,9 +94,10 @@ public final class OnboardingRepository: OnboardingRepositoryProtocol {
             country: entity.country,
             countryISO: entity.countryISO ?? "",
             currentStep: Int(entity.currentStep),
-            googleIssuer: entity.googleIssuer,
-            googleSubject: entity.googleSubject,
-            googlePictureURL: entity.googlePictureURL,
+            provider: provider,
+            socialIssuer: entity.socialIssuer,
+            socialSubject: entity.socialSubject,
+            socialPictureURL: entity.socialPictureURL,
             createdAt: entity.createdAt,
             updatedAt: entity.updatedAt
         )

@@ -13,6 +13,7 @@
 		C0404E6B2F73A34800E712F5 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = C0404E6A2F73A34800E712F5 /* FirebaseMessaging */; };
 		C05EB5F72F7B911E00E0C69B /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = C05EB5F62F7B911E00E0C69B /* FirebaseFirestore */; };
 		C05EB5F92F7B971A00E0C69B /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = C05EB5F82F7B971A00E0C69B /* FirebaseAuth */; };
+		C073BD743036BB6B00BB517D /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = C0G00G2E2FE0A00100E712F5 /* GoogleSignIn */; };
 		C07A6C3B2F1B7C19002868BD /* FMDesignSystem in Frameworks */ = {isa = PBXBuildFile; productRef = C07A6C3A2F1B7C19002868BD /* FMDesignSystem */; };
 		C07A6C3D2F1B7C19002868BD /* PlayerFeature in Frameworks */ = {isa = PBXBuildFile; productRef = C07A6C3C2F1B7C19002868BD /* PlayerFeature */; };
 		C09AFBD42FB68DB900CF33F0 /* FirebaseRemoteConfig in Frameworks */ = {isa = PBXBuildFile; productRef = C09AFBD32FB68DB900CF33F0 /* FirebaseRemoteConfig */; };
@@ -81,6 +82,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C073BD743036BB6B00BB517D /* GoogleSignIn in Frameworks */,
 				C09AFBD42FB68DB900CF33F0 /* FirebaseRemoteConfig in Frameworks */,
 				C07A6C3B2F1B7C19002868BD /* FMDesignSystem in Frameworks */,
 				C0A59BA12F18832700B28BAD /* OnboardingFeature in Frameworks */,
@@ -474,12 +476,12 @@
 				CODE_SIGN_ENTITLEMENTS = "FutMatch-Client/FutMatch-Client.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 8;
+				CURRENT_PROJECT_VERSION = 9;
 				DEVELOPMENT_TEAM = 8NB4P3S66S;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "FutMatch-Client/Info.plist";
 				GOOGLE_REVERSED_CLIENT_ID = "com.googleusercontent.apps.669918628196-fd4b7m4emtp91afd86k71kduofoph24i";
+				INFOPLIST_FILE = "FutMatch-Client/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Futmatch;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.sports";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Usamos la cámara para tomar tu foto de perfil y para escanear códigos QR.";
@@ -515,12 +517,12 @@
 				CODE_SIGN_ENTITLEMENTS = "FutMatch-Client/FutMatch-Client.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 8;
+				CURRENT_PROJECT_VERSION = 9;
 				DEVELOPMENT_TEAM = 8NB4P3S66S;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "FutMatch-Client/Info.plist";
 				GOOGLE_REVERSED_CLIENT_ID = "com.googleusercontent.apps.669918628196-fd4b7m4emtp91afd86k71kduofoph24i";
+				INFOPLIST_FILE = "FutMatch-Client/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Futmatch;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.sports";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Usamos la cámara para tomar tu foto de perfil y para escanear códigos QR.";
@@ -721,17 +723,17 @@
 				minimumVersion = 4.6.0;
 			};
 		};
-		C0G00G1E2FE0A00100E712F5 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */ = {
+		C0B1A0012FD0A00100E712F5 /* XCRemoteSwiftPackageReference "IQKeyboardManager" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/google/GoogleSignIn-iOS";
+			repositoryURL = "https://github.com/hackiftekhar/IQKeyboardManager.git";
 			requirement = {
 				kind = upToNextMajorVersion;
 				minimumVersion = 8.0.0;
 			};
 		};
-		C0B1A0012FD0A00100E712F5 /* XCRemoteSwiftPackageReference "IQKeyboardManager" */ = {
+		C0G00G1E2FE0A00100E712F5 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/hackiftekhar/IQKeyboardManager.git";
+			repositoryURL = "https://github.com/google/GoogleSignIn-iOS";
 			requirement = {
 				kind = upToNextMajorVersion;
 				minimumVersion = 8.0.0;
@@ -790,15 +792,15 @@
 			package = C0A59B9F2F18831900B28BAD /* XCLocalSwiftPackageReference "../Packages/Features/OnboardingFeature" */;
 			productName = OnboardingFeature;
 		};
-		C0G00G2E2FE0A00100E712F5 /* GoogleSignIn */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = C0G00G1E2FE0A00100E712F5 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
-			productName = GoogleSignIn;
-		};
 		C0B1A0022FD0A00200E712F5 /* IQKeyboardManagerSwift */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = C0B1A0012FD0A00100E712F5 /* XCRemoteSwiftPackageReference "IQKeyboardManager" */;
 			productName = IQKeyboardManagerSwift;
+		};
+		C0G00G2E2FE0A00100E712F5 /* GoogleSignIn */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C0G00G1E2FE0A00100E712F5 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignIn;
 		};
 		D1A0CA00000000000000FACE /* FirebaseAppCheck */ = {
 			isa = XCSwiftPackageProductDependency;

@@ -2,6 +2,7 @@ import SwiftUI
 import CoreData
 import Combine
 import OSLog
+import AuthenticationServices
 import FirebaseAuth
 import FirebaseAppCheck
 import FirebaseMessaging
@@ -33,6 +34,7 @@ class AppState: ObservableObject {
         self.logoutUseCase = logoutUseCase ?? LogoutUseCase(authService: AuthService())
         isLoggedIn = KeychainManager.shared.isLoggedIn
         observeUnauthorizedResponses()
+        observeAppleCredentialRevocation()
     }
 
     // MARK: - Demo Mode
@@ -56,6 +58,21 @@ class AppState: ObservableObject {
     private func observeUnauthorizedResponses() {
         NotificationCenter.default
             .publisher(for: .apiUnauthorized)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                guard let self, self.isLoggedIn else { return }
+                self.forceLogout()
+            }
+            .store(in: &cancellables)
+    }
+
+    /// Fires when the user revokes FutMatch's access from Settings ▸ Apple ID ▸
+    /// Sign in with Apple ▸ FutMatch ▸ Stop Using. Only ever posted for apps the
+    /// user actually authorized with Apple, so it's safe to force-logout on
+    /// unconditionally — a Google or password account will simply never see it.
+    private func observeAppleCredentialRevocation() {
+        NotificationCenter.default
+            .publisher(for: ASAuthorizationAppleIDProvider.credentialRevokedNotification)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 guard let self, self.isLoggedIn else { return }
@@ -353,6 +370,24 @@ struct RootView: View {
 
 
     
+    /// Only offered once each provider is actually configured; otherwise the
+    /// button would open a sheet that can only fail. Google needs both client
+    /// ids; Apple needs the backend endpoints deployed (`Config.isAppleSignInEnabled`).
+    ///
+    /// Not inlined into `makeLoginView()`: `@ViewBuilder` tries to interpret a
+    /// bare `if let ... { <non-View statement> }` as a conditional view branch
+    /// and fails to type-check, since assigning into a dictionary isn't a `View`.
+    private func makeSocialProviders() -> [AuthProvider: any SocialAuthProviding] {
+        var providers: [AuthProvider: any SocialAuthProviding] = [:]
+        if GoogleSignInService.isConfigured {
+            providers[.google] = GoogleSignInService()
+        }
+        if AppleSignInService.isConfigured {
+            providers[.apple] = AppleSignInService()
+        }
+        return providers
+    }
+
     @ViewBuilder
     private func makeLoginView() -> some View {
         let factory = OnboardingDependencyFactory(
@@ -360,18 +395,16 @@ struct RootView: View {
             countryRepository: countryRepository,
             dialCodeRepository: dialCodeRepository
         )
-        // Only offered once the project actually has both client ids; otherwise
-        // the button would open a sheet that can only fail.
-        let googleAuth: GoogleSignInService? = GoogleSignInService.isConfigured
-            ? GoogleSignInService()
-            : nil
+        let socialProviders = makeSocialProviders()
+
         LoginView(
             fetchCountriesUseCase: factory.makeFetchCountriesUseCase(),
             fetchDialCodesUseCase: factory.makeFetchDialCodesUseCase(),
-            googleAuth: googleAuth,
-            signInWithGoogleUseCase: factory.makeSignInWithGoogleUseCase(),
-            makeRegisterGoogleUserUseCase: googleAuth.map { auth in
-                { factory.makeRegisterGoogleUserUseCase(googleAuth: auth) }
+            socialProviders: socialProviders,
+            signInWithSocialUseCase: factory.makeSignInWithSocialUseCase(),
+            makeRegisterSocialUserUseCase: { provider in
+                guard let auth = socialProviders[provider] else { return nil }
+                return factory.makeRegisterSocialUserUseCase(socialAuth: auth)
             },
             saveOnboardingDraftUseCase: factory.makeSaveOnboardingDraftUseCase(),
             getOnboardingDraftUseCase: factory.makeGetOnboardingDraftUseCase(),

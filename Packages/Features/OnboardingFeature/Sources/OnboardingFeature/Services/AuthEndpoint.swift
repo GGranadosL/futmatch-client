@@ -7,8 +7,8 @@ enum AuthEndpoint: APIEndpoint {
     case registerComplete(RegisterCompleteRequest)
     case registerResendCode(ResendRegistrationCodeRequest)
     case signIn(SignInRequest)
-    case googleResolve(GoogleResolveRequest)
-    case googleRegister(GoogleRegisterRequest)
+    case socialResolve(AuthProvider, SocialResolveRequest)
+    case socialRegister(AuthProvider, SocialRegisterRequest)
     case mfaSend(MFASendRequest)
     case mfaVerify(MFAVerifyRequest)
     case forgotPassword(email: String)
@@ -27,10 +27,10 @@ enum AuthEndpoint: APIEndpoint {
             return "/auth/register/resend-code"
         case .signIn:
             return "/auth/signIn"
-        case .googleResolve:
-            return "/auth/google/resolve"
-        case .googleRegister:
-            return "/auth/google/register"
+        case .socialResolve(let provider, _):
+            return "/auth/\(provider.rawValue.lowercased())/resolve"
+        case .socialRegister(let provider, _):
+            return "/auth/\(provider.rawValue.lowercased())/register"
         case .mfaSend:
             return "/auth/mfa/send"
         case .mfaVerify:
@@ -50,7 +50,7 @@ enum AuthEndpoint: APIEndpoint {
     
     var method: HTTPMethod {
         switch self {
-        case .registerStart, .registerComplete, .registerResendCode, .signIn, .googleResolve, .googleRegister, .mfaSend, .mfaVerify, .forgotPassword, .verifyResetMFA, .refreshToken, .signOut:
+        case .registerStart, .registerComplete, .registerResendCode, .signIn, .socialResolve, .socialRegister, .mfaSend, .mfaVerify, .forgotPassword, .verifyResetMFA, .refreshToken, .signOut:
             return .post
         case .resetPassword:
             return .put
@@ -86,9 +86,9 @@ enum AuthEndpoint: APIEndpoint {
             return try? JSONEncoder().encode(request)
         case .signIn(let request):
             return try? JSONEncoder().encode(request)
-        case .googleResolve(let request):
+        case .socialResolve(_, let request):
             return try? JSONEncoder().encode(request)
-        case .googleRegister(let request):
+        case .socialRegister(_, let request):
             return try? JSONEncoder().encode(request)
         case .mfaSend(let request):
             return try? JSONEncoder().encode(request)
@@ -110,7 +110,7 @@ enum AuthEndpoint: APIEndpoint {
     
     var requiresAuth: Bool {
         switch self {
-        case .refreshToken, .registerStart, .registerComplete, .registerResendCode, .signIn, .googleResolve, .googleRegister, .mfaSend, .mfaVerify, .forgotPassword, .verifyResetMFA, .resetPassword:
+        case .refreshToken, .registerStart, .registerComplete, .registerResendCode, .signIn, .socialResolve, .socialRegister, .mfaSend, .mfaVerify, .forgotPassword, .verifyResetMFA, .resetPassword:
             return false
         case .signOut:
             return true

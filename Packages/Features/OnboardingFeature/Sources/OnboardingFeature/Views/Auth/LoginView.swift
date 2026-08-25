@@ -1,3 +1,4 @@
+import AuthenticationServices
 import SwiftUI
 import FMDesignSystem
 import SharedModels
@@ -10,15 +11,20 @@ public struct LoginView: View {
     /// Driven by "change email" on the MFA screen so the user lands straight in the
     /// field they need to correct, keyboard already up.
     @State private var focusEmail = false
+    /// Set when an in-flight Apple onboarding bounces back here because its
+    /// identity token expired mid-flow (see `OnboardingViewModel.scheduleCredentialExpiry`).
+    @State private var showAppleSessionExpiredToast = false
+    @Environment(\.colorScheme) private var colorScheme
 
     /// Injected country data source forwarded to the Onboarding flow.
     private let fetchCountriesUseCase: (any FetchCountriesUseCaseProtocol)?
     /// Injected dial-code data source forwarded to the Onboarding flow.
     private let fetchDialCodesUseCase: (any FetchDialCodesUseCaseProtocol)?
-    /// Google SDK wrapper, owned by the app target. `nil` hides the Google button.
-    private let googleAuth: (any GoogleAuthProviding)?
-    /// Builds the Google registration use case once an account needs onboarding.
-    private let makeRegisterGoogleUserUseCase: (() -> any RegisterGoogleUserUseCaseProtocol)?
+    /// Provider SDK wrappers, owned by the app target. A missing entry hides that
+    /// provider's button.
+    private let socialProviders: [AuthProvider: any SocialAuthProviding]
+    /// Builds the registration use case for whichever provider needs onboarding.
+    private let makeRegisterSocialUserUseCase: ((AuthProvider) -> (any RegisterSocialUserUseCaseProtocol)?)?
     /// Draft persistence, forwarded to whichever onboarding flow this screen opens.
     private let saveOnboardingDraftUseCase: (any SaveOnboardingDraftUseCaseProtocol)?
     private let getOnboardingDraftUseCase: (any GetOnboardingDraftUseCaseProtocol)?
@@ -29,9 +35,9 @@ public struct LoginView: View {
     public init(
         fetchCountriesUseCase: (any FetchCountriesUseCaseProtocol)? = nil,
         fetchDialCodesUseCase: (any FetchDialCodesUseCaseProtocol)? = nil,
-        googleAuth: (any GoogleAuthProviding)? = nil,
-        signInWithGoogleUseCase: (any SignInWithGoogleUseCaseProtocol)? = nil,
-        makeRegisterGoogleUserUseCase: (() -> any RegisterGoogleUserUseCaseProtocol)? = nil,
+        socialProviders: [AuthProvider: any SocialAuthProviding] = [:],
+        signInWithSocialUseCase: (any SignInWithSocialUseCaseProtocol)? = nil,
+        makeRegisterSocialUserUseCase: ((AuthProvider) -> (any RegisterSocialUserUseCaseProtocol)?)? = nil,
         saveOnboardingDraftUseCase: (any SaveOnboardingDraftUseCaseProtocol)? = nil,
         getOnboardingDraftUseCase: (any GetOnboardingDraftUseCaseProtocol)? = nil,
         clearOnboardingDraftUseCase: (any ClearOnboardingDraftUseCaseProtocol)? = nil,
@@ -40,19 +46,19 @@ public struct LoginView: View {
     ) {
         self.fetchCountriesUseCase = fetchCountriesUseCase
         self.fetchDialCodesUseCase = fetchDialCodesUseCase
-        self.googleAuth = googleAuth
-        self.makeRegisterGoogleUserUseCase = makeRegisterGoogleUserUseCase
+        self.socialProviders = socialProviders
+        self.makeRegisterSocialUserUseCase = makeRegisterSocialUserUseCase
         self.saveOnboardingDraftUseCase = saveOnboardingDraftUseCase
         self.getOnboardingDraftUseCase = getOnboardingDraftUseCase
         self.clearOnboardingDraftUseCase = clearOnboardingDraftUseCase
         self.onLoginSuccess = onLoginSuccess
         _viewModel = StateObject(wrappedValue: LoginViewModel(
-            signInWithGoogleUseCase: signInWithGoogleUseCase,
-            googleAuth: googleAuth,
+            signInWithSocialUseCase: signInWithSocialUseCase,
+            socialProviders: socialProviders,
             firebaseSignIn: firebaseSignIn
         ))
     }
-    
+
     public var body: some View {
         NavigationStack {
             ScrollView {
@@ -103,6 +109,7 @@ public struct LoginView: View {
             } message: {
                 Text(viewModel.errorMessage)
             }
+            .fmToast(L10n.Login.appleSessionExpired, isPresented: $showAppleSessionExpiredToast, style: .error)
             .fullScreenCover(isPresented: $showOnboarding) {
                 OnboardingContainerView(
                     fetchCountriesUseCase: fetchCountriesUseCase,
@@ -116,36 +123,45 @@ public struct LoginView: View {
                     }
                 )
             }
-            // `/auth/google/resolve` found no account for this Google identity, so
+            // `/auth/{provider}/resolve` found no account for this identity, so
             // the same button that signs people in also starts the sign-up — with
-            // everything Google gave us already filled in.
-            .fullScreenCover(item: $viewModel.googleSignUpAccount) { account in
+            // everything the provider gave us already filled in.
+            .fullScreenCover(item: $viewModel.socialSignUpAccount) { account in
                 OnboardingContainerView(
                     fetchCountriesUseCase: fetchCountriesUseCase,
                     fetchDialCodesUseCase: fetchDialCodesUseCase,
-                    googleAccount: account,
-                    registerGoogleUserUseCase: makeRegisterGoogleUserUseCase?(),
+                    socialAccount: account,
+                    registerSocialUserUseCase: makeRegisterSocialUserUseCase?(account.provider),
                     saveOnboardingDraftUseCase: saveOnboardingDraftUseCase,
                     getOnboardingDraftUseCase: getOnboardingDraftUseCase,
                     clearOnboardingDraftUseCase: clearOnboardingDraftUseCase,
                     onRegistrationComplete: {
-                        viewModel.googleSignUpAccount = nil
+                        viewModel.socialSignUpAccount = nil
                         onLoginSuccess?()
+                    },
+                    // Apple's identity token expired before the user finished
+                    // onboarding. The draft is already saved at this point — the
+                    // container only sets this after `saveDraftIfNeeded()` — so
+                    // dismissing here and letting the user tap Apple again is what
+                    // resumes it, prefilled, via the draft matcher.
+                    onRequiresReauthentication: {
+                        viewModel.socialSignUpAccount = nil
+                        showAppleSessionExpiredToast = true
                     }
                 )
             }
         }
     }
-    
+
     // MARK: - Subviews
-    
+
     private var logoSection: some View {
         VStack(spacing: 8) {
             Image("logo_futmatch", bundle: .main)
                 .resizable()
                 .scaledToFit()
                 .frame(width: 61, height: 73)
-            
+
             Text("FutMatch")
                 .font(.interBold(size: 32))
                 .tracking(1.5)
@@ -156,7 +172,7 @@ public struct LoginView: View {
                         endPoint: .trailing
                     )
                 )
-            
+
             Text(L10n.Login.title)
                 .font(FMTypography.caption)
                 .foregroundColor(FMColors.secondary)
@@ -164,7 +180,7 @@ public struct LoginView: View {
         .padding(.top, 60)
         .padding(.bottom, 40)
     }
-    
+
     private var formSection: some View {
         VStack(spacing: 20) {
             FMTextField(
@@ -179,7 +195,7 @@ public struct LoginView: View {
                 text: $viewModel.password,
                 isSecure: true
             )
-            
+
             HStack {
                 Spacer()
                 Button {
@@ -193,7 +209,7 @@ public struct LoginView: View {
         }
         .padding(.horizontal, 24)
     }
-    
+
     private var bottomSection: some View {
         VStack(spacing: 24) {
             FMPrimaryButton(
@@ -221,6 +237,10 @@ public struct LoginView: View {
                 }
             }
 
+            if viewModel.isAppleAvailable {
+                appleButton
+            }
+
             Button {
                 showOnboarding = true
             } label: {
@@ -239,7 +259,40 @@ public struct LoginView: View {
         .padding(.horizontal, 24)
         .padding(.bottom, 32)
     }
-    
+
+    /// The one place this screen uses Apple's own native button instead of an
+    /// `FMDesignSystem` component — Apple's branding guidelines don't allow a
+    /// custom recreation of it. `onRequest`/`onCompletion` route straight into
+    /// `LoginViewModel`, which owns the nonce and the resolve/register flow.
+    private var appleButton: some View {
+        ZStack {
+            SignInWithAppleButton(.continue) { request in
+                viewModel.prepareAppleRequest(request)
+            } onCompletion: { result in
+                Task { await viewModel.completeAppleSignIn(result) }
+            }
+            .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
+            .frame(height: 52)
+            // The native button's own corner radius is far tighter than
+            // `FMPrimaryButton`'s 26pt capsule; clipping to the larger radius
+            // matches it without fighting the button's own chrome.
+            .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+            // No `isLoading` API and `.disabled()` doesn't dim it, so loading and
+            // disabled are expressed the same way `FMGoogleSignInButton` does:
+            // opacity, with hit testing cut instead of `.disabled`.
+            .opacity(isAppleButtonEnabled ? 1 : 0.5)
+            .allowsHitTesting(isAppleButtonEnabled)
+
+            if viewModel.isAppleLoading {
+                ProgressView().tint(colorScheme == .dark ? .black : .white)
+            }
+        }
+    }
+
+    private var isAppleButtonEnabled: Bool {
+        !viewModel.isAppleLoading && !viewModel.isLoading && !viewModel.isGoogleLoading
+    }
+
     // MARK: - Helper Methods
 
     private func makeForgotPasswordCoordinator() -> ForgotPasswordCoordinatorViewModel {
@@ -247,7 +300,7 @@ public struct LoginView: View {
         let forgotPasswordUseCase = ForgotPasswordUseCase(authService: authService)
         let verifyResetMFAUseCase = VerifyResetMFAUseCase(authService: authService)
         let resetPasswordUseCase = ResetPasswordUseCase(authService: authService)
-        
+
         return ForgotPasswordCoordinatorViewModel(
             forgotPasswordUseCase: forgotPasswordUseCase,
             verifyResetMFAUseCase: verifyResetMFAUseCase,

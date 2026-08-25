@@ -1,3 +1,4 @@
+import AuthenticationServices
 import Foundation
 import PersistenceFramework
 @testable import OnboardingFeature
@@ -38,26 +39,30 @@ final class MockAuthService: AuthServiceProtocol {
         return try signInResult.get()
     }
 
-    // googleResolve
-    var googleResolveResult: Result<GoogleAuthResponse, Error> = .success(.stubSignUpRequired())
-    private(set) var googleResolveCallCount = 0
-    private(set) var lastGoogleResolveIdToken: String?
-    private(set) var lastGoogleResolveDeviceId: String?
-    func googleResolve(idToken: String, deviceId: String?) async throws -> GoogleAuthResponse {
-        googleResolveCallCount += 1
-        lastGoogleResolveIdToken = idToken
-        lastGoogleResolveDeviceId = deviceId
-        return try googleResolveResult.get()
+    // socialResolve
+    var socialResolveResult: Result<SocialAuthResponse, Error> = .success(.stubSignUpRequired())
+    private(set) var socialResolveCallCount = 0
+    private(set) var lastSocialResolveProvider: AuthProvider?
+    private(set) var lastSocialResolveIdToken: String?
+    private(set) var lastSocialResolveNonce: String?
+    private(set) var lastSocialResolveDeviceId: String?
+    func socialResolve(provider: AuthProvider, idToken: String, nonce: String?, deviceId: String?) async throws -> SocialAuthResponse {
+        socialResolveCallCount += 1
+        lastSocialResolveProvider = provider
+        lastSocialResolveIdToken = idToken
+        lastSocialResolveNonce = nonce
+        lastSocialResolveDeviceId = deviceId
+        return try socialResolveResult.get()
     }
 
-    // googleRegister
-    var googleRegisterResult: Result<GoogleAuthResponse, Error> = .success(.stubAuthenticated())
-    private(set) var googleRegisterCallCount = 0
-    private(set) var lastGoogleRegisterRequest: GoogleRegisterRequest?
-    func googleRegister(_ request: GoogleRegisterRequest) async throws -> GoogleAuthResponse {
-        googleRegisterCallCount += 1
-        lastGoogleRegisterRequest = request
-        return try googleRegisterResult.get()
+    // socialRegister
+    var socialRegisterResult: Result<SocialAuthResponse, Error> = .success(.stubAuthenticated())
+    private(set) var socialRegisterCallCount = 0
+    private(set) var lastSocialRegisterRequest: SocialRegisterRequest?
+    func socialRegister(_ request: SocialRegisterRequest) async throws -> SocialAuthResponse {
+        socialRegisterCallCount += 1
+        lastSocialRegisterRequest = request
+        return try socialRegisterResult.get()
     }
 
     // mfaSend
@@ -177,27 +182,50 @@ final class MockKeychain: KeychainManaging {
     }
 }
 
-// MARK: - MockGoogleAuthProvider
+// MARK: - MockSocialAuthProvider
 
 @MainActor
-final class MockGoogleAuthProvider: GoogleAuthProviding {
+final class MockSocialAuthProvider: SocialAuthProviding {
+    var provider: AuthProvider = .google
 
-    var signInResult: Result<GoogleAccount, Error> = .success(.stub())
+    init(provider: AuthProvider = .google) {
+        self.provider = provider
+    }
+
+    var signInResult: Result<SocialAccount, Error> = .success(.stub())
     private(set) var signInCallCount = 0
-    func signIn() async throws -> GoogleAccount {
+    func signIn() async throws -> SocialAccount {
         signInCallCount += 1
         return try signInResult.get()
     }
 
-    var refreshedIdTokenResult: Result<String, Error> = .success("fresh-id-token")
-    private(set) var refreshedIdTokenCallCount = 0
-    func refreshedIdToken() async throws -> String {
-        refreshedIdTokenCallCount += 1
-        return try refreshedIdTokenResult.get()
+    var refreshedCredentialResult: Result<SocialCredential, Error> = .success(.stub())
+    private(set) var refreshedCredentialCallCount = 0
+    private(set) var lastRefreshedCredentialIdentity: SocialDraftIdentity?
+    func refreshedCredential(matching identity: SocialDraftIdentity) async throws -> SocialCredential {
+        refreshedCredentialCallCount += 1
+        lastRefreshedCredentialIdentity = identity
+        return try refreshedCredentialResult.get()
     }
 
     private(set) var signOutCallCount = 0
     func signOut() {
         signOutCallCount += 1
+    }
+}
+
+// MARK: - MockSocialAuthProvider + AppleAuthorizationHandling
+//
+// Lets tests drive `LoginViewModel.prepareAppleRequest`/`completeAppleSignIn`
+// without a real `AppleSignInService`, since `ASAuthorizationAppleIDCredential`
+// has no public initializer.
+
+extension MockSocialAuthProvider: AppleAuthorizationHandling {
+    func prepare(_ request: ASAuthorizationAppleIDRequest) -> String {
+        "mock-raw-nonce"
+    }
+
+    func account(from authorization: ASAuthorization, rawNonce: String) throws -> SocialAccount {
+        .stub(provider: .apple)
     }
 }

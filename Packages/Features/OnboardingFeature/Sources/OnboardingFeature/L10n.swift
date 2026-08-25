@@ -25,6 +25,13 @@ public enum L10n {
         public static var googleSubtitle: String {
             NSLocalizedString("onboarding.step1.googleSubtitle", bundle: .module, comment: "")
         }
+        /// Same idea as `googleTitle`/`googleSubtitle`, for an Apple sign-up.
+        public static var appleTitle: String {
+            NSLocalizedString("onboarding.step1.appleTitle", bundle: .module, comment: "")
+        }
+        public static var appleSubtitle: String {
+            NSLocalizedString("onboarding.step1.appleSubtitle", bundle: .module, comment: "")
+        }
         public static var firstName: String {
             NSLocalizedString("onboarding.step1.firstName", bundle: .module, comment: "")
         }
@@ -80,6 +87,15 @@ public enum L10n {
         /// Shown under the locked email field during a Google sign-up.
         public static var googleEmailVerified: String {
             NSLocalizedString("onboarding.step2.googleEmailVerified", bundle: .module, comment: "")
+        }
+        /// Shown under the locked email field during an Apple sign-up.
+        public static var appleEmailVerified: String {
+            NSLocalizedString("onboarding.step2.appleEmailVerified", bundle: .module, comment: "")
+        }
+        /// Extra note appended when the Apple email is a `@privaterelay.appleid.com`
+        /// forwarding address, so the user understands why it looks unfamiliar.
+        public static var applePrivateRelayNote: String {
+            NSLocalizedString("onboarding.step2.applePrivateRelayNote", bundle: .module, comment: "")
         }
     }
     
@@ -228,17 +244,22 @@ public enum L10n {
         public static var continueWithGoogle: String {
             NSLocalizedString("login.continueWithGoogle", bundle: .module, comment: "")
         }
-        public static var googleCancelled: String {
-            NSLocalizedString("login.google.cancelled", bundle: .module, comment: "")
+        public static var socialCancelled: String {
+            NSLocalizedString("login.social.cancelled", bundle: .module, comment: "")
         }
-        public static var googleGenericError: String {
-            NSLocalizedString("login.google.error.generic", bundle: .module, comment: "")
+        public static var socialGenericError: String {
+            NSLocalizedString("login.social.error.generic", bundle: .module, comment: "")
         }
-        /// Appended to a failed email/password attempt: Google accounts have no
+        /// Appended to a failed email/password attempt: social accounts have no
         /// password, so "wrong credentials" is a dead end unless we point at the
-        /// Google button.
-        public static var googleAccountHint: String {
-            NSLocalizedString("login.google.accountHint", bundle: .module, comment: "")
+        /// Google/Apple buttons.
+        public static var socialAccountHint: String {
+            NSLocalizedString("login.social.accountHint", bundle: .module, comment: "")
+        }
+        /// Shown when Apple's identity token expired mid-onboarding and the user is
+        /// bounced back to login to reauthenticate.
+        public static var appleSessionExpired: String {
+            NSLocalizedString("login.apple.sessionExpired", bundle: .module, comment: "")
         }
     }
     

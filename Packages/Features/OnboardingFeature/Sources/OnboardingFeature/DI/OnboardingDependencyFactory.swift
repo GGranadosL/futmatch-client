@@ -32,18 +32,19 @@ public struct OnboardingDependencyFactory {
         FetchDialCodesUseCase(repository: dialCodeRepository)
     }
 
-    // MARK: - Google Auth
+    // MARK: - Social Auth
 
-    public func makeSignInWithGoogleUseCase() -> SignInWithGoogleUseCaseProtocol {
-        SignInWithGoogleUseCase(authService: AuthService())
+    public func makeSignInWithSocialUseCase() -> SignInWithSocialUseCaseProtocol {
+        SignInWithSocialUseCase(authService: AuthService())
     }
 
-    /// - Parameter googleAuth: the Google SDK wrapper, owned by the app target —
-    ///   it needs a presenting view controller, so it can't live in this package.
-    public func makeRegisterGoogleUserUseCase(
-        googleAuth: GoogleAuthProviding
-    ) -> RegisterGoogleUserUseCaseProtocol {
-        RegisterGoogleUserUseCase(authService: AuthService(), googleAuth: googleAuth)
+    /// - Parameter socialAuth: the provider SDK wrapper (Google or Apple), owned
+    ///   by the app target — it needs a presenting view controller / anchor, so
+    ///   it can't live in this package.
+    public func makeRegisterSocialUserUseCase(
+        socialAuth: SocialAuthProviding
+    ) -> RegisterSocialUserUseCaseProtocol {
+        RegisterSocialUserUseCase(authService: AuthService(), socialAuth: socialAuth)
     }
 
     // MARK: - Repository

@@ -2,23 +2,23 @@ import Foundation
 import PersistenceFramework
 
 // MARK: - Protocol
-public protocol SignInWithGoogleUseCaseProtocol {
-    func execute(idToken: String) async throws -> GoogleSignInOutcome
+public protocol SignInWithSocialUseCaseProtocol {
+    func execute(credential: SocialCredential) async throws -> SocialSignInOutcome
 }
 
 // MARK: - Result
 
-/// What `/auth/google/resolve` decided about this Google identity.
-public enum GoogleSignInOutcome: Equatable {
+/// What `/auth/{provider}/resolve` decided about this identity.
+public enum SocialSignInOutcome: Equatable {
     /// An account already exists and the session is now in the Keychain.
     case authenticated
-    /// No Google identity exists yet — the client must run onboarding and finish
-    /// with `/auth/google/register`.
+    /// No identity exists yet — the client must run onboarding and finish with
+    /// `/auth/{provider}/register`.
     case signUpRequired
 }
 
 // MARK: - Implementation
-public final class SignInWithGoogleUseCase: SignInWithGoogleUseCaseProtocol {
+public final class SignInWithSocialUseCase: SignInWithSocialUseCaseProtocol {
     private let authService: AuthServiceProtocol
     private let keychainManager: KeychainManaging
 
@@ -30,13 +30,15 @@ public final class SignInWithGoogleUseCase: SignInWithGoogleUseCaseProtocol {
         self.keychainManager = keychainManager
     }
 
-    public func execute(idToken: String) async throws -> GoogleSignInOutcome {
+    public func execute(credential: SocialCredential) async throws -> SocialSignInOutcome {
         // Send the stored device id when this device is already trusted, exactly
         // as `LoginUseCase` does — it's what lets the backend skip a re-challenge.
         let existingDeviceId = try? keychainManager.retrieve(for: .deviceId)
 
-        let response = try await authService.googleResolve(
-            idToken: idToken,
+        let response = try await authService.socialResolve(
+            provider: credential.provider,
+            idToken: credential.idToken,
+            nonce: credential.nonce,
             deviceId: existingDeviceId
         )
 
@@ -45,7 +47,7 @@ public final class SignInWithGoogleUseCase: SignInWithGoogleUseCaseProtocol {
         }
 
         guard let session = response.session else {
-            throw AuthError.missingGoogleSession
+            throw AuthError.missingSocialSession
         }
 
         try keychainManager.saveAuthTokens(
