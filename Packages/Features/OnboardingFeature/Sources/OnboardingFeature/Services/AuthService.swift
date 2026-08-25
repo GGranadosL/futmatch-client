@@ -7,8 +7,8 @@ public protocol AuthServiceProtocol {
     func registerComplete(email: String, verificationCode: String) async throws -> RegisterCompleteResponse
     func registerResendCode(email: String) async throws -> ResendRegistrationCodeResponse
     func signIn(email: String, password: String, deviceId: String?) async throws -> SignInResponse
-    func googleResolve(idToken: String, deviceId: String?) async throws -> GoogleAuthResponse
-    func googleRegister(_ request: GoogleRegisterRequest) async throws -> GoogleAuthResponse
+    func socialResolve(provider: AuthProvider, idToken: String, nonce: String?, deviceId: String?) async throws -> SocialAuthResponse
+    func socialRegister(_ request: SocialRegisterRequest) async throws -> SocialAuthResponse
     func mfaSend(challengeToken: String) async throws -> MFASendResponse
     func mfaVerify(challengeToken: String, code: String) async throws -> MFAVerifyResponse
     func forgotPassword(email: String) async throws -> ForgotPasswordResponse
@@ -59,18 +59,18 @@ public class AuthService: AuthServiceProtocol {
         return response
     }
     
-    // MARK: - Google
+    // MARK: - Social Auth
 
-    public func googleResolve(idToken: String, deviceId: String? = nil) async throws -> GoogleAuthResponse {
-        let request = GoogleResolveRequest(idToken: idToken, deviceId: deviceId)
-        let endpoint = AuthEndpoint.googleResolve(request)
-        let response: GoogleAuthResponse = try await apiClient.request(endpoint: endpoint)
+    public func socialResolve(provider: AuthProvider, idToken: String, nonce: String? = nil, deviceId: String? = nil) async throws -> SocialAuthResponse {
+        let request = SocialResolveRequest(provider: provider, idToken: idToken, nonce: nonce, deviceId: deviceId)
+        let endpoint = AuthEndpoint.socialResolve(provider, request)
+        let response: SocialAuthResponse = try await apiClient.request(endpoint: endpoint)
         return response
     }
 
-    public func googleRegister(_ request: GoogleRegisterRequest) async throws -> GoogleAuthResponse {
-        let endpoint = AuthEndpoint.googleRegister(request)
-        let response: GoogleAuthResponse = try await apiClient.request(endpoint: endpoint)
+    public func socialRegister(_ request: SocialRegisterRequest) async throws -> SocialAuthResponse {
+        let endpoint = AuthEndpoint.socialRegister(request.provider, request)
+        let response: SocialAuthResponse = try await apiClient.request(endpoint: endpoint)
         return response
     }
 
@@ -137,8 +137,8 @@ public enum AuthError: LocalizedError, Equatable {
     case networkError
     case firebaseSignInFailed
     case missingChallengeToken
-    /// A Google endpoint reported success but the payload carried no tokens.
-    case missingGoogleSession
+    /// A social auth endpoint reported success but the payload carried no tokens.
+    case missingSocialSession
 
     public var errorDescription: String? {
         switch self {
@@ -152,8 +152,8 @@ public enum AuthError: LocalizedError, Equatable {
             return "No se pudo completar la autenticación. Intenta de nuevo."
         case .missingChallengeToken:
             return "No se pudo continuar con la verificación. Intenta iniciar sesión de nuevo."
-        case .missingGoogleSession:
-            return L10n.Login.googleGenericError
+        case .missingSocialSession:
+            return L10n.Login.socialGenericError
         }
     }
 }

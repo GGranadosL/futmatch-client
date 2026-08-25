@@ -91,9 +91,11 @@ struct OnboardingStep3View: View {
                         showImageSourceSheet = true
                     }
 
-                    if viewModel.isGoogleFlow {
+                    if viewModel.hasProviderPhoto {
                         // Explicit source picker: which photo actually goes in the
                         // register request is otherwise invisible to the user.
+                        // Google-only — Apple never supplies a photo, so an Apple
+                        // sign-up falls straight to the plain upload caption below.
                         // Reuses `FMChip`'s selected/unselected styling — same
                         // checkmark-and-fill language as the position chips below.
                         FlowLayout(spacing: 8) {
@@ -101,7 +103,7 @@ struct OnboardingStep3View: View {
                                 text: L10n.Step3.useGooglePhoto,
                                 isSelected: viewModel.profileImageData == nil
                             ) {
-                                Task { await viewModel.useGooglePhoto() }
+                                Task { await viewModel.useProviderPhoto() }
                             }
 
                             FMChip(
@@ -111,7 +113,7 @@ struct OnboardingStep3View: View {
                                 showImageSourceSheet = true
                             }
                         }
-                        .disabled(viewModel.isLoadingGooglePhoto)
+                        .disabled(viewModel.isLoadingProviderPhoto)
                     } else {
                         Text(L10n.Step3.uploadPhoto)
                             .font(FMTypography.captionMedium)

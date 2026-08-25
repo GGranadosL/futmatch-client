@@ -4,19 +4,20 @@ import OSLog
 import GoogleSignIn
 import OnboardingFeature
 
-/// `GoogleAuthProviding` backed by the Google Sign-In SDK.
+/// `SocialAuthProviding` backed by the Google Sign-In SDK.
 ///
 /// Lives in the app target rather than `OnboardingFeature` because the SDK needs
 /// UIKit and a presenting view controller — the same reason the Firebase
 /// custom-token sign-in is injected into `LoginView` as a closure.
 @MainActor
-struct GoogleSignInService: GoogleAuthProviding {
+struct GoogleSignInService: SocialAuthProviding {
+    var provider: AuthProvider { .google }
+
     private let logger = Logger(
         subsystem: Bundle.main.bundleIdentifier ?? "FutMatch",
         category: "GoogleSignIn"
     )
 
-    /// `true` once both client ids are available. `CLIENT_ID` only appears in
     /// `true` once both client ids are available — what keeps the button hidden
     /// until the project is actually configured.
     static var isConfigured: Bool {
@@ -41,13 +42,13 @@ struct GoogleSignInService: GoogleAuthProviding {
         return plist["CLIENT_ID"] as? String
     }
 
-    // MARK: - GoogleAuthProviding
+    // MARK: - SocialAuthProviding
 
-    func signIn() async throws -> GoogleAccount {
+    func signIn() async throws -> SocialAccount {
         try configureIfNeeded()
 
-        guard let presenter = Self.topViewController() else {
-            throw GoogleAuthError.notConfigured
+        guard let presenter = PresentationAnchor.topViewController() else {
+            throw SocialAuthError.notConfigured
         }
 
         do {
@@ -58,7 +59,13 @@ struct GoogleSignInService: GoogleAuthProviding {
         }
     }
 
-    func refreshedIdToken() async throws -> String {
+    /// Google can mint a fresh token silently — no reauthorization prompt, no
+    /// interaction — by restoring the previous sign-in and refreshing it. The
+    /// `matching:` identity guards against a latent bug: if the signed-in Google
+    /// user is not the one the draft belongs to (e.g. the user switched accounts
+    /// on this device between sessions), this throws instead of silently minting
+    /// a token for the wrong account.
+    func refreshedCredential(matching identity: SocialDraftIdentity) async throws -> SocialCredential {
         try configureIfNeeded()
 
         // The onboarding may have been resumed from a draft in a later app
@@ -69,15 +76,19 @@ struct GoogleSignInService: GoogleAuthProviding {
         } else if GIDSignIn.sharedInstance.hasPreviousSignIn() {
             user = try await GIDSignIn.sharedInstance.restorePreviousSignIn()
         } else {
-            throw GoogleAuthError.noActiveSession
+            throw SocialAuthError.noActiveSession
+        }
+
+        guard user.userID == identity.subject else {
+            throw SocialAuthError.identityMismatch
         }
 
         let refreshed = try await user.refreshTokensIfNeeded()
         guard let idToken = refreshed.idToken?.tokenString, !idToken.isEmpty else {
-            throw GoogleAuthError.missingIdToken
+            throw SocialAuthError.missingIdToken
         }
         Self.logTokenAudience(idToken, logger: logger)
-        return idToken
+        return SocialCredential(provider: .google, idToken: idToken)
     }
 
     func signOut() {
@@ -89,12 +100,12 @@ struct GoogleSignInService: GoogleAuthProviding {
     private func configureIfNeeded() throws {
         guard let clientID = Self.clientID, !clientID.isEmpty else {
             logger.error("Missing iOS OAuth client id — set Config.googleIOSClientID, or provide CLIENT_ID in GoogleService-Info.plist")
-            throw GoogleAuthError.notConfigured
+            throw SocialAuthError.notConfigured
         }
         let serverClientID = Config.googleServerClientID
         guard !serverClientID.isEmpty else {
             logger.error("Missing GOOGLE_OAUTH_WEB_CLIENT_ID — set Config.googleServerClientID for this environment")
-            throw GoogleAuthError.notConfigured
+            throw SocialAuthError.notConfigured
         }
 
         // Setting serverClientID is what asks Google to mint the ID token for the
@@ -105,12 +116,12 @@ struct GoogleSignInService: GoogleAuthProviding {
         )
     }
 
-    private static func account(from user: GIDGoogleUser) throws -> GoogleAccount {
+    private static func account(from user: GIDGoogleUser) throws -> SocialAccount {
         guard let idToken = user.idToken?.tokenString, !idToken.isEmpty else {
-            throw GoogleAuthError.missingIdToken
+            throw SocialAuthError.missingIdToken
         }
         guard let subject = user.userID, !subject.isEmpty else {
-            throw GoogleAuthError.missingIdToken
+            throw SocialAuthError.missingIdToken
         }
 
         let profile = user.profile
@@ -122,11 +133,11 @@ struct GoogleSignInService: GoogleAuthProviding {
             fullName: profile?.name
         )
 
-        return GoogleAccount(
-            idToken: idToken,
+        return SocialAccount(
+            credential: SocialCredential(provider: .google, idToken: idToken),
             // The claim the backend keys on alongside `sub`. The SDK does not
             // expose it, and Google's issuer is fixed for all its ID tokens.
-            issuer: "https://accounts.google.com",
+            issuer: AuthProvider.google.issuer,
             subject: subject,
             email: profile?.email ?? "",
             givenName: given,
@@ -154,7 +165,7 @@ struct GoogleSignInService: GoogleAuthProviding {
     private static func mapped(_ error: Error) -> Error {
         if (error as NSError).code == GIDSignInError.canceled.rawValue,
            (error as NSError).domain == kGIDSignInErrorDomain {
-            return GoogleAuthError.cancelled
+            return SocialAuthError.cancelled
         }
         return error
     }
@@ -168,29 +179,8 @@ struct GoogleSignInService: GoogleAuthProviding {
     /// tokens, emails, profile URLs and Google subjects in logs.
     private static func logTokenAudience(_ idToken: String, logger: Logger) {
         #if DEBUG
-        let parts = idToken.split(separator: ".")
-        guard parts.count == 3 else { return }
-        var base64 = String(parts[1])
-            .replacingOccurrences(of: "-", with: "+")
-            .replacingOccurrences(of: "_", with: "/")
-        base64 += String(repeating: "=", count: (4 - base64.count % 4) % 4)
-        guard let data = Data(base64Encoded: base64),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let audience = json["aud"] as? String else { return }
+        guard let json = JWTPayload.decode(idToken), let audience = json["aud"] as? String else { return }
         logger.debug("Google ID token audience: \(audience, privacy: .public)")
         #endif
-    }
-
-    private static func topViewController() -> UIViewController? {
-        let scene = UIApplication.shared.connectedScenes
-            .compactMap { $0 as? UIWindowScene }
-            .first { $0.activationState == .foregroundActive }
-        guard let root = scene?.keyWindow?.rootViewController else { return nil }
-
-        var controller = root
-        while let presented = controller.presentedViewController {
-            controller = presented
-        }
-        return controller
     }
 }

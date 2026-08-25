@@ -15,6 +15,10 @@ struct OnboardingStep2View: View {
     @State private var focusPassword = false
     @State private var focusPhone = false
 
+    private var socialEmailCaption: String {
+        viewModel.provider == .apple ? L10n.Step2.appleEmailVerified : L10n.Step2.googleEmailVerified
+    }
+
     /// Dial-code list: Remote Config data once loaded, fallback otherwise.
     /// Each entry shows "🇲🇽 +52" via `DialCode.displayName`.
     private var dialCodeList: [DialCode] {
@@ -94,8 +98,8 @@ struct OnboardingStep2View: View {
 
                 // Form Fields
                 VStack(spacing: 20) {
-                    if viewModel.isGoogleFlow {
-                        // The email came from a Google-verified token and is not
+                    if viewModel.isSocialFlow {
+                        // The email came from a provider-verified token and is not
                         // even part of the register request — editing it would be
                         // a lie. Shown read-only so the user can still confirm
                         // which account they are signing up with.
@@ -108,9 +112,18 @@ struct OnboardingStep2View: View {
                             .disabled(true)
                             .opacity(0.7)
 
-                            Text(L10n.Step2.googleEmailVerified)
+                            Text(socialEmailCaption)
                                 .font(FMTypography.caption)
                                 .foregroundColor(FMColors.onSurfaceVariant)
+
+                            // Apple's private relay address looks unfamiliar —
+                            // this is the one place we explain what it is, so the
+                            // user doesn't think something went wrong.
+                            if viewModel.email.hasSuffix("@privaterelay.appleid.com") {
+                                Text(L10n.Step2.applePrivateRelayNote)
+                                    .font(FMTypography.caption)
+                                    .foregroundColor(FMColors.onSurfaceVariant)
+                            }
                         }
                     } else {
                         FMTextField(
@@ -164,9 +177,9 @@ struct OnboardingStep2View: View {
                         )
                         .focused($focusPhone)
                         .keyboardNavigation(
-                            // No password field to step back into on the Google
+                            // No password field to step back into on a social
                             // flow, and the email above it is read-only.
-                            hasPrevious: !viewModel.isGoogleFlow, hasNext: false,
+                            hasPrevious: !viewModel.isSocialFlow, hasNext: false,
                             onPrevious: { focusPassword = true; focusPhone = false },
                             onNext: {}
                         )

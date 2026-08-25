@@ -36,6 +36,11 @@ struct OnboardingStep4View: View {
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 bottomSection
             }
+            .alert(L10n.Login.errorTitle, isPresented: isShowingError) {
+                Button(L10n.Common.ok, role: .cancel) {}
+            } message: {
+                Text(viewModel.errorMessage ?? "")
+            }
             .navigationDestination(isPresented: $viewModel.showVerification) {
             VerificationCodeView(
                 viewModel: viewModel,
@@ -43,6 +48,16 @@ struct OnboardingStep4View: View {
                 countdown: viewModel.resendCodeTimeInSeconds
             )
         }
+    }
+
+    /// Drives the registration-error alert. Gated on `showVerification` so an error
+    /// raised by the pushed `VerificationCodeView` (which renders its own inline
+    /// message) doesn't also surface as an alert from this screen underneath it.
+    private var isShowingError: Binding<Bool> {
+        Binding(
+            get: { viewModel.errorMessage != nil && !viewModel.showVerification },
+            set: { if !$0 { viewModel.errorMessage = nil } }
+        )
     }
     
     // MARK: - Subviews
@@ -59,7 +74,6 @@ struct OnboardingStep4View: View {
                 identitySection
                 personalInfoSection
                 contactSection
-                errorMessageView
                 successMessageView
             }
             .padding(.horizontal, 24)
@@ -116,20 +130,6 @@ struct OnboardingStep4View: View {
         ReviewSection(title: L10n.Step4.contact, onEdit: { viewModel.goToStep(2) }) {
             ReviewRow(label: L10n.Step2.email, value: viewModel.email)
             ReviewRow(label: L10n.Step2.phone, value: "\(viewModel.countryCode) \(viewModel.phone)", isLast: true)
-        }
-    }
-    
-    @ViewBuilder
-    private var errorMessageView: some View {
-        if let error = viewModel.errorMessage {
-            Text(error)
-                .font(FMTypography.caption)
-                .foregroundColor(FMColors.error)
-                .padding()
-                .background(
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(FMColors.error.opacity(0.1))
-                )
         }
     }
     
@@ -209,7 +209,7 @@ private struct ReviewSection<Content: View>: View {
 
                 Spacer()
 
-                Button("Editar", action: onEdit)
+                Button(L10n.Step4.edit, action: onEdit)
                     .font(FMTypography.labelMedium)
                     .foregroundColor(FMColors.primary)
             }

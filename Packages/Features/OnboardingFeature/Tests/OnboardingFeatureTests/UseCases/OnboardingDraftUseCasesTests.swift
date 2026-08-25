@@ -40,7 +40,7 @@ final class GetOnboardingDraftUseCaseTests: XCTestCase {
         repo.getDraftResult = .success((draft: .freshStub(email: "a@b.com"), password: "pw"))
         let sut = GetOnboardingDraftUseCase(repository: repo)
 
-        let result = try await sut.execute(googleIdentity: nil)
+        let result = try await sut.execute(socialIdentity: nil)
 
         XCTAssertEqual(result?.draft.email, "a@b.com")
         XCTAssertEqual(result?.password, "pw")
@@ -52,7 +52,7 @@ final class GetOnboardingDraftUseCaseTests: XCTestCase {
         repo.getDraftResult = .success((draft: .expiredStub(), password: nil))
         let sut = GetOnboardingDraftUseCase(repository: repo)
 
-        let result = try await sut.execute(googleIdentity: nil)
+        let result = try await sut.execute(socialIdentity: nil)
 
         XCTAssertNil(result)
         XCTAssertEqual(repo.clearDraftCallCount, 1)
@@ -63,7 +63,7 @@ final class GetOnboardingDraftUseCaseTests: XCTestCase {
         repo.getDraftResult = .success(nil)
         let sut = GetOnboardingDraftUseCase(repository: repo)
 
-        let result = try await sut.execute(googleIdentity: nil)
+        let result = try await sut.execute(socialIdentity: nil)
 
         XCTAssertNil(result)
         XCTAssertEqual(repo.clearDraftCallCount, 0)

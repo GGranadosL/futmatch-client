@@ -82,4 +82,9 @@ enum Config {
 
     /// This app's iOS OAuth client id. Empty falls back to GoogleService-Info.plist.
     static var googleIOSClientID: String { environment.googleIOSClientID }
+
+    /// Gate for Sign in with Apple. `/auth/apple/resolve` and `/auth/apple/register`
+    /// are deployed on the backend, so the button shows — same as
+    /// `GoogleSignInService.isConfigured` for Google.
+    static let isAppleSignInEnabled = true
 }

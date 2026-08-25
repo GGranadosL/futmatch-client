@@ -11,38 +11,46 @@ enum OnboardingDestination: Hashable {
 public struct OnboardingContainerView: View {
     @StateObject private var viewModel: OnboardingViewModel
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.scenePhase) private var scenePhase
     @State private var navigationPath = NavigationPath()
     /// Shown as a `fullScreenCover` after the email is verified successfully.
     @State private var showRegistrationSuccess = false
 
     /// Callback when registration and verification are complete
     public var onRegistrationComplete: (() -> Void)?
+    /// Called when the social credential (Apple only) expired mid-onboarding.
+    /// The draft is already saved by the time this fires — the presenter should
+    /// dismiss this view and let the user tap the provider button again.
+    public var onRequiresReauthentication: (() -> Void)?
 
     /// - Parameters:
     ///   - fetchCountriesUseCase: Country data source. Defaults to `FallbackCountryRepository`.
     ///   - fetchDialCodesUseCase: Dial-code data source. Defaults to `FallbackDialCodeRepository`.
-    ///   - googleAccount: set when the flow was started from "Continue with Google".
-    ///     Prefills what Google gave us, drops the password field, and finishes
-    ///     through `/auth/google/register` instead of the email-code flow.
-    ///   - registerGoogleUserUseCase: required whenever `googleAccount` is set.
+    ///   - socialAccount: set when the flow was started from "Continue with Google"
+    ///     or "Continue with Apple". Prefills what the provider gave us, drops the
+    ///     password field, and finishes through `/auth/{provider}/register`
+    ///     instead of the email-code flow.
+    ///   - registerSocialUserUseCase: required whenever `socialAccount` is set.
     ///   - saveOnboardingDraftUseCase: draft auto-save. Passing `nil` disables
     ///     draft persistence entirely, which is what previews and tests want.
     ///   - getOnboardingDraftUseCase: draft restore, matched to this flow's identity.
     ///   - clearOnboardingDraftUseCase: draft cleanup after a successful sign-up.
     ///   - onRegistrationComplete: Called after successful registration + email verification.
+    ///   - onRequiresReauthentication: Called when the social credential expired.
     public init(
         fetchCountriesUseCase: (any FetchCountriesUseCaseProtocol)? = nil,
         fetchDialCodesUseCase: (any FetchDialCodesUseCaseProtocol)? = nil,
-        googleAccount: GoogleAccount? = nil,
-        registerGoogleUserUseCase: (any RegisterGoogleUserUseCaseProtocol)? = nil,
+        socialAccount: SocialAccount? = nil,
+        registerSocialUserUseCase: (any RegisterSocialUserUseCaseProtocol)? = nil,
         saveOnboardingDraftUseCase: (any SaveOnboardingDraftUseCaseProtocol)? = nil,
         getOnboardingDraftUseCase: (any GetOnboardingDraftUseCaseProtocol)? = nil,
         clearOnboardingDraftUseCase: (any ClearOnboardingDraftUseCaseProtocol)? = nil,
-        onRegistrationComplete: (() -> Void)? = nil
+        onRegistrationComplete: (() -> Void)? = nil,
+        onRequiresReauthentication: (() -> Void)? = nil
     ) {
         _viewModel = StateObject(wrappedValue: OnboardingViewModel(
-            registerGoogleUserUseCase: registerGoogleUserUseCase,
-            googleAccount: googleAccount,
+            registerSocialUserUseCase: registerSocialUserUseCase,
+            socialAccount: socialAccount,
             saveOnboardingDraftUseCase: saveOnboardingDraftUseCase,
             getOnboardingDraftUseCase: getOnboardingDraftUseCase,
             clearOnboardingDraftUseCase: clearOnboardingDraftUseCase,
@@ -50,6 +58,7 @@ public struct OnboardingContainerView: View {
             fetchDialCodesUseCase: fetchDialCodesUseCase
         ))
         self.onRegistrationComplete = onRegistrationComplete
+        self.onRequiresReauthentication = onRequiresReauthentication
     }
     
     public var body: some View {
@@ -124,6 +133,19 @@ public struct OnboardingContainerView: View {
             ) {
                 showRegistrationSuccess = false
                 onRegistrationComplete?()
+            }
+        }
+        .onChange(of: viewModel.requiresReauthentication) { requires in
+            if requires {
+                onRequiresReauthentication?()
+            }
+        }
+        .onChange(of: scenePhase) { newPhase in
+            // `Task.sleep` isn't reliable across suspension, and this also covers
+            // the case where the app was killed and relaunched mid-onboarding —
+            // there's no in-memory expiry task to have scheduled in the first place.
+            if newPhase == .active {
+                viewModel.checkCredentialExpiry()
             }
         }
     }

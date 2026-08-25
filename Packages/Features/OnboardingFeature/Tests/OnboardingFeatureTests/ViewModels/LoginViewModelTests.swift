@@ -92,4 +92,64 @@ final class LoginViewModelTests: XCTestCase {
         XCTAssertEqual(sut.mfaChallengeToken, "ch-2")
         XCTAssertTrue(sut.showMFAVerification)
     }
+
+    // MARK: - Social auth
+    //
+    // `ASAuthorizationAppleIDCredential`/`ASAuthorization` have no public
+    // initializer, so a real Apple success can't be driven from a real Apple SDK
+    // object here. These exercise the same outcome branching through
+    // `handleSocialAccount(_:)` instead — the seam every provider funnels into
+    // once an account is in hand — with a stub tagged `.apple` to prove the
+    // branching is provider-agnostic.
+
+    /// An unknown Apple identity hands the account to onboarding — same outcome
+    /// Google's `SIGN_UP_REQUIRED` produces, just tagged with the right provider.
+    func test_handleSocialAccount_apple_signUpRequired_setsSocialSignUpAccount() async {
+        let auth = MockAuthService()
+        auth.socialResolveResult = .success(.stubSignUpRequired())
+        let sut = LoginViewModel(
+            loginUseCase: LoginUseCase(authService: auth, keychainManager: MockKeychain()),
+            signInWithSocialUseCase: SignInWithSocialUseCase(authService: auth, keychainManager: MockKeychain())
+        )
+
+        await sut.handleSocialAccount(.stub(provider: .apple, subject: "apple-subject-1"))
+
+        XCTAssertEqual(sut.socialSignUpAccount?.provider, .apple)
+        XCTAssertFalse(sut.isAppleLoading)
+    }
+
+    /// Dismissing Apple's sheet is a decision, not a failure: the provider maps
+    /// `ASAuthorizationError.canceled` to `SocialAuthError.cancelled`, and the
+    /// view model has to swallow it rather than raise an alert.
+    func test_continueWithApple_cancelled_setsNoErrorAndClearsLoading() async {
+        let auth = MockAuthService()
+        let apple = MockSocialAuthProvider(provider: .apple)
+        apple.signInResult = .failure(SocialAuthError.cancelled)
+        let sut = LoginViewModel(
+            loginUseCase: LoginUseCase(authService: auth, keychainManager: MockKeychain()),
+            socialProviders: [.apple: apple]
+        )
+
+        await sut.continueWithApple()
+
+        XCTAssertEqual(apple.signInCallCount, 1)
+        XCTAssertFalse(sut.showError)
+        XCTAssertFalse(sut.isAppleLoading)
+    }
+
+    /// A credentials rejection on the password path should point at both social
+    /// buttons, not just Google — the hint has to stay accurate now that Apple
+    /// exists too.
+    func test_login_credentialsRejected_appendsSocialHint() async {
+        let auth = MockAuthService()
+        auth.signInResult = .failure(AuthError.invalidCredentials)
+        let sut = makeSUT(auth: auth)
+        sut.email = "user@example.com"
+        sut.password = "wrong"
+
+        await sut.login()
+
+        XCTAssertTrue(sut.showError)
+        XCTAssertTrue(sut.errorMessage.contains(L10n.Login.socialAccountHint))
+    }
 }

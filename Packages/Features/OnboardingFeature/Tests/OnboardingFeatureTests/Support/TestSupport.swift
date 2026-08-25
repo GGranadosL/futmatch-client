@@ -140,13 +140,13 @@ extension OnboardingDraft {
     }
 }
 
-// MARK: - Google Stubs
+// MARK: - Social Auth Stubs
 
-extension GoogleAuthResponse {
-    /// Exactly what `/auth/google/resolve` returns for an unknown identity:
+extension SocialAuthResponse {
+    /// Exactly what `/auth/{provider}/resolve` returns for an unknown identity:
     /// a lone `flow`, no ids and no tokens.
-    static func stubSignUpRequired() -> GoogleAuthResponse {
-        GoogleAuthResponse(data: ResponseData(
+    static func stubSignUpRequired() -> SocialAuthResponse {
+        SocialAuthResponse(data: ResponseData(
             flow: "SIGN_UP_REQUIRED",
             authCode: nil,
             authResponse: nil,
@@ -163,13 +163,13 @@ extension GoogleAuthResponse {
     static func stubAuthenticated(
         flow: String? = "AUTHENTICATED",
         authCode: String? = nil,
-        accessToken: String = "google-access-token",
-        refreshToken: String = "google-refresh-token",
-        userId: String = "google-user-id",
-        deviceId: String = "google-device-id",
-        firebaseToken: String? = "google-firebase-token"
-    ) -> GoogleAuthResponse {
-        GoogleAuthResponse(data: ResponseData(
+        accessToken: String = "social-access-token",
+        refreshToken: String = "social-refresh-token",
+        userId: String = "social-user-id",
+        deviceId: String = "social-device-id",
+        firebaseToken: String? = "social-firebase-token"
+    ) -> SocialAuthResponse {
+        SocialAuthResponse(data: ResponseData(
             flow: flow,
             authCode: nil,
             authResponse: NestedSession(
@@ -194,13 +194,13 @@ extension GoogleAuthResponse {
     /// no longer emits it for `resolve`.
     static func stubAuthenticatedFlat(
         authCode: String = "SUCCESS",
-        accessToken: String = "google-access-token",
-        refreshToken: String = "google-refresh-token",
-        userId: String = "google-user-id",
-        deviceId: String = "google-device-id",
-        firebaseToken: String? = "google-firebase-token"
-    ) -> GoogleAuthResponse {
-        GoogleAuthResponse(data: ResponseData(
+        accessToken: String = "social-access-token",
+        refreshToken: String = "social-refresh-token",
+        userId: String = "social-user-id",
+        deviceId: String = "social-device-id",
+        firebaseToken: String? = "social-firebase-token"
+    ) -> SocialAuthResponse {
+        SocialAuthResponse(data: ResponseData(
             flow: nil,
             authCode: authCode,
             authResponse: nil,
@@ -215,19 +215,38 @@ extension GoogleAuthResponse {
     }
 }
 
-extension GoogleAccount {
+extension SocialCredential {
     static func stub(
+        provider: AuthProvider = .google,
+        idToken: String = "social-id-token",
+        authorizationCode: String? = nil,
+        nonce: String? = nil,
+        expiresAt: Date? = nil
+    ) -> SocialCredential {
+        SocialCredential(
+            provider: provider,
+            idToken: idToken,
+            authorizationCode: authorizationCode,
+            nonce: nonce,
+            expiresAt: expiresAt
+        )
+    }
+}
+
+extension SocialAccount {
+    static func stub(
+        provider: AuthProvider = .google,
         idToken: String = "google-id-token",
-        issuer: String = "https://accounts.google.com",
+        issuer: String? = nil,
         subject: String = "google-subject-1",
         email: String = "player@gmail.com",
         givenName: String = "Diego",
         familyName: String = "Lopez",
         pictureURL: String? = "https://lh3.googleusercontent.com/a/photo"
-    ) -> GoogleAccount {
-        GoogleAccount(
-            idToken: idToken,
-            issuer: issuer,
+    ) -> SocialAccount {
+        SocialAccount(
+            credential: .stub(provider: provider, idToken: idToken),
+            issuer: issuer ?? provider.issuer,
             subject: subject,
             email: email,
             givenName: givenName,
