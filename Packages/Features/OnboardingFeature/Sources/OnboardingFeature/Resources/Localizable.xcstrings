@@ -1854,6 +1854,23 @@
         }
       }
     },
+    "login.continueWithApple": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continue with Apple"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continuar con Apple"
+          }
+        }
+      }
+    },
     "login.continueWithGoogle": {
       "extractionState": "manual",
       "localizations": {

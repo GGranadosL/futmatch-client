@@ -1,4 +1,3 @@
-import AuthenticationServices
 import Foundation
 import PersistenceFramework
 @testable import OnboardingFeature
@@ -211,21 +210,5 @@ final class MockSocialAuthProvider: SocialAuthProviding {
     private(set) var signOutCallCount = 0
     func signOut() {
         signOutCallCount += 1
-    }
-}
-
-// MARK: - MockSocialAuthProvider + AppleAuthorizationHandling
-//
-// Lets tests drive `LoginViewModel.prepareAppleRequest`/`completeAppleSignIn`
-// without a real `AppleSignInService`, since `ASAuthorizationAppleIDCredential`
-// has no public initializer.
-
-extension MockSocialAuthProvider: AppleAuthorizationHandling {
-    func prepare(_ request: ASAuthorizationAppleIDRequest) -> String {
-        "mock-raw-nonce"
-    }
-
-    func account(from authorization: ASAuthorization, rawNonce: String) throws -> SocialAccount {
-        .stub(provider: .apple)
     }
 }

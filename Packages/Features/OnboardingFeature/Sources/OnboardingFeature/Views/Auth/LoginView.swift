@@ -1,4 +1,3 @@
-import AuthenticationServices
 import SwiftUI
 import FMDesignSystem
 import SharedModels
@@ -14,7 +13,6 @@ public struct LoginView: View {
     /// Set when an in-flight Apple onboarding bounces back here because its
     /// identity token expired mid-flow (see `OnboardingViewModel.scheduleCredentialExpiry`).
     @State private var showAppleSessionExpiredToast = false
-    @Environment(\.colorScheme) private var colorScheme
 
     /// Injected country data source forwarded to the Onboarding flow.
     private let fetchCountriesUseCase: (any FetchCountriesUseCaseProtocol)?
@@ -229,7 +227,7 @@ public struct LoginView: View {
                 FMGoogleSignInButton(
                     title: L10n.Login.continueWithGoogle,
                     isLoading: viewModel.isGoogleLoading,
-                    isEnabled: !viewModel.isLoading
+                    isEnabled: !viewModel.isLoading && !viewModel.isAppleLoading
                 ) {
                     Task {
                         await viewModel.continueWithGoogle()
@@ -238,7 +236,15 @@ public struct LoginView: View {
             }
 
             if viewModel.isAppleAvailable {
-                appleButton
+                FMAppleSignInButton(
+                    title: L10n.Login.continueWithApple,
+                    isLoading: viewModel.isAppleLoading,
+                    isEnabled: !viewModel.isLoading && !viewModel.isGoogleLoading
+                ) {
+                    Task {
+                        await viewModel.continueWithApple()
+                    }
+                }
             }
 
             Button {
@@ -258,39 +264,6 @@ public struct LoginView: View {
         }
         .padding(.horizontal, 24)
         .padding(.bottom, 32)
-    }
-
-    /// The one place this screen uses Apple's own native button instead of an
-    /// `FMDesignSystem` component — Apple's branding guidelines don't allow a
-    /// custom recreation of it. `onRequest`/`onCompletion` route straight into
-    /// `LoginViewModel`, which owns the nonce and the resolve/register flow.
-    private var appleButton: some View {
-        ZStack {
-            SignInWithAppleButton(.continue) { request in
-                viewModel.prepareAppleRequest(request)
-            } onCompletion: { result in
-                Task { await viewModel.completeAppleSignIn(result) }
-            }
-            .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
-            .frame(height: 52)
-            // The native button's own corner radius is far tighter than
-            // `FMPrimaryButton`'s 26pt capsule; clipping to the larger radius
-            // matches it without fighting the button's own chrome.
-            .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
-            // No `isLoading` API and `.disabled()` doesn't dim it, so loading and
-            // disabled are expressed the same way `FMGoogleSignInButton` does:
-            // opacity, with hit testing cut instead of `.disabled`.
-            .opacity(isAppleButtonEnabled ? 1 : 0.5)
-            .allowsHitTesting(isAppleButtonEnabled)
-
-            if viewModel.isAppleLoading {
-                ProgressView().tint(colorScheme == .dark ? .black : .white)
-            }
-        }
-    }
-
-    private var isAppleButtonEnabled: Bool {
-        !viewModel.isAppleLoading && !viewModel.isLoading && !viewModel.isGoogleLoading
     }
 
     // MARK: - Helper Methods

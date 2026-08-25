@@ -1,4 +1,3 @@
-import AuthenticationServices
 import Foundation
 import NetworkFramework
 import PersistenceFramework
@@ -98,10 +97,13 @@ public class LoginViewModel: ObservableObject {
         await continueWith(.google)
     }
 
-    /// Drives Google's own account picker end to end. Apple does not use this
-    /// path — `SignInWithAppleButton` owns its own presentation, so Apple goes
-    /// through `prepareAppleRequest`/`completeAppleSignIn` instead, both landing
-    /// on the same `handleSocialAccount(_:)` once an account is in hand.
+    func continueWithApple() async {
+        await continueWith(.apple)
+    }
+
+    /// Drives the provider's own sheet end to end — Google's account picker,
+    /// Apple's `ASAuthorizationController` — both landing on the same
+    /// `handleSocialAccount(_:)` once an account is in hand.
     private func continueWith(_ provider: AuthProvider) async {
         guard let auth = socialProviders[provider] else { return }
 
@@ -120,50 +122,15 @@ public class LoginViewModel: ObservableObject {
         }
     }
 
-    /// Raw nonce generated for the in-flight Apple authorization, alive only
-    /// between `SignInWithAppleButton`'s `onRequest` and `onCompletion`.
-    private var pendingAppleNonce: String?
-
-    /// `SignInWithAppleButton`'s `onRequest` callback: sets the requested scopes
-    /// and nonce on Apple's own request object.
-    func prepareAppleRequest(_ request: ASAuthorizationAppleIDRequest) {
-        guard let appleAuth = socialProviders[.apple] as? any AppleAuthorizationHandling else { return }
-        pendingAppleNonce = appleAuth.prepare(request)
-        loadingProvider = .apple
-        showError = false
-    }
-
-    /// `SignInWithAppleButton`'s `onCompletion` callback.
-    func completeAppleSignIn(_ result: Result<ASAuthorization, Error>) async {
-        let nonce = pendingAppleNonce
-        pendingAppleNonce = nil
-
-        guard let appleAuth = socialProviders[.apple] as? any AppleAuthorizationHandling, let nonce else {
-            loadingProvider = nil
-            return
-        }
-
-        do {
-            let authorization = try result.get()
-            let account = try appleAuth.account(from: authorization, rawNonce: nonce)
-            await handleSocialAccount(account)
-        } catch {
-            loadingProvider = nil
-            // Same contract as Google: cancelling the sheet is silent, not an error.
-            guard (error as? ASAuthorizationError)?.code != .canceled, !error.isCancellation else { return }
-            handleError(error)
-        }
-    }
-
     /// Single entry point for both outcomes of any provider, once an account has
     /// been obtained: an existing account signs in straight through (no MFA — the
     /// social identity already proves who this is), and an unknown one hands the
     /// account to the onboarding flow.
     ///
-    /// Not `private`: `ASAuthorizationAppleIDCredential`/`ASAuthorization` have no
-    /// public initializer, so `completeAppleSignIn`'s success path can't be driven
-    /// end to end from a test. This is the seam tests use instead to cover the
-    /// same outcome branching Apple and Google both funnel through.
+    /// Not `private`: Apple's credential types have no public initializer, so a
+    /// real Apple sign-in can't be driven end to end from a test. This is the
+    /// seam tests use instead to cover the outcome branching Apple and Google
+    /// both funnel through.
     func handleSocialAccount(_ account: SocialAccount) async {
         do {
             let outcome = try await signInWithSocialUseCase.execute(credential: account.credential)

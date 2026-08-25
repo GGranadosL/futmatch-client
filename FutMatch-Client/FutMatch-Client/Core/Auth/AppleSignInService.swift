@@ -2,13 +2,12 @@ import Foundation
 import AuthenticationServices
 import OnboardingFeature
 
-/// `SocialAuthProviding` + `AppleAuthorizationHandling` backed by
-/// `AuthenticationServices`.
+/// `SocialAuthProviding` backed by `AuthenticationServices`.
 ///
 /// Lives in the app target for the same reason `GoogleSignInService` does — it
 /// needs a presentation anchor, which `OnboardingFeature` can't provide.
 @MainActor
-struct AppleSignInService: SocialAuthProviding, AppleAuthorizationHandling {
+struct AppleSignInService: SocialAuthProviding {
     var provider: AuthProvider { .apple }
 
     /// Gated purely on config, unlike Google's client-id check — Apple's
@@ -18,10 +17,10 @@ struct AppleSignInService: SocialAuthProviding, AppleAuthorizationHandling {
 
     // MARK: - SocialAuthProviding
 
-    /// Self-driven authorization, used only as a `SocialAuthProviding` fallback
-    /// (the actual login button uses `SignInWithAppleButton`'s own callbacks —
-    /// see `prepare`/`account(from:rawNonce:)` below, which is what
-    /// `LoginViewModel.prepareAppleRequest`/`completeAppleSignIn` call instead).
+    /// Drives the authorization sheet end to end, the same shape
+    /// `GoogleSignInService.signIn()` has — the login screen now uses
+    /// `FMAppleSignInButton`, so nothing hands us Apple's request object any
+    /// more and this owns the nonce for the whole round trip.
     func signIn() async throws -> SocialAccount {
         let rawNonce = AppleNonce.generate()
         let request = ASAuthorizationAppleIDProvider().createRequest()
@@ -50,15 +49,11 @@ struct AppleSignInService: SocialAuthProviding, AppleAuthorizationHandling {
         // separate concern, handled by the backend.)
     }
 
-    // MARK: - AppleAuthorizationHandling
+    // MARK: - Private
 
-    func prepare(_ request: ASAuthorizationAppleIDRequest) -> String {
-        let rawNonce = AppleNonce.generate()
-        configure(request, rawNonce: rawNonce)
-        return rawNonce
-    }
-
-    func account(from authorization: ASAuthorization, rawNonce: String) throws -> SocialAccount {
+    /// Maps a completed authorization into a `SocialAccount`, given the raw nonce
+    /// from the request that produced it.
+    private func account(from authorization: ASAuthorization, rawNonce: String) throws -> SocialAccount {
         guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential else {
             throw SocialAuthError.missingIdToken
         }
@@ -106,19 +101,14 @@ struct AppleSignInService: SocialAuthProviding, AppleAuthorizationHandling {
         )
     }
 
-    // MARK: - Private
-
     private func configure(_ request: ASAuthorizationAppleIDRequest, rawNonce: String) {
         request.requestedScopes = [.fullName, .email]
         request.nonce = AppleNonce.sha256Hex(rawNonce)
     }
 }
 
-/// Bridges `ASAuthorizationController`'s delegate callbacks to `async/await`, for
-/// `AppleSignInService.signIn()`'s self-driven flow. Not used by the login
-/// button, which drives `ASAuthorizationController` itself via
-/// `SignInWithAppleButton` and only reaches this service through
-/// `AppleAuthorizationHandling`.
+/// Bridges `ASAuthorizationController`'s delegate callbacks to `async/await`, so
+/// `AppleSignInService.signIn()` reads like any other provider.
 @MainActor
 private final class AppleAuthorizationCoordinator: NSObject, ASAuthorizationControllerDelegate, ASAuthorizationControllerPresentationContextProviding {
     private var continuation: CheckedContinuation<ASAuthorization, Error>?

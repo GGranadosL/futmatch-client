@@ -1,4 +1,3 @@
-import AuthenticationServices
 import XCTest
 import PersistenceFramework
 @testable import OnboardingFeature
@@ -97,12 +96,11 @@ final class LoginViewModelTests: XCTestCase {
     // MARK: - Social auth
     //
     // `ASAuthorizationAppleIDCredential`/`ASAuthorization` have no public
-    // initializer, so `completeAppleSignIn`'s success path can't be driven from a
-    // real Apple SDK object here. These exercise the same outcome branching
-    // through `handleSocialAccount(_:)` instead — the seam both
-    // `continueWith(.google)` and `completeAppleSignIn` funnel into once an
-    // account is in hand — with a stub tagged `.apple` to prove the branching is
-    // provider-agnostic.
+    // initializer, so a real Apple success can't be driven from a real Apple SDK
+    // object here. These exercise the same outcome branching through
+    // `handleSocialAccount(_:)` instead — the seam every provider funnels into
+    // once an account is in hand — with a stub tagged `.apple` to prove the
+    // branching is provider-agnostic.
 
     /// An unknown Apple identity hands the account to onboarding — same outcome
     /// Google's `SIGN_UP_REQUIRED` produces, just tagged with the right provider.
@@ -120,22 +118,21 @@ final class LoginViewModelTests: XCTestCase {
         XCTAssertFalse(sut.isAppleLoading)
     }
 
-    /// Apple's own cancellation swallow, mapped from `ASAuthorizationError`,
-    /// is covered directly on `completeAppleSignIn` since it doesn't need a real
-    /// `ASAuthorization` — only the error path does.
-    func test_completeAppleSignIn_cancelled_setsNoErrorAndClearsLoading() async {
+    /// Dismissing Apple's sheet is a decision, not a failure: the provider maps
+    /// `ASAuthorizationError.canceled` to `SocialAuthError.cancelled`, and the
+    /// view model has to swallow it rather than raise an alert.
+    func test_continueWithApple_cancelled_setsNoErrorAndClearsLoading() async {
         let auth = MockAuthService()
         let apple = MockSocialAuthProvider(provider: .apple)
+        apple.signInResult = .failure(SocialAuthError.cancelled)
         let sut = LoginViewModel(
             loginUseCase: LoginUseCase(authService: auth, keychainManager: MockKeychain()),
             socialProviders: [.apple: apple]
         )
-        // Populates `pendingAppleNonce` so `completeAppleSignIn` actually reaches
-        // the error-mapping path below instead of bailing out early on a nil nonce.
-        sut.prepareAppleRequest(ASAuthorizationAppleIDProvider().createRequest())
 
-        await sut.completeAppleSignIn(.failure(ASAuthorizationError(.canceled)))
+        await sut.continueWithApple()
 
+        XCTAssertEqual(apple.signInCallCount, 1)
         XCTAssertFalse(sut.showError)
         XCTAssertFalse(sut.isAppleLoading)
     }

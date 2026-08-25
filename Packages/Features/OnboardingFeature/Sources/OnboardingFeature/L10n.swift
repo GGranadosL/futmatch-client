@@ -244,6 +244,9 @@ public enum L10n {
         public static var continueWithGoogle: String {
             NSLocalizedString("login.continueWithGoogle", bundle: .module, comment: "")
         }
+        public static var continueWithApple: String {
+            NSLocalizedString("login.continueWithApple", bundle: .module, comment: "")
+        }
         public static var socialCancelled: String {
             NSLocalizedString("login.social.cancelled", bundle: .module, comment: "")
         }
