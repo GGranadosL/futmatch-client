@@ -397,7 +397,7 @@ struct RootView: View {
         )
         let socialProviders = makeSocialProviders()
 
-        LoginView(
+        AuthLandingView(
             fetchCountriesUseCase: factory.makeFetchCountriesUseCase(),
             fetchDialCodesUseCase: factory.makeFetchDialCodesUseCase(),
             socialProviders: socialProviders,

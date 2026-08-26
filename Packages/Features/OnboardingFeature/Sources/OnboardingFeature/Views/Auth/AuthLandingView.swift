@@ -1,15 +1,16 @@
 import SwiftUI
 import FMDesignSystem
+import Lottie
 import SharedModels
 
-/// Main Login View - Entry point of the app
-public struct LoginView: View {
+/// Auth landing — the first screen for a signed-out user. Lottie hero, brand,
+/// benefits, and three actions: "Continue with email" (pushes `EmailLoginView`),
+/// plus the Google and Apple buttons. The email/password form lives on the pushed
+/// screen; this view owns the `NavigationStack`, the shared `LoginViewModel`, and
+/// the social sign-up cover.
+public struct AuthLandingView: View {
     @StateObject private var viewModel: LoginViewModel
-    @State private var showOnboarding = false
-    @State private var showForgotPassword = false
-    /// Driven by "change email" on the MFA screen so the user lands straight in the
-    /// field they need to correct, keyboard already up.
-    @State private var focusEmail = false
+    @State private var showEmailLogin = false
     /// Set when an in-flight Apple onboarding bounces back here because its
     /// identity token expired mid-flow (see `OnboardingViewModel.scheduleCredentialExpiry`).
     @State private var showAppleSessionExpiredToast = false
@@ -59,42 +60,35 @@ public struct LoginView: View {
 
     public var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 0) {
-                    logoSection
-                    formSection
-                    Spacer(minLength: 40)
-                    bottomSection
+            ZStack {
+                AuthLandingBackground()
+
+                ScrollView {
+                    VStack(spacing: 0) {
+                        AuthLandingHero()
+                        brandSection
+                        benefitsSection
+                        Spacer(minLength: 32)
+                        actionsSection
+                    }
+                    .padding(.horizontal, 24)
                 }
             }
             .background(FMColors.background)
-            // Freezes the form the instant a login succeeds — email/password sets
-            // `isLoginSuccessful` and lets `RootView` swap in Home on its own next
-            // render pass, and that pass isn't instant. Nothing here was gated on
-            // that in-between moment before ("Crear cuenta" doesn't care whether a
-            // login is in flight), so a tap on it during the gap opened onboarding
-            // on a `LoginView` that was about to be torn down — the cover then had
-            // nothing left to be presented on and got yanked away the moment Home
-            // mounted, dropping the user straight into Home mid-registration.
+            // Freezes the screen the instant a login succeeds — social sign-in sets
+            // `isLoginSuccessful` and `RootView` swaps in Home on its next render
+            // pass, which isn't instant.
             .allowsHitTesting(!viewModel.isLoginSuccessful)
             .navigationBarHidden(true)
-            .navigationDestination(isPresented: $showForgotPassword) {
-                ForgotPasswordView(coordinator: makeForgotPasswordCoordinator())
-            }
-            .navigationDestination(isPresented: $viewModel.showMFAVerification) {
-                MFAVerificationView(
+            .navigationDestination(isPresented: $showEmailLogin) {
+                EmailLoginView(
                     viewModel: viewModel,
-                    onVerificationSuccess: {
-                        onLoginSuccess?()
-                    },
-                    onChangeEmail: {
-                        viewModel.cancelMFAToCorrectEmail()
-                        // Focus after the pop animation, otherwise the field isn't
-                        // in the hierarchy yet and the keyboard never comes up.
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
-                            focusEmail = true
-                        }
-                    }
+                    onLoginSuccess: onLoginSuccess,
+                    fetchCountriesUseCase: fetchCountriesUseCase,
+                    fetchDialCodesUseCase: fetchDialCodesUseCase,
+                    saveOnboardingDraftUseCase: saveOnboardingDraftUseCase,
+                    getOnboardingDraftUseCase: getOnboardingDraftUseCase,
+                    clearOnboardingDraftUseCase: clearOnboardingDraftUseCase
                 )
             }
             .onChange(of: viewModel.isLoginSuccessful) { newValue in
@@ -108,19 +102,6 @@ public struct LoginView: View {
                 Text(viewModel.errorMessage)
             }
             .fmToast(L10n.Login.appleSessionExpired, isPresented: $showAppleSessionExpiredToast, style: .error)
-            .fullScreenCover(isPresented: $showOnboarding) {
-                OnboardingContainerView(
-                    fetchCountriesUseCase: fetchCountriesUseCase,
-                    fetchDialCodesUseCase: fetchDialCodesUseCase,
-                    saveOnboardingDraftUseCase: saveOnboardingDraftUseCase,
-                    getOnboardingDraftUseCase: getOnboardingDraftUseCase,
-                    clearOnboardingDraftUseCase: clearOnboardingDraftUseCase,
-                    onRegistrationComplete: {
-                        showOnboarding = false
-                        onLoginSuccess?()
-                    }
-                )
-            }
             // `/auth/{provider}/resolve` found no account for this identity, so
             // the same button that signs people in also starts the sign-up — with
             // everything the provider gave us already filled in.
@@ -153,14 +134,9 @@ public struct LoginView: View {
 
     // MARK: - Subviews
 
-    private var logoSection: some View {
+    private var brandSection: some View {
         VStack(spacing: 8) {
-            Image("logo_futmatch", bundle: .main)
-                .resizable()
-                .scaledToFit()
-                .frame(width: 61, height: 73)
-
-            Text("FutMatch")
+            Text(L10n.Login.appName)
                 .font(.interBold(size: 32))
                 .tracking(1.5)
                 .foregroundStyle(
@@ -171,54 +147,41 @@ public struct LoginView: View {
                     )
                 )
 
-            Text(L10n.Login.title)
+            Text(L10n.Login.landingTagline)
                 .font(FMTypography.caption)
                 .foregroundColor(FMColors.secondary)
         }
-        .padding(.top, 60)
-        .padding(.bottom, 40)
+        .padding(.top, 4)
     }
 
-    private var formSection: some View {
-        VStack(spacing: 20) {
-            FMTextField(
-                label: L10n.Login.email,
-                text: $viewModel.email,
-                keyboardType: .emailAddress
-            )
-            .focused($focusEmail)
-
-            FMTextField(
-                label: L10n.Login.password,
-                text: $viewModel.password,
-                isSecure: true
-            )
-
-            HStack {
-                Spacer()
-                Button {
-                    showForgotPassword = true
-                } label: {
-                    Text(L10n.Login.forgotPassword)
-                        .font(FMTypography.caption)
-                        .foregroundColor(FMColors.primary)
-                }
-            }
+    private var benefitsSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            benefitRow(L10n.Login.landingBenefitFindMatch, systemImage: "soccerball")
+            benefitRow(L10n.Login.landingBenefitConnect, systemImage: "person.3.fill")
+            benefitRow(L10n.Login.landingBenefitStandOut, systemImage: "star")
         }
-        .padding(.horizontal, 24)
+        .padding(.top, 32)
     }
 
-    private var bottomSection: some View {
+    private func benefitRow(_ text: String, systemImage: String) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: systemImage)
+                .foregroundColor(FMColors.primary)
+                .frame(width: 20)
+
+            Text(text)
+                .font(FMTypography.bodySmall)
+                .foregroundColor(FMColors.onSurfaceVariant)
+        }
+    }
+
+    private var actionsSection: some View {
         VStack(spacing: 24) {
             FMPrimaryButton(
-                title: L10n.Login.button,
-                icon: Image(systemName: "person.crop.circle.fill"),
-                isLoading: viewModel.isLoading,
-                isEnabled: viewModel.isFormValid
+                title: L10n.Login.continueWithEmail,
+                icon: Image(systemName: "envelope.fill")
             ) {
-                Task {
-                    await viewModel.login()
-                }
+                showEmailLogin = true
             }
 
             if viewModel.isGoogleAvailable {
@@ -246,43 +209,39 @@ public struct LoginView: View {
                     }
                 }
             }
-
-            Button {
-                showOnboarding = true
-            } label: {
-                HStack(spacing: 4) {
-                    Text(L10n.Login.noAccount)
-                        .font(FMTypography.caption)
-                        .foregroundColor(FMColors.secondary)
-
-                    Text(L10n.Login.createAccount)
-                        .font(FMTypography.captionMedium)
-                        .foregroundColor(FMColors.primary)
-                }
-                .contentShape(Rectangle())
-            }
         }
-        .padding(.horizontal, 24)
+        .padding(.top, 40)
         .padding(.bottom, 32)
     }
+}
 
-    // MARK: - Helper Methods
+// MARK: - Hero animation
 
-    private func makeForgotPasswordCoordinator() -> ForgotPasswordCoordinatorViewModel {
-        let authService = AuthService()
-        let forgotPasswordUseCase = ForgotPasswordUseCase(authService: authService)
-        let verifyResetMFAUseCase = VerifyResetMFAUseCase(authService: authService)
-        let resetPasswordUseCase = ResetPasswordUseCase(authService: authService)
+/// Lottie hero for the landing screen. Loops continuously, but honours Reduce
+/// Motion by holding on the first frame.
+private struct AuthLandingHero: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-        return ForgotPasswordCoordinatorViewModel(
-            forgotPasswordUseCase: forgotPasswordUseCase,
-            verifyResetMFAUseCase: verifyResetMFAUseCase,
-            resetPasswordUseCase: resetPasswordUseCase
-        )
+    var body: some View {
+        lottie
+            .frame(maxWidth: .infinity)
+            .frame(height: 240)
+            .accessibilityLabel(Text(L10n.Login.landingAnimationA11y))
+            .padding(.top, 40)
+    }
+
+    @ViewBuilder
+    private var lottie: some View {
+        let animation = LottieView(animation: .named("football_team_players", bundle: .module))
+        if reduceMotion {
+            animation.paused().resizable().aspectRatio(contentMode: .fit)
+        } else {
+            animation.playing(loopMode: .loop).resizable().aspectRatio(contentMode: .fit)
+        }
     }
 }
 
 // MARK: - Preview
 #Preview {
-    LoginView()
+    AuthLandingView()
 }

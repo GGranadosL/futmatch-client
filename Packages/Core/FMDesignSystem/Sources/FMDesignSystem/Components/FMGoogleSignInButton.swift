@@ -85,7 +85,7 @@ public struct FMGoogleSignInButton: View {
     @ViewBuilder
     private var logo: some View {
         // Assets live in the app target's catalog, so this resolves through the
-        // main bundle — the same way `LoginView` loads `logo_futmatch`.
+        // main bundle — the same way `EmailLoginView` loads `logo_futmatch`.
         if let image = UIImage(named: logoAssetName) {
             // `.original` keeps Google's four brand colours; a template render
             // would tint the mark, which their guidelines disallow.
