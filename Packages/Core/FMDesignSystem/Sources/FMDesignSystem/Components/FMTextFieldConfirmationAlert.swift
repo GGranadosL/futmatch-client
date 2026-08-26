@@ -15,6 +15,7 @@ public struct FMTextFieldConfirmationAlert: View {
     let primaryButtonColor: Color
     let secondaryButtonTitle: String?
     let isLoading: Bool
+    let isPrimaryEnabled: Bool
     let onPrimaryAction: () -> Void
     let onSecondaryAction: (() -> Void)?
 
@@ -29,6 +30,7 @@ public struct FMTextFieldConfirmationAlert: View {
         primaryButtonColor: Color = FMColors.error,
         secondaryButtonTitle: String? = "Cancelar",
         isLoading: Bool = false,
+        isPrimaryEnabled: Bool = true,
         onPrimaryAction: @escaping () -> Void,
         onSecondaryAction: (() -> Void)? = nil
     ) {
@@ -42,12 +44,15 @@ public struct FMTextFieldConfirmationAlert: View {
         self.primaryButtonColor = primaryButtonColor
         self.secondaryButtonTitle = secondaryButtonTitle
         self.isLoading = isLoading
+        self.isPrimaryEnabled = isPrimaryEnabled
         self.onPrimaryAction = onPrimaryAction
         self.onSecondaryAction = onSecondaryAction
     }
 
     private var isPrimaryDisabled: Bool {
-        text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isLoading
+        !isPrimaryEnabled
+            || text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || isLoading
     }
 
     public var body: some View {

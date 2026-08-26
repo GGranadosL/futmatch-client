@@ -8,7 +8,7 @@ import OnboardingFeature
 ///
 /// Lives in the app target rather than `OnboardingFeature` because the SDK needs
 /// UIKit and a presenting view controller — the same reason the Firebase
-/// custom-token sign-in is injected into `LoginView` as a closure.
+/// custom-token sign-in is injected into `AuthLandingView` as a closure.
 @MainActor
 struct GoogleSignInService: SocialAuthProviding {
     var provider: AuthProvider { .google }

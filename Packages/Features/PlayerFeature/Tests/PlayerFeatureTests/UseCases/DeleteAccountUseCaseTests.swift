@@ -3,14 +3,13 @@ import XCTest
 
 final class DeleteAccountUseCaseTests: XCTestCase {
 
-    func test_execute_forwardsPassword() async throws {
+    func test_execute_callsRepository() async throws {
         let repository = MockAccountRepository()
         let sut = DeleteAccountUseCase(repository: repository)
 
-        try await sut.execute(password: "s3cr3t")
+        try await sut.execute()
 
         XCTAssertEqual(repository.deleteAccountCallCount, 1)
-        XCTAssertEqual(repository.lastPassword, "s3cr3t")
     }
 
     func test_execute_propagatesRepositoryError() async {
@@ -19,7 +18,7 @@ final class DeleteAccountUseCaseTests: XCTestCase {
         let sut = DeleteAccountUseCase(repository: repository)
 
         do {
-            try await sut.execute(password: "s3cr3t")
+            try await sut.execute()
             XCTFail("Expected error to be thrown")
         } catch {
             XCTAssertEqual(error as? TestError, .boom)
@@ -32,11 +31,9 @@ final class DeleteAccountUseCaseTests: XCTestCase {
 final class MockAccountRepository: AccountRepositoryProtocol {
     var deleteAccountResult: Result<Void, Error> = .success(())
     private(set) var deleteAccountCallCount = 0
-    private(set) var lastPassword: String?
 
-    func deleteAccount(password: String) async throws {
+    func deleteAccount() async throws {
         deleteAccountCallCount += 1
-        lastPassword = password
         try deleteAccountResult.get()
     }
 }

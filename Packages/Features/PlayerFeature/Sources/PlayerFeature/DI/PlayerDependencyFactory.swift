@@ -165,6 +165,14 @@ public struct PlayerDependencyFactory {
         DeleteAccountUseCase(repository: makeAccountRepository())
     }
 
+    func makeBiometricAuthenticator() -> BiometricAuthenticating {
+        BiometricAuthenticator()
+    }
+
+    func makeConfirmDeletionIdentityUseCase() -> ConfirmDeletionIdentityUseCaseProtocol {
+        ConfirmDeletionIdentityUseCase(authenticator: makeBiometricAuthenticator())
+    }
+
     @MainActor
     func makePlayerProfileViewModel(userId: String) -> PlayerProfileViewModel {
         PlayerProfileViewModel(

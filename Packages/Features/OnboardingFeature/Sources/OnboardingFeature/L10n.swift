@@ -247,6 +247,33 @@ public enum L10n {
         public static var continueWithApple: String {
             NSLocalizedString("login.continueWithApple", bundle: .module, comment: "")
         }
+        public static var continueWithEmail: String {
+            NSLocalizedString("login.continueWithEmail", bundle: .module, comment: "")
+        }
+
+        // MARK: Auth landing (first screen)
+
+        /// Brand wordmark shown on the landing screen (identical in every locale).
+        public static var appName: String {
+            NSLocalizedString("login.appName", bundle: .module, comment: "")
+        }
+        /// Tagline under the FUTMATCH wordmark on the landing screen.
+        public static var landingTagline: String {
+            NSLocalizedString("login.landingTagline", bundle: .module, comment: "")
+        }
+        public static var landingBenefitFindMatch: String {
+            NSLocalizedString("login.landing.benefitFindMatch", bundle: .module, comment: "")
+        }
+        public static var landingBenefitConnect: String {
+            NSLocalizedString("login.landing.benefitConnect", bundle: .module, comment: "")
+        }
+        public static var landingBenefitStandOut: String {
+            NSLocalizedString("login.landing.benefitStandOut", bundle: .module, comment: "")
+        }
+        /// VoiceOver label for the landing hero animation.
+        public static var landingAnimationA11y: String {
+            NSLocalizedString("login.landing.animationA11y", bundle: .module, comment: "")
+        }
         public static var socialCancelled: String {
             NSLocalizedString("login.social.cancelled", bundle: .module, comment: "")
         }

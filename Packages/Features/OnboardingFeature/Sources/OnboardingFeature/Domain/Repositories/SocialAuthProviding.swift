@@ -4,7 +4,7 @@ import Foundation
 ///
 /// The concrete implementation lives in the app target (it needs UIKit and a
 /// presenting view controller / anchor), and is injected in — the same arrangement
-/// the Firebase custom-token sign-in already uses via `LoginView(firebaseSignIn:)`.
+/// the Firebase custom-token sign-in already uses via `AuthLandingView(firebaseSignIn:)`.
 /// Keeping the SDKs out of this package leaves the feature testable with a mock.
 ///
 /// Main-actor isolated because both SDKs must be driven from the main thread — they
