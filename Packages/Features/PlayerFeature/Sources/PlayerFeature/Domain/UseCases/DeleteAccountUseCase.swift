@@ -1,7 +1,7 @@
 import Foundation
 
 public protocol DeleteAccountUseCaseProtocol {
-    func execute(password: String) async throws
+    func execute() async throws
 }
 
 public struct DeleteAccountUseCase: DeleteAccountUseCaseProtocol {
@@ -11,7 +11,7 @@ public struct DeleteAccountUseCase: DeleteAccountUseCaseProtocol {
         self.repository = repository
     }
 
-    public func execute(password: String) async throws {
-        try await repository.deleteAccount(password: password)
+    public func execute() async throws {
+        try await repository.deleteAccount()
     }
 }

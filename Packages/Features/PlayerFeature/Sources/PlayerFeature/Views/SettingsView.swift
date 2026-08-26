@@ -31,8 +31,9 @@ struct SettingsView: View {
     @State private var safariURL: URL? = nil
     @State private var showLogoutAlert = false
     @State private var showDeleteAccountDialog = false
-    @State private var deleteAccountPassword = ""
+    @State private var deleteAccountConfirmationText = ""
     @State private var showDeleteAccountSuccessToast = false
+    @State private var showBiometricErrorToast = false
     private let linksConfig: LegalLinksProtocol
 
     init(
@@ -48,7 +49,10 @@ struct SettingsView: View {
         self.paymentHistoryViewModelFactory = paymentHistoryViewModelFactory
         self.linksConfig = linksConfig
         _paymentMethodsVM = StateObject(wrappedValue: paymentMethodsViewModel ?? PaymentMethodsViewModel(paymentService: PaymentService()))
-        _deleteAccountVM = StateObject(wrappedValue: deleteAccountViewModel ?? DeleteAccountViewModel(deleteAccountUseCase: PlayerDependencyFactory().makeDeleteAccountUseCase()))
+        _deleteAccountVM = StateObject(wrappedValue: deleteAccountViewModel ?? DeleteAccountViewModel(
+            deleteAccountUseCase: PlayerDependencyFactory().makeDeleteAccountUseCase(),
+            confirmIdentityUseCase: PlayerDependencyFactory().makeConfirmDeletionIdentityUseCase()
+        ))
     }
 
     // MARK: - Row Data
@@ -127,7 +131,7 @@ struct SettingsView: View {
                         }
 
                         Button {
-                            showDeleteAccountDialog = true
+                            Task { await deleteAccountVM.requestDeletion() }
                         } label: {
                             HStack(spacing: 14) {
                                 Image(systemName: "trash")
@@ -144,9 +148,15 @@ struct SettingsView: View {
                                         .font(FMTypography.bodySmall)
                                         .foregroundColor(FMColors.onSurfaceVariant)
                                 }
+
+                                if deleteAccountVM.isVerifyingIdentity {
+                                    Spacer()
+                                    ProgressView()
+                                }
                             }
                             .padding(.vertical, 4)
                         }
+                        .disabled(deleteAccountVM.isVerifyingIdentity)
                     }
 
                     // Version footer
@@ -167,19 +177,21 @@ struct SettingsView: View {
             if showDeleteAccountDialog {
                 FMTextFieldConfirmationAlert(
                     title: L10n.DeleteAccount.dialogTitle,
-                    message: L10n.DeleteAccount.dialogMessage,
-                    textFieldLabel: L10n.DeleteAccount.passwordLabel,
-                    text: $deleteAccountPassword,
+                    message: L10n.DeleteAccount.dialogMessage(L10n.DeleteAccount.confirmationPhrase),
+                    textFieldLabel: L10n.DeleteAccount.confirmationLabel,
+                    text: $deleteAccountConfirmationText,
+                    isSecureTextField: false,
                     errorMessage: deleteAccountVM.errorMessage,
                     primaryButtonTitle: L10n.DeleteAccount.confirmButton,
                     secondaryButtonTitle: L10n.Common.cancel,
                     isLoading: deleteAccountVM.isLoading,
+                    isPrimaryEnabled: deleteAccountVM.isConfirmationValid(deleteAccountConfirmationText),
                     onPrimaryAction: {
-                        Task { await deleteAccountVM.deleteAccount(password: deleteAccountPassword) }
+                        Task { await deleteAccountVM.deleteAccount(confirmation: deleteAccountConfirmationText) }
                     },
                     onSecondaryAction: {
                         showDeleteAccountDialog = false
-                        deleteAccountPassword = ""
+                        deleteAccountConfirmationText = ""
                         deleteAccountVM.clearError()
                     }
                 )
@@ -241,10 +253,20 @@ struct SettingsView: View {
         } message: {
             Text(L10n.Profile.logoutMessage)
         }
+        .onChange(of: deleteAccountVM.identityConfirmed) { confirmed in
+            guard confirmed else { return }
+            deleteAccountConfirmationText = ""
+            deleteAccountVM.clearError()
+            showDeleteAccountDialog = true
+            deleteAccountVM.resetIdentityConfirmation()
+        }
+        .onChange(of: deleteAccountVM.biometricErrorMessage != nil) { hasError in
+            if hasError { showBiometricErrorToast = true }
+        }
         .onChange(of: deleteAccountVM.succeeded) { succeeded in
             guard succeeded else { return }
             showDeleteAccountDialog = false
-            deleteAccountPassword = ""
+            deleteAccountConfirmationText = ""
             showDeleteAccountSuccessToast = true
             Task {
                 try? await Task.sleep(nanoseconds: 2_500_000_000)
@@ -252,6 +274,10 @@ struct SettingsView: View {
             }
         }
         .fmToast(L10n.DeleteAccount.successMessage, isPresented: $showDeleteAccountSuccessToast, style: .success)
+        .fmToast(deleteAccountVM.biometricErrorMessage ?? "", isPresented: $showBiometricErrorToast, style: .error)
+        .onChange(of: showBiometricErrorToast) { showing in
+            if !showing { deleteAccountVM.clearBiometricError() }
+        }
     }
 
     // MARK: - Row View

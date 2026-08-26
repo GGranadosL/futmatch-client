@@ -126,6 +126,40 @@
         }
       }
     },
+    "deleteAccount.biometricFailedError" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "We couldn't verify your identity. Your account was not deleted."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No pudimos verificar tu identidad. Tu cuenta no fue eliminada."
+          }
+        }
+      }
+    },
+    "deleteAccount.biometricReason" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confirm your identity to delete your account"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confirma tu identidad para eliminar tu cuenta"
+          }
+        }
+      }
+    },
     "deleteAccount.confirmButton" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -143,19 +177,53 @@
         }
       }
     },
+    "deleteAccount.confirmationLabel" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confirmation phrase"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Frase de confirmación"
+          }
+        }
+      }
+    },
+    "deleteAccount.confirmationPhrase" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete my account"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eliminar mi cuenta"
+          }
+        }
+      }
+    },
     "deleteAccount.dialogMessage" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "This action is permanent. Enter your password to continue."
+            "value" : "This action is permanent. Type \"%@\" to confirm."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Esta acción es permanente. Ingresa tu contraseña para continuar."
+            "value" : "Esta acción es permanente. Escribe \"%@\" para confirmar."
           }
         }
       }
@@ -194,19 +262,19 @@
         }
       }
     },
-    "deleteAccount.passwordLabel" : {
+    "deleteAccount.phraseMismatchError" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Current password"
+            "value" : "The phrase doesn't match. Type it exactly as shown."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Contraseña actual"
+            "value" : "La frase no coincide. Escríbela tal como aparece."
           }
         }
       }

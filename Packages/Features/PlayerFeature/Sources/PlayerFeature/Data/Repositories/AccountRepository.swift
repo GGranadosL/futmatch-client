@@ -8,7 +8,7 @@ struct AccountRepository: AccountRepositoryProtocol {
         self.service = service
     }
 
-    func deleteAccount(password: String) async throws {
-        try await service.deleteAccount(password: password)
+    func deleteAccount() async throws {
+        try await service.deleteAccount()
     }
 }

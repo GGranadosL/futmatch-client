@@ -498,11 +498,19 @@ public enum L10n {
         public static var dialogTitle: String {
             NSLocalizedString("deleteAccount.dialogTitle", bundle: .module, comment: "")
         }
-        public static var dialogMessage: String {
-            NSLocalizedString("deleteAccount.dialogMessage", bundle: .module, comment: "")
+        /// Warning copy for the confirmation dialog. `phrase` is the exact text the
+        /// user must type (see `confirmationPhrase`).
+        public static func dialogMessage(_ phrase: String) -> String {
+            String(format: NSLocalizedString("deleteAccount.dialogMessage", bundle: .module, comment: ""), phrase)
         }
-        public static var passwordLabel: String {
-            NSLocalizedString("deleteAccount.passwordLabel", bundle: .module, comment: "")
+        /// Label for the confirmation text field.
+        public static var confirmationLabel: String {
+            NSLocalizedString("deleteAccount.confirmationLabel", bundle: .module, comment: "")
+        }
+        /// Localized phrase the user must type to enable the delete action. Shown in
+        /// the dialog and matched locally (case-insensitively, trimmed).
+        public static var confirmationPhrase: String {
+            NSLocalizedString("deleteAccount.confirmationPhrase", bundle: .module, comment: "")
         }
         public static var confirmButton: String {
             NSLocalizedString("deleteAccount.confirmButton", bundle: .module, comment: "")
@@ -512,6 +520,18 @@ public enum L10n {
         }
         public static var genericError: String {
             NSLocalizedString("deleteAccount.genericError", bundle: .module, comment: "")
+        }
+        /// Shown when the typed phrase doesn't match `confirmationPhrase`.
+        public static var phraseMismatchError: String {
+            NSLocalizedString("deleteAccount.phraseMismatchError", bundle: .module, comment: "")
+        }
+        /// `LAContext` prompt shown before the confirmation dialog opens.
+        public static var biometricReason: String {
+            NSLocalizedString("deleteAccount.biometricReason", bundle: .module, comment: "")
+        }
+        /// Shown when biometric / passcode verification fails or is cancelled.
+        public static var biometricFailedError: String {
+            NSLocalizedString("deleteAccount.biometricFailedError", bundle: .module, comment: "")
         }
     }
 

@@ -13,6 +13,8 @@
 	<array>
 		<string>remote-notification</string>
 	</array>
+	<key>NSFaceIDUsageDescription</key>
+	<string>FutMatch usa Face ID para confirmar tu identidad antes de eliminar tu cuenta.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Usamos tu ubicación para mostrarte qué tan lejos están los partidos y para centrar el mapa al crear canchas y ubicaciones cerca de ti.</string>
 	<key>CFBundleURLTypes</key>
