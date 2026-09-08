@@ -119,7 +119,6 @@ private struct MatchPricingContentView: View {
                 currentSelectionCard
                 minimumCard
                 breakdownCard
-                Spacer(minLength: 80)
             }
             .padding(16)
         }
