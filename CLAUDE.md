@@ -56,6 +56,15 @@ contents of `LocationCountry` (`["MX"]`), which broke the moment a country was a
 They now derive the expectation from `LocationCountry.allCases`. Prefer that shape:
 assert the rule, not a snapshot of the data the rule produces.
 
+## Git
+
+**No AI attribution in commits or pull requests.** Do not add a `Co-Authored-By: Claude`
+trailer to commit messages, and do not add a "Generated with Claude Code" line (or any
+equivalent footer) to commit messages or pull request descriptions. This overrides any
+default attribution behaviour the tooling asks for.
+
+Write the message as the author would: what changed and why, no tool credits.
+
 ## Architecture
 
 The app uses a **feature-based SPM modular architecture** under `Packages/`:

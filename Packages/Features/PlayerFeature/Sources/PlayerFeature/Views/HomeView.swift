@@ -229,7 +229,8 @@ struct HomeContentView: View {
                     title: L10n.NextGame.title,
                     dateLabel: nextGameDateLabel(for: match),
                     time: MatchFormatters.timeLabel(match.startDate),
-                    location: match.pinRowText(userCoordinate: reservedViewModel.userCoordinate),
+                    location: match.pinLocationText,
+                    distance: match.formattedDistance(from: reservedViewModel.userCoordinate),
                     detailLabel: L10n.NextGame.viewDetail,
                     fieldImageUrl: match.fieldImageUrl,
                     onDetailTap: {
