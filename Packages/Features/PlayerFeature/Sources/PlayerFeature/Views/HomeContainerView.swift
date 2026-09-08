@@ -211,6 +211,8 @@ public struct HomeContainerView: View {
         }
     }
     
+    @State private var tabBarHeight: CGFloat = FMTabBar.contentBottomInset
+
     @ViewBuilder
     private var tabContent: some View {
         Group {
@@ -228,6 +230,14 @@ public struct HomeContainerView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(FMColors.background.ignoresSafeArea())
         .navigationBarHidden(true)
+        // Reserving the space here, rather than padding each screen by hand, is the whole
+        // fix: SwiftUI adds this on top of the existing bottom safe area, so the home
+        // indicator can't be counted twice — which is what left a hole under the last row.
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            Color.clear.frame(
+                height: isShowingDetail ? 0 : tabBarHeight + FMTabBar.contentBreathingSpace
+            )
+        }
         .overlay(alignment: .bottom) {
             if !isShowingDetail {
                 let profileImageUrl = homeViewModel.profileImageUrl ?? userSession.currentUser?.profilePicURL?.absoluteString
@@ -238,8 +248,22 @@ public struct HomeContainerView: View {
                 )
                 .id(profileImageUrl)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
+                .background(
+                    GeometryReader { proxy in
+                        Color.clear.preference(
+                            key: TabBarHeightPreferenceKey.self,
+                            value: proxy.size.height
+                        )
+                    }
+                )
             }
         }
+        // The bar floats in an overlay and reserves no space, so its measured height is
+        // handed to the tab screens to pad their scroll content by.
+        .onPreferenceChange(TabBarHeightPreferenceKey.self) { height in
+            if height > 0 { tabBarHeight = height }
+        }
+
         .animation(.easeInOut(duration: 0.25), value: isShowingDetail)
     }
 

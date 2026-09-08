@@ -95,10 +95,7 @@ public struct OnboardingContainerView: View {
             .navigationBarBackButtonHidden(true)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button(action: goToPreviousStep) {
-                        Image(systemName: "chevron.left")
-                            .foregroundColor(FMColors.primary)
-                    }
+                    FMBackButton(action: goToPreviousStep)
                 }
             }
             // `.navigationBarBackButtonHidden(true)` above also disables iOS's native

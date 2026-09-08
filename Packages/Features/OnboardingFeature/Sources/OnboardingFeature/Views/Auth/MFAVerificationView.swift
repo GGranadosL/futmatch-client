@@ -48,17 +48,6 @@ struct MFAVerificationView: View {
         .background(FMColors.background)
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden(true)
-        .toolbar {
-            ToolbarItem(placement: .navigationBarLeading) {
-                Button {
-                    dismiss()
-                } label: {
-                    Image(systemName: "chevron.left")
-                        .foregroundColor(FMColors.onSurface)
-                }
-            }
-        }
         .onAppear {
             refreshCountdown()
             startTicking()

@@ -46,11 +46,15 @@ UDID instead: `xcrun simctl list devices available | grep 'iPhone 17'`.
 **Expect pre-existing breakage.** Because nothing runs these suites routinely, the
 test targets drift from the sources — stale mocks, assertions against refactored
 use cases, stub signatures missing parameters the tests already pass. As of
-2026-08-07: `PlayerFeature` passes (50 tests); `AdminFeature` compiles but has 3
-failures in the location-catalog tests (fallback list grew from `["MX"]` to
-`["MX", "US"]`); `OnboardingFeature`'s test target does not compile
-(`TestSupport.swift` missing a `challengeToken` argument). When you hit one of
-these, fix it — but say so, and keep it separate from the change you came to make.
+2026-09-07: `PlayerFeature` passes (50 tests); `AdminFeature` passes (105 tests);
+`OnboardingFeature`'s test target does not compile (`TestSupport.swift` missing a
+`challengeToken` argument). When you hit one of these, fix it — but say so, and keep
+it separate from the change you came to make.
+
+The location-catalog failures listed here previously were assertions hard-coding the
+contents of `LocationCountry` (`["MX"]`), which broke the moment a country was added.
+They now derive the expectation from `LocationCountry.allCases`. Prefer that shape:
+assert the rule, not a snapshot of the data the rule produces.
 
 ## Architecture
 

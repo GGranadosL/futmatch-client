@@ -13,11 +13,7 @@ struct NotificationsView: View {
             content
         }
         .background(FMColors.background.ignoresSafeArea())
-        .navigationBarBackButtonHidden(true)
         .toolbar {
-            ToolbarItem(placement: .navigationBarLeading) {
-                FMBackButton { dismiss() }
-            }
             ToolbarItem(placement: .principal) {
                 Text("Notificaciones")
                     .font(FMTypography.titleLarge)

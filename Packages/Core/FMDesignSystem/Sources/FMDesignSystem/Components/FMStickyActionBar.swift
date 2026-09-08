@@ -23,8 +23,12 @@ public struct FMStickyActionBar: View {
     let backgroundColor: Color
     let buttonColor: Color
     let buttonTextColor: Color
+    let fadeHeight: CGFloat
     let action: () -> Void
 
+    /// - Parameter fadeHeight: space above the button where the scrim fades in. The 32pt
+    ///   default suits long scrolling lists; screens whose content ends in a card read as
+    ///   having a hole under it and want less.
     public init(
         icon: String? = nil,
         title: String,
@@ -33,6 +37,7 @@ public struct FMStickyActionBar: View {
         backgroundColor: Color = FMColors.background,
         buttonColor: Color = FMColors.primary,
         buttonTextColor: Color = .white,
+        fadeHeight: CGFloat = 32,
         action: @escaping () -> Void
     ) {
         self.icon = icon
@@ -42,6 +47,7 @@ public struct FMStickyActionBar: View {
         self.backgroundColor = backgroundColor
         self.buttonColor = buttonColor
         self.buttonTextColor = buttonTextColor
+        self.fadeHeight = fadeHeight
         self.action = action
     }
 
@@ -71,7 +77,7 @@ public struct FMStickyActionBar: View {
         .disabled(!isEnabled || isLoading)
         .animation(.easeInOut(duration: 0.15), value: isEnabled)
         .padding(.horizontal, 20)
-        .padding(.top, 32)   // gradient fades in above the button
+        .padding(.top, fadeHeight)   // gradient fades in above the button
         .padding(.bottom, 12)
         .background {
             // Gradient covers the full bar including the home-indicator safe area

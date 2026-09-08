@@ -40,11 +40,7 @@ struct EditFieldView: View {
             .padding(.bottom, 100)
         }
         .background(FMColors.background.ignoresSafeArea())
-        .navigationBarBackButtonHidden(true)
         .toolbar {
-            ToolbarItem(placement: .navigationBarLeading) {
-                FMBackButton { dismiss() }
-            }
             ToolbarItem(placement: .principal) {
                 AdminNavTitle(title: L10n.EditField.title)
             }

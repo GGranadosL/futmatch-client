@@ -58,7 +58,7 @@ struct HomeContentView: View {
                         suggestedGamesSection
                         lastMatchSection
                     }
-                    .padding(.bottom, 100)
+                    .padding(.bottom, FMTabBar.contentBreathingSpace)
                 }
                 .refreshable {
                     // Use an unstructured Task so the network requests aren't cancelled

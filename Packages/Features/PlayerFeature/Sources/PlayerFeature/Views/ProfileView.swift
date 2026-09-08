@@ -44,7 +44,7 @@ struct ProfileView: View {
                         performanceSection
                         lastMatchSection
                     }
-                    .padding(.bottom, 100) // Space for tab bar
+                    .padding(.bottom, FMTabBar.contentBreathingSpace)
                 }
                 .refreshable {
                     await Task {

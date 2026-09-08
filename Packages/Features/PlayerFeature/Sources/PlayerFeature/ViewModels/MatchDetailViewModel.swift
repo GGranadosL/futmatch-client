@@ -32,6 +32,13 @@ final class MatchDetailViewModel: ObservableObject {
     /// Also restored from Keychain when a reservation is found on app relaunch.
     @Published private(set) var joinData: JoinMatchData?
 
+    // MARK: - Payment Security Gate
+
+    /// True while the pre-presentation biometric/passcode prompt is on screen
+    /// for either the join-overlay "Pay now" button or the reservation-bar
+    /// "Pay" button.
+    @Published private(set) var isVerifyingPaymentSecurity = false
+
     // MARK: - Payment Poll State
 
     /// True while polling `GET /payment/poll/{matchId}` after Stripe reports success.
@@ -90,6 +97,7 @@ final class MatchDetailViewModel: ObservableObject {
     private let pendingPaymentStore: PendingPaymentStoreProtocol
     private let fetchPendingPaymentUseCase: FetchPendingMatchPaymentUseCaseProtocol
     private let fetchFieldAttributeCatalogsUseCase: FetchFieldAttributeCatalogsUseCaseProtocol
+    private let authorizeSensitiveActionUseCase: AuthorizeSensitiveActionUseCaseProtocol
     /// Resolves the signed-in user's id. Injected so the reservation and payment-recovery
     /// branches are testable without touching the real Keychain.
     private let currentUserId: () -> String?
@@ -105,6 +113,7 @@ final class MatchDetailViewModel: ObservableObject {
         pendingPaymentStore: PendingPaymentStoreProtocol,
         fetchPendingPaymentUseCase: FetchPendingMatchPaymentUseCaseProtocol,
         fetchFieldAttributeCatalogsUseCase: FetchFieldAttributeCatalogsUseCaseProtocol,
+        authorizeSensitiveActionUseCase: AuthorizeSensitiveActionUseCaseProtocol,
         currentUserId: @escaping () -> String? = { KeychainManager.shared.userId }
     ) {
         self.match = initialMatch
@@ -117,6 +126,7 @@ final class MatchDetailViewModel: ObservableObject {
         self.pendingPaymentStore = pendingPaymentStore
         self.fetchPendingPaymentUseCase = fetchPendingPaymentUseCase
         self.fetchFieldAttributeCatalogsUseCase = fetchFieldAttributeCatalogsUseCase
+        self.authorizeSensitiveActionUseCase = authorizeSensitiveActionUseCase
         self.currentUserId = currentUserId
     }
 
@@ -145,6 +155,25 @@ final class MatchDetailViewModel: ObservableObject {
             detailError = error.apiErrorMessage ?? error.localizedDescription
         }
         isLoadingDetail = false
+    }
+
+    // MARK: - Payment Security Gate
+
+    /// Runs the payment-security gate before the Stripe sheet is presented.
+    /// Returns `true` when the caller should proceed to present the sheet
+    /// (toggle off, no local credential, permission denied, or a successful
+    /// prompt); `false` only when the toggle is on, a credential exists, and
+    /// the user cancelled or failed the live prompt. Never surfaces an error —
+    /// a declined gate is a silent no-op, exactly like `PaymentSheetResult.canceled`.
+    func authorizePayment() async -> Bool {
+        isVerifyingPaymentSecurity = true
+        defer { isVerifyingPaymentSecurity = false }
+        do {
+            try await authorizeSensitiveActionUseCase.execute(reason: L10n.Payment.biometricReason)
+            return true
+        } catch {
+            return false
+        }
     }
 
     // MARK: - Join
@@ -270,6 +299,13 @@ final class MatchDetailViewModel: ObservableObject {
         // about a reservation the user no longer has.
         guard hasRecoverableReservation else { return }
 
+        // A join landed while this request was in flight: `POST /match/{id}/join`
+        // already returned the authoritative payment data, so whatever the pending
+        // endpoint says about a payment it hadn't finished creating is stale. Acting
+        // on it would stack a "payment cannot be recovered" dialog on top of the
+        // "your spot is reserved" overlay of a perfectly healthy reservation.
+        guard joinData == nil else { return }
+
         switch result {
         case .recovered(let data):
             joinData = data
@@ -351,7 +387,12 @@ final class MatchDetailViewModel: ObservableObject {
                 if let userId {
                     currentUserReservedUntil = snapshot.reservationsByPlayerId[userId]
                     // Try local cache first, then recover from backend if missing.
-                    if hasRecoverableReservation, joinData == nil, !hasAttemptedPendingRecovery {
+                    // `isJoining` excluded: the backend publishes the RESERVED slot to
+                    // Firestore before `POST /match/{id}/join` returns, so a snapshot
+                    // lands here with `joinData` still nil. Recovering then races the
+                    // join's own payment creation and comes back 404 — the join response
+                    // is on its way with the very data we would be fetching.
+                    if hasRecoverableReservation, joinData == nil, !isJoining, !hasAttemptedPendingRecovery {
                         if let cached = pendingPaymentStore.load(matchId: match.id) {
                             // Local cache hit — no network needed.
                             joinData = cached
