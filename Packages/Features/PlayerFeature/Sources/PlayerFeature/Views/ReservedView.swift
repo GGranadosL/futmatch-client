@@ -123,7 +123,7 @@ struct ReservedView: View {
                     }
                 }
             }
-            .padding(.bottom, 100)
+            .padding(.bottom, FMTabBar.contentBreathingSpace)
         }
         .refreshable { await Task { await viewModel.load() }.value }
     }

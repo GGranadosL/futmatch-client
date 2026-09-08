@@ -77,11 +77,7 @@ struct LocationDetailView: View {
                 )
             }
         }
-        .navigationBarBackButtonHidden(true)
         .toolbar {
-            ToolbarItem(placement: .navigationBarLeading) {
-                FMBackButton { dismiss() }
-            }
             ToolbarItem(placement: .principal) {
                 AdminNavTitle(title: L10n.EditLocation.title)
             }

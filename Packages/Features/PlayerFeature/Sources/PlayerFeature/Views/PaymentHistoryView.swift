@@ -19,11 +19,7 @@ struct PaymentHistoryView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(FMColors.background)
-        .navigationBarBackButtonHidden(true)
         .toolbar {
-            ToolbarItem(placement: .navigationBarLeading) {
-                FMBackButton { dismiss() }
-            }
             ToolbarItem(placement: .principal) {
                 Text(L10n.PaymentHistory.title)
                     .font(FMTypography.titleMedium)

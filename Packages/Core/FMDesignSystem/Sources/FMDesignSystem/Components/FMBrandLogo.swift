@@ -3,9 +3,13 @@ import SwiftUI
 /// The FutMatch logotype (icon + wordmark) shown in app headers.
 /// When `onTap` is provided the whole logo becomes a tappable button.
 public struct FMBrandLogo: View {
+    private let iconSize: CGFloat
+    private let fontSize: CGFloat
     private let onTap: (() -> Void)?
 
-    public init(onTap: (() -> Void)? = nil) {
+    public init(iconSize: CGFloat = 28, fontSize: CGFloat = 22, onTap: (() -> Void)? = nil) {
+        self.iconSize = iconSize
+        self.fontSize = fontSize
         self.onTap = onTap
     }
 
@@ -14,10 +18,10 @@ public struct FMBrandLogo: View {
             Image("logo_futmatch", bundle: .main)
                 .resizable()
                 .scaledToFit()
-                .frame(width: 28, height: 28)
+                .frame(width: iconSize, height: iconSize)
 
             Text("FutMatch")
-                .font(.interBold(size: 22))
+                .font(.interBold(size: fontSize))
                 .foregroundStyle(
                     LinearGradient(
                         colors: [FMColors.primary, FMColors.inversePrimary],

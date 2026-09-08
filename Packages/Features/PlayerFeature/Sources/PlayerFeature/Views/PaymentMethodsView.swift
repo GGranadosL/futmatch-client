@@ -18,11 +18,7 @@ struct PaymentMethodsView: View {
             content
         }
         .background(FMColors.background)
-        .navigationBarBackButtonHidden(true)
         .toolbar {
-            ToolbarItem(placement: .navigationBarLeading) {
-                FMBackButton { dismiss() }
-            }
             ToolbarItem(placement: .principal) {
                 Text(L10n.Settings.paymentMethods)
                     .font(FMTypography.titleMedium)

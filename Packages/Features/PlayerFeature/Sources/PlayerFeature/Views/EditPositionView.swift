@@ -76,11 +76,7 @@ struct EditPositionView: View {
             .padding(.bottom, 16)
         }
         .background(FMColors.background)
-        .navigationBarBackButtonHidden(true)
         .toolbar {
-            ToolbarItem(placement: .navigationBarLeading) {
-                FMBackButton { dismiss() }
-            }
             ToolbarItem(placement: .principal) {
                 Text(L10n.EditProfile.editPosition)
                     .font(FMTypography.titleMedium)

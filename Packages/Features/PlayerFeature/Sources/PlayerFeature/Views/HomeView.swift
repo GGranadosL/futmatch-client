@@ -58,7 +58,7 @@ struct HomeContentView: View {
                         suggestedGamesSection
                         lastMatchSection
                     }
-                    .padding(.bottom, 100)
+                    .padding(.bottom, FMTabBar.contentBreathingSpace)
                 }
                 .refreshable {
                     // Use an unstructured Task so the network requests aren't cancelled
@@ -229,7 +229,8 @@ struct HomeContentView: View {
                     title: L10n.NextGame.title,
                     dateLabel: nextGameDateLabel(for: match),
                     time: MatchFormatters.timeLabel(match.startDate),
-                    location: match.pinRowText(userCoordinate: reservedViewModel.userCoordinate),
+                    location: match.pinLocationText,
+                    distance: match.formattedDistance(from: reservedViewModel.userCoordinate),
                     detailLabel: L10n.NextGame.viewDetail,
                     fieldImageUrl: match.fieldImageUrl,
                     onDetailTap: {

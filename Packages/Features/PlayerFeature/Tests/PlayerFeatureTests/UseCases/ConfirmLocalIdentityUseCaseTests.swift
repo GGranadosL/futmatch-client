@@ -1,12 +1,12 @@
 import XCTest
 @testable import PlayerFeature
 
-final class ConfirmDeletionIdentityUseCaseTests: XCTestCase {
+final class ConfirmLocalIdentityUseCaseTests: XCTestCase {
 
     func test_execute_whenUnavailable_doesNotPrompt() async throws {
         let authenticator = MockBiometricAuthenticator()
         authenticator.available = false
-        let sut = ConfirmDeletionIdentityUseCase(authenticator: authenticator)
+        let sut = ConfirmLocalIdentityUseCase(authenticator: authenticator)
 
         try await sut.execute(reason: "reason")
 
@@ -16,7 +16,7 @@ final class ConfirmDeletionIdentityUseCaseTests: XCTestCase {
     func test_execute_whenAvailable_promptsAndSucceeds() async throws {
         let authenticator = MockBiometricAuthenticator()
         authenticator.available = true
-        let sut = ConfirmDeletionIdentityUseCase(authenticator: authenticator)
+        let sut = ConfirmLocalIdentityUseCase(authenticator: authenticator)
 
         try await sut.execute(reason: "reason")
 
@@ -28,7 +28,7 @@ final class ConfirmDeletionIdentityUseCaseTests: XCTestCase {
         let authenticator = MockBiometricAuthenticator()
         authenticator.available = true
         authenticator.authenticateResult = .failure(BiometricAuthError.failed)
-        let sut = ConfirmDeletionIdentityUseCase(authenticator: authenticator)
+        let sut = ConfirmLocalIdentityUseCase(authenticator: authenticator)
 
         do {
             try await sut.execute(reason: "reason")
@@ -37,21 +37,15 @@ final class ConfirmDeletionIdentityUseCaseTests: XCTestCase {
             XCTAssertTrue(error is BiometricAuthError)
         }
     }
-}
 
-// MARK: - MockBiometricAuthenticator
+    func test_execute_whenNotPermitted_failsOpen() async throws {
+        let authenticator = MockBiometricAuthenticator()
+        authenticator.available = true
+        authenticator.authenticateResult = .failure(BiometricAuthError.notPermitted)
+        let sut = ConfirmLocalIdentityUseCase(authenticator: authenticator)
 
-final class MockBiometricAuthenticator: BiometricAuthenticating {
-    var available = true
-    var authenticateResult: Result<Void, Error> = .success(())
-    private(set) var authenticateCallCount = 0
-    private(set) var lastReason: String?
+        try await sut.execute(reason: "reason")
 
-    func isAvailable() -> Bool { available }
-
-    func authenticate(reason: String) async throws {
-        authenticateCallCount += 1
-        lastReason = reason
-        try authenticateResult.get()
+        XCTAssertEqual(authenticator.authenticateCallCount, 1)
     }
 }

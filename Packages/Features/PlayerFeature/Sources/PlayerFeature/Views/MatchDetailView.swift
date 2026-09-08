@@ -117,7 +117,8 @@ struct MatchDetailView: View {
             leaveMatchUseCase: factory.makeLeaveMatchUseCase(),
             pendingPaymentStore: factory.makePendingPaymentStore(),
             fetchPendingPaymentUseCase: factory.makeFetchPendingMatchPaymentUseCase(),
-            fetchFieldAttributeCatalogsUseCase: factory.makeFetchFieldAttributeCatalogsUseCase()
+            fetchFieldAttributeCatalogsUseCase: factory.makeFetchFieldAttributeCatalogsUseCase(),
+            authorizeSensitiveActionUseCase: factory.makeAuthorizeSensitiveActionUseCase()
         ))
     }
 
@@ -253,7 +254,7 @@ struct MatchDetailView: View {
                         withAnimation(.easeInOut(duration: 0.25)) {
                             showJoinOverlay = false
                         }
-                        shouldPresentPayment = true
+                        requestPaymentPresentation()
                     },
                     onPayLater: { confirmJoin() }
                 )
@@ -1377,16 +1378,11 @@ struct MatchDetailView: View {
             
             VStack(alignment: .leading, spacing: 8) {
                 ForEach(Array(match.rules.enumerated()), id: \.offset) { _, rule in
-                    HStack(alignment: .top, spacing: 8) {
-                        Text("•")
-                            .font(FMTypography.bodySmall)
-                            .foregroundColor(FMColors.onSurface)
-                        
-                        Text(rule)
-                            .font(FMTypography.bodySmall)
-                            .foregroundColor(FMColors.onSurface)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
+                    Text(rule)
+                        .font(FMTypography.bodySmall)
+                        .foregroundColor(FMColors.onSurface)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -1403,7 +1399,7 @@ struct MatchDetailView: View {
         .padding(.horizontal, 20)
         .padding(.top, 24)
     }
-    
+
     // MARK: - Bottom Bar
 
     private var bottomBar: some View {
@@ -1444,13 +1440,13 @@ struct MatchDetailView: View {
                             .disabled(viewModel.isLeaving)
                         }
                         Spacer()
-                        if let sheet = paymentSheet {
-                            PaymentSheet.PaymentButton(
-                                paymentSheet: sheet,
-                                onCompletion: handlePaymentResult
-                            ) {
+                        if paymentSheet != nil {
+                            Button {
+                                requestPaymentPresentation()
+                            } label: {
                                 payButtonLabel
                             }
+                            .disabled(viewModel.isVerifyingPaymentSecurity)
                         } else {
                             payButtonLabel
                                 .opacity(0.5)
@@ -1619,7 +1615,7 @@ struct MatchDetailView: View {
 
     private var payButtonLabel: some View {
         ZStack {
-            if viewModel.isRecoveringPayment {
+            if viewModel.isRecoveringPayment || viewModel.isVerifyingPaymentSecurity {
                 ProgressView().tint(FMColors.onPrimary)
             } else {
                 Text(L10n.JoinAlert.pay)
@@ -1634,6 +1630,19 @@ struct MatchDetailView: View {
             Capsule()
                 .fill(FMColors.primary)
         )
+    }
+
+    /// Runs the payment-security gate, then — only if authorized — flips
+    /// `shouldPresentPayment`, which the existing `.onChange(of: shouldPresentPayment)`
+    /// handler uses to find the topmost view controller and call
+    /// `sheet.present(from:completion:)`. A declined gate is a silent no-op: no
+    /// toast, no overlay, `paymentSheet`/`hasJoined`/`showJoinOverlay` untouched —
+    /// identical in spirit to the existing `.canceled` branch in `handlePaymentResult`.
+    private func requestPaymentPresentation() {
+        Task {
+            guard await viewModel.authorizePayment() else { return }
+            shouldPresentPayment = true
+        }
     }
 
     private func requestLeave() {

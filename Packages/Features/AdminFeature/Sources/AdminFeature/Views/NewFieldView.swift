@@ -4,8 +4,8 @@ import FMDesignSystem
 // MARK: - NewFieldView
 
 /// "Nueva Cancha" form — creates a field via `POST /fields/create`.
-/// Reuses `FMTextField`, `FMChipGroupOptional`, `FMStickyActionBar` and
-/// `FMBackButton` from the design system.
+/// Reuses `FMTextField`, `FMChipGroupOptional` and `FMStickyActionBar` from the design
+/// system. The back button is the system's own — see `FMBackButton` for why.
 struct NewFieldView: View {
     @StateObject private var viewModel: NewFieldViewModel
     @Environment(\.dismiss) private var dismiss
@@ -53,11 +53,7 @@ struct NewFieldView: View {
             .padding(.bottom, 8)
         }
         .background(FMColors.background.ignoresSafeArea())
-        .navigationBarBackButtonHidden(true)
         .toolbar {
-            ToolbarItem(placement: .navigationBarLeading) {
-                FMBackButton { dismiss() }
-            }
             ToolbarItem(placement: .principal) {
                 AdminNavTitle(title: L10n.NewField.title)
             }
