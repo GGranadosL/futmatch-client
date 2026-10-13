@@ -76,7 +76,7 @@ public struct AdminPanelView: View {
         }
         .navigationDestination(isPresented: $showNewMatch) {
             NewMatchView(
-                viewModel: factory.makeNewMatchViewModel(),
+                viewModel: factory.makeNewMatchViewModel(context: context),
                 onCreated: {
                     Task {
                         await viewModel.load()

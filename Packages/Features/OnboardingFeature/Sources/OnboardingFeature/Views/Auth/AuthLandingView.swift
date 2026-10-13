@@ -14,6 +14,9 @@ public struct AuthLandingView: View {
     /// Set when an in-flight Apple onboarding bounces back here because its
     /// identity token expired mid-flow (see `OnboardingViewModel.scheduleCredentialExpiry`).
     @State private var showAppleSessionExpiredToast = false
+    /// Explains why an account-linking attempt ended without completing.
+    @State private var linkDismissedMessage: String?
+    @State private var showLinkDismissedToast = false
 
     /// Injected country data source forwarded to the Onboarding flow.
     private let fetchCountriesUseCase: (any FetchCountriesUseCaseProtocol)?
@@ -24,6 +27,10 @@ public struct AuthLandingView: View {
     private let socialProviders: [AuthProvider: any SocialAuthProviding]
     /// Builds the registration use case for whichever provider needs onboarding.
     private let makeRegisterSocialUserUseCase: ((AuthProvider) -> (any RegisterSocialUserUseCaseProtocol)?)?
+    /// Builds the ViewModel for the account-linking flow. Takes the provider wrapper
+    /// this view already holds, so there is no optional to unwrap downstream — the
+    /// request can only exist for a provider whose button was on screen.
+    private let makeSocialLinkViewModel: ((SocialLinkRequest, any SocialAuthProviding) -> SocialLinkViewModel)?
     /// Draft persistence, forwarded to whichever onboarding flow this screen opens.
     private let saveOnboardingDraftUseCase: (any SaveOnboardingDraftUseCaseProtocol)?
     private let getOnboardingDraftUseCase: (any GetOnboardingDraftUseCaseProtocol)?
@@ -37,6 +44,7 @@ public struct AuthLandingView: View {
         socialProviders: [AuthProvider: any SocialAuthProviding] = [:],
         signInWithSocialUseCase: (any SignInWithSocialUseCaseProtocol)? = nil,
         makeRegisterSocialUserUseCase: ((AuthProvider) -> (any RegisterSocialUserUseCaseProtocol)?)? = nil,
+        makeSocialLinkViewModel: ((SocialLinkRequest, any SocialAuthProviding) -> SocialLinkViewModel)? = nil,
         saveOnboardingDraftUseCase: (any SaveOnboardingDraftUseCaseProtocol)? = nil,
         getOnboardingDraftUseCase: (any GetOnboardingDraftUseCaseProtocol)? = nil,
         clearOnboardingDraftUseCase: (any ClearOnboardingDraftUseCaseProtocol)? = nil,
@@ -47,6 +55,7 @@ public struct AuthLandingView: View {
         self.fetchDialCodesUseCase = fetchDialCodesUseCase
         self.socialProviders = socialProviders
         self.makeRegisterSocialUserUseCase = makeRegisterSocialUserUseCase
+        self.makeSocialLinkViewModel = makeSocialLinkViewModel
         self.saveOnboardingDraftUseCase = saveOnboardingDraftUseCase
         self.getOnboardingDraftUseCase = getOnboardingDraftUseCase
         self.clearOnboardingDraftUseCase = clearOnboardingDraftUseCase
@@ -73,6 +82,13 @@ public struct AuthLandingView: View {
                     }
                     .padding(.horizontal, 24)
                 }
+
+                // `/auth/{provider}/resolve` found a Futmatch account that already
+                // owns this email. Adding the provider to it takes the account's
+                // password and an emailed code — matching addresses alone never
+                // link anything — so the flow mounts here rather than opening the
+                // sign-up cover as `SIGN_UP_REQUIRED` does.
+                socialLinkFlow
             }
             .background(FMColors.background)
             // Freezes the screen the instant a login succeeds — social sign-in sets
@@ -102,6 +118,7 @@ public struct AuthLandingView: View {
                 Text(viewModel.errorMessage)
             }
             .fmToast(L10n.Login.appleSessionExpired, isPresented: $showAppleSessionExpiredToast, style: .error)
+            .fmToast(linkDismissedMessage ?? "", isPresented: $showLinkDismissedToast, style: .error)
             // `/auth/{provider}/resolve` found no account for this identity, so
             // the same button that signs people in also starts the sign-up — with
             // everything the provider gave us already filled in.
@@ -133,6 +150,29 @@ public struct AuthLandingView: View {
     }
 
     // MARK: - Subviews
+
+    @ViewBuilder
+    private var socialLinkFlow: some View {
+        if let request = viewModel.socialLinkRequest,
+           let makeSocialLinkViewModel,
+           let socialAuth = socialProviders[request.account.provider] {
+            SocialLinkFlowView(
+                // Autoclosure: built once, on first render, not on every pass.
+                viewModel: makeSocialLinkViewModel(request, socialAuth),
+                // Goes through `isLoginSuccessful` rather than calling
+                // `onLoginSuccess` directly, so linking gets the same treatment as
+                // every other successful sign-in: the screen freezes immediately
+                // while `RootView` swaps in Home on its next render pass.
+                onLinked: { viewModel.isLoginSuccessful = true },
+                onDismiss: { message in
+                    viewModel.socialLinkRequest = nil
+                    guard let message else { return }
+                    linkDismissedMessage = message
+                    showLinkDismissedToast = true
+                }
+            )
+        }
+    }
 
     /// Same logo + wordmark style as Home's header bar, centered here.
     private var brandSection: some View {

@@ -30,7 +30,7 @@ final class RegisterUserUseCaseTests: XCTestCase {
         XCTAssertEqual(auth.lastRegisterStartRequest?.email, "ana@b.com")
         XCTAssertTrue(result.success)
         XCTAssertEqual(result.message, "Revisa tu correo")
-        XCTAssertEqual(result.resendCodeTimeInSeconds, 90)
+        XCTAssertEqual(result.codeWindow.secondsUntilResend(at: Date()), 90)
     }
 
     func test_execute_propagatesServiceError() async {

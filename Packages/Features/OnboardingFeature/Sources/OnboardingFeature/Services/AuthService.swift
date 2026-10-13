@@ -9,6 +9,8 @@ public protocol AuthServiceProtocol {
     func signIn(email: String, password: String, deviceId: String?) async throws -> SignInResponse
     func socialResolve(provider: AuthProvider, idToken: String, nonce: String?, deviceId: String?) async throws -> SocialAuthResponse
     func socialRegister(_ request: SocialRegisterRequest) async throws -> SocialAuthResponse
+    func startSocialLink(linkAttemptToken: String, password: String) async throws -> SocialLinkStartResponse
+    func confirmSocialLink(_ request: SocialLinkConfirmRequest) async throws -> SocialAuthResponse
     func mfaSend(challengeToken: String) async throws -> MFASendResponse
     func mfaVerify(challengeToken: String, code: String) async throws -> MFAVerifyResponse
     func forgotPassword(email: String) async throws -> ForgotPasswordResponse
@@ -70,6 +72,21 @@ public class AuthService: AuthServiceProtocol {
 
     public func socialRegister(_ request: SocialRegisterRequest) async throws -> SocialAuthResponse {
         let endpoint = AuthEndpoint.socialRegister(request.provider, request)
+        let response: SocialAuthResponse = try await apiClient.request(endpoint: endpoint)
+        return response
+    }
+
+    // MARK: - Social Account Linking
+
+    public func startSocialLink(linkAttemptToken: String, password: String) async throws -> SocialLinkStartResponse {
+        let request = SocialLinkStartRequest(linkAttemptToken: linkAttemptToken, password: password)
+        let endpoint = AuthEndpoint.socialLinkStart(request)
+        let response: SocialLinkStartResponse = try await apiClient.request(endpoint: endpoint)
+        return response
+    }
+
+    public func confirmSocialLink(_ request: SocialLinkConfirmRequest) async throws -> SocialAuthResponse {
+        let endpoint = AuthEndpoint.socialLinkConfirm(request.provider, request)
         let response: SocialAuthResponse = try await apiClient.request(endpoint: endpoint)
         return response
     }
@@ -139,6 +156,12 @@ public enum AuthError: LocalizedError, Equatable {
     case missingChallengeToken
     /// A social auth endpoint reported success but the payload carried no tokens.
     case missingSocialSession
+    /// `/auth/{provider}/resolve` answered `LINK_REQUIRED` without the handle the
+    /// linking flow needs — there is nothing to continue with.
+    case missingLinkAttemptToken
+    /// The 10-minute, single-use linking attempt ran out. The flow has to restart
+    /// from the provider button; it is never retried automatically.
+    case linkAttemptExpired
 
     public var errorDescription: String? {
         switch self {
@@ -152,8 +175,10 @@ public enum AuthError: LocalizedError, Equatable {
             return "No se pudo completar la autenticación. Intenta de nuevo."
         case .missingChallengeToken:
             return "No se pudo continuar con la verificación. Intenta iniciar sesión de nuevo."
-        case .missingSocialSession:
+        case .missingSocialSession, .missingLinkAttemptToken:
             return L10n.Login.socialGenericError
+        case .linkAttemptExpired:
+            return L10n.Login.linkExpired
         }
     }
 }

@@ -117,9 +117,9 @@ struct MatchSupervisionView: View {
                 // Teams are never empty — external rows are always there from init.
                 // When registered players haven't loaded yet we show skeleton rows
                 // above the external row inside each team card.
-                teamGoalsSection(name: L10n.AdminMatchDetail.teamA, players: viewModel.teamAPlayers,
+                teamGoalsSection(name: viewModel.match.teamVisuals?.teamA.name ?? L10n.AdminMatchDetail.teamA, colorHex: viewModel.match.teamVisuals?.teamA.colorHex, players: viewModel.teamAPlayers,
                                  showSkeleton: !viewModel.registeredPlayersLoaded)
-                teamGoalsSection(name: L10n.AdminMatchDetail.teamB, players: viewModel.teamBPlayers,
+                teamGoalsSection(name: viewModel.match.teamVisuals?.teamB.name ?? L10n.AdminMatchDetail.teamB, colorHex: viewModel.match.teamVisuals?.teamB.colorHex, players: viewModel.teamBPlayers,
                                  showSkeleton: !viewModel.registeredPlayersLoaded)
             }
         }
@@ -127,12 +127,10 @@ struct MatchSupervisionView: View {
 
     // MARK: - Team Goals Section
 
-    private func teamGoalsSection(name: String, players: [AdminMatchPlayer], showSkeleton: Bool) -> some View {
+    private func teamGoalsSection(name: String, colorHex: String?, players: [AdminMatchPlayer], showSkeleton: Bool) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
-                Text(name)
-                    .font(FMTypography.labelLarge)
-                    .foregroundColor(FMColors.onSurfaceVariant)
+                FMTeamIdentityLabel(name: name, colorHex: colorHex, font: FMTypography.labelLarge)
                 Spacer()
             }
             .padding(.horizontal, 16)

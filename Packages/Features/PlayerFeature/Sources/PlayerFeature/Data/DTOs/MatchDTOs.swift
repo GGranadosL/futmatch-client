@@ -38,6 +38,7 @@ struct MatchListItemV2DTO: Decodable {
     let teamAScore: Int?
     let teamBScore: Int?
     let winnerTeam: String?
+    let teamVisuals: MatchTeamVisualsDTO?
 
     var resolvedFieldImageUrl: String? { fieldImages?.compactMap(\.imagePath).first }
 
@@ -76,7 +77,8 @@ struct MatchListItemV2DTO: Decodable {
             teamBScore: teamBScore,
             winnerTeam: winnerTeam,
             latitude: location?.latitude,
-            longitude: location?.longitude
+            longitude: location?.longitude,
+            teamVisuals: teamVisuals?.toDomain()
         )
     }
 }
@@ -131,6 +133,7 @@ struct MatchListItemDTO: Decodable {
     let teamAScore: Int?
     let teamBScore: Int?
     let winnerTeam: String?
+    let teamVisuals: MatchTeamVisualsDTO?
 
     func toMatchItem() -> MatchItem {
         let (start, end) = MatchFormatters.dates(startMs: startTime, endMs: endTime)
@@ -163,7 +166,8 @@ struct MatchListItemDTO: Decodable {
             teamBScore: teamBScore,
             winnerTeam: winnerTeam,
             latitude: location?.latitude,
-            longitude: location?.longitude
+            longitude: location?.longitude,
+            teamVisuals: teamVisuals?.toDomain()
         )
     }
 }
@@ -205,6 +209,7 @@ struct MatchDetailItemDTO: Decodable {
     let winnerTeam: String?
     let goalBreakdown: GoalBreakdownDTO?
     let bestPlayer: BestPlayerDTO?
+    let teamVisuals: MatchTeamVisualsDTO?
 
     func toMatchItem() -> MatchItem {
         let (start, end) = MatchFormatters.dates(startMs: startTime, endMs: endTime)
@@ -242,7 +247,8 @@ struct MatchDetailItemDTO: Decodable {
             latitude: location?.latitude,
             longitude: location?.longitude,
             goalBreakdown: goalBreakdown?.toMatchGoalBreakdown(),
-            bestPlayer: bestPlayer.map { MatchBestPlayer(userId: $0.userId, name: $0.name) }
+            bestPlayer: bestPlayer.map { MatchBestPlayer(userId: $0.userId, name: $0.name) },
+            teamVisuals: teamVisuals?.toDomain()
         )
     }
 }
@@ -282,6 +288,25 @@ struct BestPlayerDTO: Decodable {
 }
 
 // MARK: - Shared Sub-DTOs
+
+/// `teamVisuals` snapshot. Absent on matches created before team identities.
+struct MatchTeamVisualsDTO: Decodable {
+    let teamA: MatchTeamVisualDTO
+    let teamB: MatchTeamVisualDTO
+
+    func toDomain() -> MatchTeamVisuals {
+        MatchTeamVisuals(teamA: teamA.toDomain(), teamB: teamB.toDomain())
+    }
+}
+
+struct MatchTeamVisualDTO: Decodable {
+    let name: String
+    let color: String?
+
+    func toDomain() -> MatchTeamVisual {
+        MatchTeamVisual(name: name, colorHex: color)
+    }
+}
 
 struct MatchTeamsDTO: Decodable {
     let teamA: MatchTeamDTO

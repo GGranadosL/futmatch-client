@@ -51,6 +51,10 @@ final class MatchCoreDataCacheRepository: MatchCacheRepositoryProtocol {
                 // already rejects that pair, so it round-trips back to nil.
                 entity.latitude = item.latitude ?? 0
                 entity.longitude = item.longitude ?? 0
+                entity.teamAName = item.teamVisuals?.teamA.name
+                entity.teamAColor = item.teamVisuals?.teamA.colorHex
+                entity.teamBName = item.teamVisuals?.teamB.name
+                entity.teamBColor = item.teamVisuals?.teamB.colorHex
                 entity.cachedAt = Date()
             }
 
@@ -107,7 +111,16 @@ final class MatchCoreDataCacheRepository: MatchCacheRepositoryProtocol {
             rules: decodeRules(entity.rulesJSON),
             matchStatus: MatchStatus(backend: entity.matchStatus),
             latitude: entity.latitude,
-            longitude: entity.longitude
+            longitude: entity.longitude,
+            teamVisuals: teamVisuals(from: entity)
+        )
+    }
+
+    private func teamVisuals(from entity: CachedMatchEntity) -> MatchTeamVisuals? {
+        guard let nameA = entity.teamAName, let nameB = entity.teamBName else { return nil }
+        return MatchTeamVisuals(
+            teamA: MatchTeamVisual(name: nameA, colorHex: entity.teamAColor),
+            teamB: MatchTeamVisual(name: nameB, colorHex: entity.teamBColor)
         )
     }
 

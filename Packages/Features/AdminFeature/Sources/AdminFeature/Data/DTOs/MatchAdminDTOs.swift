@@ -52,6 +52,8 @@ struct CreateMatchRequestDTO: Encodable {
     let status: String
     let genderType: String
     let playerLevel: String
+    let teamAId: String?
+    let teamBId: String?
 
     static func from(_ params: CreateMatchParams) -> CreateMatchRequestDTO {
         CreateMatchRequestDTO(
@@ -65,7 +67,9 @@ struct CreateMatchRequestDTO: Encodable {
             discountIds: [],
             status: "SCHEDULED",
             genderType: params.gender.rawValue,
-            playerLevel: params.playerLevel.rawValue
+            playerLevel: params.playerLevel.rawValue,
+            teamAId: params.teamAId,
+            teamBId: params.teamBId
         )
     }
 }
@@ -87,6 +91,7 @@ struct CreateMatchResponseDataDTO: Decodable {
     let status: String
     let genderType: String
     let playerLevel: String
+    let teamVisuals: AdminTeamVisualsDTO?
 
     func toDomain(fieldName: String) -> AdminMatch {
         let startDate = Date(timeIntervalSince1970: Double(dateTime) / 1000.0)
@@ -107,8 +112,29 @@ struct CreateMatchResponseDataDTO: Decodable {
             startDate: startDate,
             fieldId: fieldId,
             endDate: endDate,
-            minPlayers: minPlayersRequired
+            minPlayers: minPlayersRequired,
+            teamVisuals: teamVisuals?.toDomain()
         )
+    }
+}
+
+// MARK: - Team visuals
+
+struct AdminTeamVisualsDTO: Decodable {
+    let teamA: AdminTeamVisualDTO
+    let teamB: AdminTeamVisualDTO
+
+    func toDomain() -> AdminMatchTeamVisuals {
+        AdminMatchTeamVisuals(teamA: teamA.toDomain(), teamB: teamB.toDomain())
+    }
+}
+
+struct AdminTeamVisualDTO: Decodable {
+    let name: String
+    let color: String?
+
+    func toDomain() -> AdminMatchTeamVisual {
+        AdminMatchTeamVisual(name: name, colorHex: color)
     }
 }
 
@@ -137,6 +163,7 @@ struct AdminMatchListItemDTO: Decodable {
     let fieldImages: [AdminMatchFieldImageDTO]
     let genderType: String
     let playerLevel: String
+    let teamVisuals: AdminTeamVisualsDTO?
 
     func toDomain() -> AdminMatch {
         let startDate = Date(timeIntervalSince1970: Double(matchDateTime) / 1000.0)
@@ -161,7 +188,8 @@ struct AdminMatchListItemDTO: Decodable {
             minPlayers: minPlayersRequired,
             address: fieldLocation?.address,
             latitude: fieldLocation?.latitude,
-            longitude: fieldLocation?.longitude
+            longitude: fieldLocation?.longitude,
+            teamVisuals: teamVisuals?.toDomain()
         )
     }
 }
@@ -196,6 +224,8 @@ struct UpdateMatchRequestDTO: Encodable {
     let status: String
     let genderType: String
     let playerLevel: String
+    let teamAId: String?
+    let teamBId: String?
 
     static func from(_ params: UpdateMatchParams) -> UpdateMatchRequestDTO {
         UpdateMatchRequestDTO(
@@ -209,7 +239,9 @@ struct UpdateMatchRequestDTO: Encodable {
             discountIds: [],
             status: "SCHEDULED",
             genderType: params.gender.rawValue,
-            playerLevel: params.playerLevel.rawValue
+            playerLevel: params.playerLevel.rawValue,
+            teamAId: params.teamAId,
+            teamBId: params.teamBId
         )
     }
 }

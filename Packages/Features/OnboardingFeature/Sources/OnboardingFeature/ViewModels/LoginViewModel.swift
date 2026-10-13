@@ -21,11 +21,17 @@ public class LoginViewModel: ObservableObject {
     /// Set when `/auth/{provider}/resolve` answers `SIGN_UP_REQUIRED`. The view
     /// opens the onboarding flow prefilled with this account.
     @Published var socialSignUpAccount: SocialAccount?
+    /// Set when `/auth/{provider}/resolve` answers `LINK_REQUIRED`. The view asks
+    /// the user to confirm and prove ownership of the existing account instead of
+    /// creating a second one.
+    @Published var socialLinkRequest: SocialLinkRequest?
 
     // MFA State
     @Published var showMFAVerification = false
     @Published var mfaChallengeToken = ""
-    @Published var resendCodeTimeInSeconds = 60
+    /// Code and resend countdowns for the login challenge, straight from the
+    /// backend. `nil` until a challenge has actually been issued.
+    @Published private(set) var codeWindow: MFACodeWindow?
     @Published var verificationCode = ""
 
     private let loginUseCase: LoginUseCaseProtocol
@@ -80,7 +86,7 @@ public class LoginViewModel: ObservableObject {
             if result.requiresMFA {
                 isLoading = false
                 mfaChallengeToken = result.challengeToken ?? ""
-                resendCodeTimeInSeconds = result.resendCodeTimeInSeconds
+                codeWindow = result.codeWindow
                 showMFAVerification = true
             } else {
                 try await performFirebaseSignIn()
@@ -143,6 +149,12 @@ public class LoginViewModel: ObservableObject {
             case .signUpRequired:
                 loadingProvider = nil
                 socialSignUpAccount = account
+            case .linkRequired(let linkAttemptToken):
+                loadingProvider = nil
+                socialLinkRequest = SocialLinkRequest(
+                    account: account,
+                    linkAttemptToken: linkAttemptToken
+                )
             }
         } catch {
             loadingProvider = nil
@@ -152,6 +164,16 @@ public class LoginViewModel: ObservableObject {
     }
 
     func verifyMFACode() async {
+        guard !isLoading else { return }
+        // The backend rejects an expired code anyway; refusing it here means the
+        // user is told why instead of being handed a generic server error.
+        if let codeWindow, codeWindow.isCodeExpired() {
+            errorTitle = L10n.Login.errorTitle
+            errorMessage = L10n.MFA.codeExpired
+            showError = true
+            return
+        }
+
         isLoading = true
         showError = false
 
@@ -179,7 +201,8 @@ public class LoginViewModel: ObservableObject {
                 challengeToken: mfaChallengeToken
             )
             isLoading = false
-            resendCodeTimeInSeconds = result.resendCodeTimeInSeconds
+            codeWindow = result.codeWindow
+            verificationCode = ""
         } catch {
             isLoading = false
             handleError(error)
@@ -194,6 +217,7 @@ public class LoginViewModel: ObservableObject {
         showMFAVerification = false
         mfaChallengeToken = ""
         verificationCode = ""
+        codeWindow = nil
         showError = false
     }
 

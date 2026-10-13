@@ -64,6 +64,28 @@ final class MockAuthService: AuthServiceProtocol {
         return try socialRegisterResult.get()
     }
 
+    // startSocialLink
+    var startSocialLinkResult: Result<SocialLinkStartResponse, Error> = .success(.stub())
+    private(set) var startSocialLinkCallCount = 0
+    private(set) var lastStartSocialLinkToken: String?
+    private(set) var lastStartSocialLinkPassword: String?
+    func startSocialLink(linkAttemptToken: String, password: String) async throws -> SocialLinkStartResponse {
+        startSocialLinkCallCount += 1
+        lastStartSocialLinkToken = linkAttemptToken
+        lastStartSocialLinkPassword = password
+        return try startSocialLinkResult.get()
+    }
+
+    // confirmSocialLink
+    var confirmSocialLinkResult: Result<SocialAuthResponse, Error> = .success(.stubAuthenticated())
+    private(set) var confirmSocialLinkCallCount = 0
+    private(set) var lastConfirmSocialLinkRequest: SocialLinkConfirmRequest?
+    func confirmSocialLink(_ request: SocialLinkConfirmRequest) async throws -> SocialAuthResponse {
+        confirmSocialLinkCallCount += 1
+        lastConfirmSocialLinkRequest = request
+        return try confirmSocialLinkResult.get()
+    }
+
     // mfaSend
     var mfaSendResult: Result<MFASendResponse, Error> = .success(.stub())
     private(set) var mfaSendCallCount = 0

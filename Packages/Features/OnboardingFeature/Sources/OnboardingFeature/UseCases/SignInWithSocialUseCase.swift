@@ -15,6 +15,11 @@ public enum SocialSignInOutcome: Equatable {
     /// No identity exists yet — the client must run onboarding and finish with
     /// `/auth/{provider}/register`.
     case signUpRequired
+    /// A Futmatch account already owns this email. The provider has to be added to
+    /// it — which takes the account's password and an emailed code on top of this
+    /// token — rather than creating a second account. Matching emails alone never
+    /// link anything.
+    case linkRequired(linkAttemptToken: String)
 }
 
 // MARK: - Implementation
@@ -44,6 +49,15 @@ public final class SignInWithSocialUseCase: SignInWithSocialUseCaseProtocol {
 
         if response.requiresSignUp {
             return .signUpRequired
+        }
+
+        // Before the session guard: `LINK_REQUIRED` legitimately carries no tokens,
+        // and would otherwise be reported as a missing session.
+        if response.requiresLink {
+            guard let linkAttemptToken = response.linkAttemptToken else {
+                throw AuthError.missingLinkAttemptToken
+            }
+            return .linkRequired(linkAttemptToken: linkAttemptToken)
         }
 
         guard let session = response.session else {

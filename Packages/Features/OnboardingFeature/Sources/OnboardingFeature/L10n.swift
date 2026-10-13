@@ -291,6 +291,39 @@ public enum L10n {
         public static var appleSessionExpired: String {
             NSLocalizedString("login.apple.sessionExpired", bundle: .module, comment: "")
         }
+
+        // MARK: Social account linking
+
+        /// Deliberately short, and deliberately says nothing about which account:
+        /// the confirmation is shown before any proof of ownership, so it must not
+        /// reveal the email or anything else about the existing account.
+        public static var linkTitle: String {
+            NSLocalizedString("login.link.title", bundle: .module, comment: "")
+        }
+        /// - Parameter provider: display name of the provider being added.
+        public static func linkMessage(_ provider: String) -> String {
+            String(format: NSLocalizedString("login.link.message", bundle: .module, comment: ""), provider)
+        }
+        public static var linkPasswordLabel: String {
+            NSLocalizedString("login.link.passwordLabel", bundle: .module, comment: "")
+        }
+        public static var linkMFATitle: String {
+            NSLocalizedString("login.link.mfaTitle", bundle: .module, comment: "")
+        }
+        public static var linkMFASubtitle: String {
+            NSLocalizedString("login.link.mfaSubtitle", bundle: .module, comment: "")
+        }
+        /// Shown for every failure of `/auth/social-link/start`. The backend does not
+        /// distinguish a wrong password from an expired token or an unknown account,
+        /// and neither should we — doing so would turn this screen into an oracle.
+        public static var linkInvalidCredentials: String {
+            NSLocalizedString("login.link.invalidCredentials", bundle: .module, comment: "")
+        }
+        /// The attempt token or the provider credential ran out; the flow restarts
+        /// from the provider button.
+        public static var linkExpired: String {
+            NSLocalizedString("login.link.expired", bundle: .module, comment: "")
+        }
     }
     
     // MARK: - Forgot Password
@@ -366,6 +399,11 @@ public enum L10n {
         public static var emailLabel: String {
             NSLocalizedString("forgotPassword.emailLabel", bundle: .module, comment: "")
         }
+        /// The token issued after the recovery code ran out before the user set a
+        /// new password; the flow has to start over from the email step.
+        public static var resetTokenExpired: String {
+            NSLocalizedString("forgotPassword.resetTokenExpired", bundle: .module, comment: "")
+        }
     }
     
     // MARK: - Registration Success
@@ -386,6 +424,12 @@ public enum L10n {
         public static var ok: String {
             NSLocalizedString("common.ok", bundle: .module, comment: "")
         }
+        public static var cancel: String {
+            NSLocalizedString("common.cancel", bundle: .module, comment: "")
+        }
+        public static var `continue`: String {
+            NSLocalizedString("common.continue", bundle: .module, comment: "")
+        }
     }
     
     // MARK: - MFA
@@ -404,6 +448,14 @@ public enum L10n {
         }
         public static var changeEmail: String {
             NSLocalizedString("mfa.changeEmail", bundle: .module, comment: "")
+        }
+        /// Shown by every code-entry screen once the backend's `expiresInSeconds`
+        /// has elapsed and the code can no longer be accepted.
+        public static var codeExpired: String {
+            NSLocalizedString("mfa.codeExpired", bundle: .module, comment: "")
+        }
+        public static var requestNewCode: String {
+            NSLocalizedString("mfa.requestNewCode", bundle: .module, comment: "")
         }
     }
     

@@ -41,6 +41,7 @@ struct NewMatchView: View {
                 playersSection
                 genderSection
                 levelSection
+                teamsSection
                 organizerSection
 
                 if let error = viewModel.errorMessage {
@@ -100,6 +101,22 @@ struct NewMatchView: View {
         .fmToast(errorToastMessage, isPresented: $showErrorToast, style: .error)
         .task { await viewModel.loadFields() }
         .task { await viewModel.loadOrganizers() }
+        .task { await viewModel.loadTeams() }
+        .refreshable { await viewModel.loadTeams(forceRefresh: true) }
+    }
+
+    // MARK: - Teams Section
+
+    private var teamsSection: some View {
+        TeamIdentitySection(
+            selectedTeamA: $viewModel.selectedTeamA,
+            selectedTeamB: $viewModel.selectedTeamB,
+            activeDropdownId: $activeDropdownId,
+            teamAOptions: viewModel.availableTeams,
+            teamBOptions: viewModel.teamBOptions,
+            isLoading: viewModel.isLoadingTeams,
+            errorMessage: viewModel.teamsErrorMessage
+        )
     }
 
     // MARK: - Location Section

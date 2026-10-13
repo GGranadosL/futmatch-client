@@ -212,10 +212,10 @@ struct MatchDetailView: View {
 
         if let winnerTeam = match.winnerTeam?.uppercased() {
             if winnerTeam == "A" || winnerTeam == "TEAM_A" || winnerTeam == "TEAMA" {
-                return "Equipo A Gano"
+                return L10n.MatchDetail.winner(match.teamAName)
             }
             if winnerTeam == "B" || winnerTeam == "TEAM_B" || winnerTeam == "TEAMB" {
-                return "Equipo B Gano"
+                return L10n.MatchDetail.winner(match.teamBName)
             }
         }
 
@@ -223,9 +223,9 @@ struct MatchDetailView: View {
             return nil
         }
 
-        if teamAScore > teamBScore { return "Equipo A Gano" }
-        if teamBScore > teamAScore { return "Equipo B Gano" }
-        return "Empate"
+        if teamAScore > teamBScore { return L10n.MatchDetail.winner(match.teamAName) }
+        if teamBScore > teamAScore { return L10n.MatchDetail.winner(match.teamBName) }
+        return L10n.MatchDetail.draw
     }
 
     private func goalsText(for team: JoinTeam) -> String? {
@@ -861,7 +861,8 @@ struct MatchDetailView: View {
             } else {
                 // Team A
                 teamLineup(
-                    name: L10n.Matches.teamA,
+                    name: match.teamAName,
+                    colorHex: match.teamAColorHex,
                     players: liveA,
                     maxPlayers: maxA,
                     team: .teamA
@@ -869,7 +870,8 @@ struct MatchDetailView: View {
 
                 // Team B
                 teamLineup(
-                    name: L10n.Matches.teamB,
+                    name: match.teamBName,
+                    colorHex: match.teamBColorHex,
                     players: liveB,
                     maxPlayers: maxB,
                     team: .teamB
@@ -888,14 +890,12 @@ struct MatchDetailView: View {
 
     // MARK: - Team Lineup Row
     
-    private func teamLineup(name: String, players: [MatchPlayer], maxPlayers: Int, team: JoinTeam) -> some View {
+    private func teamLineup(name: String, colorHex: String?, players: [MatchPlayer], maxPlayers: Int, team: JoinTeam) -> some View {
         let emptyCount = max(0, maxPlayers - players.count)
         return VStack(alignment: .leading, spacing: 12) {
             HStack {
                 HStack(spacing: 8) {
-                    Text(name)
-                        .font(FMTypography.labelLarge)
-                        .foregroundColor(FMColors.onBackground)
+                    FMTeamIdentityLabel(name: name, colorHex: colorHex, font: FMTypography.labelLarge)
 
                     if let goalsLabel = goalsText(for: team) {
                         Text(goalsLabel)
@@ -984,8 +984,8 @@ struct MatchDetailView: View {
                     bestPlayerCard(name: bestPlayer.name)
                 }
 
-                teamGoalsCard(name: L10n.Matches.teamA, total: match.teamAScore ?? 0, breakdown: goalBreakdown.teamA)
-                teamGoalsCard(name: L10n.Matches.teamB, total: match.teamBScore ?? 0, breakdown: goalBreakdown.teamB)
+                teamGoalsCard(name: match.teamAName, colorHex: match.teamAColorHex, total: match.teamAScore ?? 0, breakdown: goalBreakdown.teamA)
+                teamGoalsCard(name: match.teamBName, colorHex: match.teamBColorHex, total: match.teamBScore ?? 0, breakdown: goalBreakdown.teamB)
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 24)
@@ -995,9 +995,7 @@ struct MatchDetailView: View {
     private func scoreCard(teamAScore: Int, teamBScore: Int) -> some View {
         HStack {
             VStack(spacing: 4) {
-                Text(L10n.Matches.teamA)
-                    .font(FMTypography.labelLarge)
-                    .foregroundColor(FMColors.onSurfaceVariant)
+                FMTeamIdentityLabel(name: match.teamAName, colorHex: match.teamAColorHex, font: FMTypography.labelLarge)
                 Text("\(teamAScore)")
                     .font(FMTypography.headlineMedium)
                     .foregroundColor(FMColors.onSurface)
@@ -1010,9 +1008,7 @@ struct MatchDetailView: View {
                 .foregroundColor(FMColors.onSurfaceVariant)
 
             VStack(spacing: 4) {
-                Text(L10n.Matches.teamB)
-                    .font(FMTypography.labelLarge)
-                    .foregroundColor(FMColors.onSurfaceVariant)
+                FMTeamIdentityLabel(name: match.teamBName, colorHex: match.teamBColorHex, font: FMTypography.labelLarge)
                 Text("\(teamBScore)")
                     .font(FMTypography.headlineMedium)
                     .foregroundColor(FMColors.onSurface)
@@ -1061,14 +1057,12 @@ struct MatchDetailView: View {
         )
     }
 
-    private func teamGoalsCard(name: String, total: Int, breakdown: MatchTeamGoalBreakdown) -> some View {
+    private func teamGoalsCard(name: String, colorHex: String?, total: Int, breakdown: MatchTeamGoalBreakdown) -> some View {
         let sortedGoals = breakdown.playerGoals.sorted { $0.goals > $1.goals }
 
         return VStack(alignment: .leading, spacing: 0) {
             HStack {
-                Text(name)
-                    .font(FMTypography.labelLarge)
-                    .foregroundColor(FMColors.onBackground)
+                FMTeamIdentityLabel(name: name, colorHex: colorHex, font: FMTypography.labelLarge)
                 Spacer()
                 Text("\(total)")
                     .font(FMTypography.labelLarge)

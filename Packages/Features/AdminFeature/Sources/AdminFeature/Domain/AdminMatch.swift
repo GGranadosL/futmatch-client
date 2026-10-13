@@ -1,6 +1,30 @@
 import Foundation
 import CoreLocation
 
+// MARK: - Team visuals
+
+/// Name + jersey color snapshot stored on a match by the backend.
+public struct AdminMatchTeamVisual: Equatable {
+    public let name: String
+    /// `#RRGGBB`; `nil` renders the name without a jersey.
+    public let colorHex: String?
+
+    public init(name: String, colorHex: String?) {
+        self.name = name
+        self.colorHex = colorHex
+    }
+}
+
+public struct AdminMatchTeamVisuals: Equatable {
+    public let teamA: AdminMatchTeamVisual
+    public let teamB: AdminMatchTeamVisual
+
+    public init(teamA: AdminMatchTeamVisual, teamB: AdminMatchTeamVisual) {
+        self.teamA = teamA
+        self.teamB = teamB
+    }
+}
+
 // MARK: - AdminMatch
 
 public struct AdminMatch: Identifiable, Equatable {
@@ -28,6 +52,8 @@ public struct AdminMatch: Identifiable, Equatable {
     /// Stored as primitives (not `CLLocationCoordinate2D`) so `Equatable` stays synthesized.
     public let latitude: Double?
     public let longitude: Double?
+    /// `nil` for matches created before team identities existed.
+    public let teamVisuals: AdminMatchTeamVisuals?
 
     public init(
         id: String,
@@ -47,7 +73,8 @@ public struct AdminMatch: Identifiable, Equatable {
         minPlayers: Int = 0,
         address: String? = nil,
         latitude: Double? = nil,
-        longitude: Double? = nil
+        longitude: Double? = nil,
+        teamVisuals: AdminMatchTeamVisuals? = nil
     ) {
         self.id = id
         self.fieldName = fieldName
@@ -67,6 +94,7 @@ public struct AdminMatch: Identifiable, Equatable {
         self.address = address
         self.latitude = latitude
         self.longitude = longitude
+        self.teamVisuals = teamVisuals
     }
 
     public var occupancyLabel: String { "\(spotsFilled)/\(spotsTotal)" }
@@ -102,6 +130,9 @@ public struct UpdateMatchParams {
     public let priceInCents: Int
     public let gender: MatchGender
     public let playerLevel: MatchPlayerLevel
+    /// Catalog ids; both are sent together or both omitted (omitting keeps the stored snapshot).
+    public let teamAId: String?
+    public let teamBId: String?
 
     public init(
         matchId: String,
@@ -114,7 +145,9 @@ public struct UpdateMatchParams {
         maxPlayers: Int,
         priceInCents: Int,
         gender: MatchGender,
-        playerLevel: MatchPlayerLevel
+        playerLevel: MatchPlayerLevel,
+        teamAId: String? = nil,
+        teamBId: String? = nil
     ) {
         self.matchId = matchId
         self.fieldId = fieldId
@@ -127,6 +160,8 @@ public struct UpdateMatchParams {
         self.priceInCents = priceInCents
         self.gender = gender
         self.playerLevel = playerLevel
+        self.teamAId = teamAId
+        self.teamBId = teamBId
     }
 }
 
@@ -147,6 +182,8 @@ public struct CreateMatchParams {
     public let priceInCents: Int
     public let gender: MatchGender
     public let playerLevel: MatchPlayerLevel
+    public let teamAId: String?
+    public let teamBId: String?
 
     public init(
         fieldId: String,
@@ -159,7 +196,9 @@ public struct CreateMatchParams {
         maxPlayers: Int,
         priceInCents: Int,
         gender: MatchGender,
-        playerLevel: MatchPlayerLevel
+        playerLevel: MatchPlayerLevel,
+        teamAId: String? = nil,
+        teamBId: String? = nil
     ) {
         self.fieldId = fieldId
         self.fieldName = fieldName
@@ -172,5 +211,7 @@ public struct CreateMatchParams {
         self.priceInCents = priceInCents
         self.gender = gender
         self.playerLevel = playerLevel
+        self.teamAId = teamAId
+        self.teamBId = teamBId
     }
 }

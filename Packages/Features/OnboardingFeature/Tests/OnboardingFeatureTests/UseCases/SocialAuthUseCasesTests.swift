@@ -65,7 +65,8 @@ final class SignInWithSocialUseCaseTests: XCTestCase {
             userId: nil,
             deviceId: nil,
             authTokenResponse: nil,
-            firebaseToken: nil
+            firebaseToken: nil,
+            linkAttemptToken: nil
         )))
         let sut = SignInWithSocialUseCase(authService: service, keychainManager: MockKeychain())
 
@@ -360,6 +361,38 @@ final class SocialAuthResponseDecodingTests: XCTestCase {
 
         XCTAssertTrue(response.requiresSignUp)
         XCTAssertNil(response.session)
+    }
+
+    /// `LINK_REQUIRED` carries the attempt handle and deliberately no session. Every
+    /// field being optional is what lets this decode at all.
+    func test_decodesLinkRequired_nested() throws {
+        let response = try decode(#"{"data":{"flow":"LINK_REQUIRED","linkAttemptToken":"attempt-1"}}"#)
+
+        XCTAssertTrue(response.requiresLink)
+        XCTAssertFalse(response.requiresSignUp)
+        XCTAssertEqual(response.linkAttemptToken, "attempt-1")
+        XCTAssertNil(response.session)
+    }
+
+    /// Same answer with the handle inside `authResponse`, the other shape this
+    /// envelope arrives in.
+    func test_decodesLinkRequired_insideAuthResponse() throws {
+        let json = #"{"data":{"flow":"LINK_REQUIRED","authResponse":{"linkAttemptToken":"attempt-2"}}}"#
+        let response = try decode(json)
+
+        XCTAssertTrue(response.requiresLink)
+        XCTAssertEqual(response.linkAttemptToken, "attempt-2")
+        XCTAssertNil(response.session)
+    }
+
+    /// An authenticated answer must not read as a link request.
+    func test_authenticatedPayloadIsNotALinkRequest() throws {
+        let json = #"{"data":{"flow":"AUTHENTICATED","authResponse":{"deviceId":"d-1","firebaseToken":"fb","userId":"u-1","authTokenResponse":{"accessToken":"at","refreshToken":"rt"}}}}"#
+        let response = try decode(json)
+
+        XCTAssertFalse(response.requiresLink)
+        XCTAssertNil(response.linkAttemptToken)
+        XCTAssertNotNil(response.session)
     }
 
     /// The actual shape `/auth/{provider}/resolve` returns for `AUTHENTICATED`: the

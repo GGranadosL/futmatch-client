@@ -47,6 +47,38 @@ public struct OnboardingDependencyFactory {
         RegisterSocialUserUseCase(authService: AuthService(), socialAuth: socialAuth)
     }
 
+    // MARK: - Social Account Linking
+
+    public func makeStartSocialLinkUseCase() -> StartSocialLinkUseCaseProtocol {
+        StartSocialLinkUseCase(authService: AuthService())
+    }
+
+    public func makeConfirmSocialLinkUseCase(
+        socialAuth: SocialAuthProviding
+    ) -> ConfirmSocialLinkUseCaseProtocol {
+        ConfirmSocialLinkUseCase(authService: AuthService(), socialAuth: socialAuth)
+    }
+
+    /// - Parameters:
+    ///   - request: the `LINK_REQUIRED` answer, carrying the account and the
+    ///     single-use attempt token.
+    ///   - socialAuth: the wrapper for that request's provider.
+    ///   - firebaseSignIn: same closure the login flow uses; receives the Firebase
+    ///     custom token once the link succeeds.
+    @MainActor public func makeSocialLinkViewModel(
+        request: SocialLinkRequest,
+        socialAuth: SocialAuthProviding,
+        firebaseSignIn: ((String) async throws -> Void)? = nil
+    ) -> SocialLinkViewModel {
+        SocialLinkViewModel(
+            account: request.account,
+            linkAttemptToken: request.linkAttemptToken,
+            startSocialLinkUseCase: makeStartSocialLinkUseCase(),
+            confirmSocialLinkUseCase: makeConfirmSocialLinkUseCase(socialAuth: socialAuth),
+            firebaseSignIn: firebaseSignIn
+        )
+    }
+
     // MARK: - Repository
 
     public func makeOnboardingRepository() -> OnboardingRepositoryProtocol {

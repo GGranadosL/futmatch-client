@@ -82,12 +82,14 @@ extension RegisterStartResponse {
     static func stub(
         success: Bool = true,
         message: String = "OK",
-        resendCodeTimeInSeconds: Int = 30
+        resendCodeTimeInSeconds: Int = 30,
+        expiresInSeconds: Int? = nil
     ) -> RegisterStartResponse {
         RegisterStartResponse(data: .init(
             success: success,
             message: message,
-            resendCodeTimeInSeconds: resendCodeTimeInSeconds
+            resendCodeTimeInSeconds: resendCodeTimeInSeconds,
+            expiresInSeconds: expiresInSeconds
         ))
     }
 }
@@ -109,8 +111,11 @@ extension ForgotPasswordResponse {
 }
 
 extension VerifyResetMFAResponse {
-    static func stub(resetToken: String = "reset-token") -> VerifyResetMFAResponse {
-        VerifyResetMFAResponse(data: .init(resetToken: resetToken))
+    static func stub(
+        resetToken: String = "reset-token",
+        expiresInSeconds: Int? = nil
+    ) -> VerifyResetMFAResponse {
+        VerifyResetMFAResponse(data: .init(resetToken: resetToken, expiresInSeconds: expiresInSeconds))
     }
 }
 
@@ -153,7 +158,26 @@ extension SocialAuthResponse {
             userId: nil,
             deviceId: nil,
             authTokenResponse: nil,
-            firebaseToken: nil
+            firebaseToken: nil,
+            linkAttemptToken: nil
+        ))
+    }
+
+    /// Exactly what `/auth/{provider}/resolve` returns when a Futmatch account
+    /// already owns this email: a `flow` and the single-use attempt handle, and
+    /// deliberately no session.
+    static func stubLinkRequired(
+        linkAttemptToken: String? = "link-attempt-token"
+    ) -> SocialAuthResponse {
+        SocialAuthResponse(data: ResponseData(
+            flow: "LINK_REQUIRED",
+            authCode: nil,
+            authResponse: nil,
+            userId: nil,
+            deviceId: nil,
+            authTokenResponse: nil,
+            firebaseToken: nil,
+            linkAttemptToken: linkAttemptToken
         ))
     }
 
@@ -180,12 +204,14 @@ extension SocialAuthResponse {
                     refreshToken: refreshToken
                 ),
                 firebaseToken: firebaseToken,
-                authCode: authCode
+                authCode: authCode,
+                linkAttemptToken: nil
             ),
             userId: nil,
             deviceId: nil,
             authTokenResponse: nil,
-            firebaseToken: nil
+            firebaseToken: nil,
+            linkAttemptToken: nil
         ))
     }
 
@@ -210,7 +236,24 @@ extension SocialAuthResponse {
                 accessToken: accessToken,
                 refreshToken: refreshToken
             ),
-            firebaseToken: firebaseToken
+            firebaseToken: firebaseToken,
+            linkAttemptToken: nil
+        ))
+    }
+}
+
+// MARK: - Social Link Stubs
+
+extension SocialLinkStartResponse {
+    static func stub(
+        newCodeSent: Bool = true,
+        expiresInSeconds: Int = 300,
+        resendCodeTimeInSeconds: Int = 60
+    ) -> SocialLinkStartResponse {
+        SocialLinkStartResponse(data: .init(
+            newCodeSent: newCodeSent,
+            expiresInSeconds: expiresInSeconds,
+            resendCodeTimeInSeconds: resendCodeTimeInSeconds
         ))
     }
 }
@@ -242,10 +285,13 @@ extension SocialAccount {
         email: String = "player@gmail.com",
         givenName: String = "Diego",
         familyName: String = "Lopez",
-        pictureURL: String? = "https://lh3.googleusercontent.com/a/photo"
+        pictureURL: String? = "https://lh3.googleusercontent.com/a/photo",
+        /// Overrides the credential entirely — for the Apple cases, which need an
+        /// authorization code, a nonce and an explicit expiry.
+        credential: SocialCredential? = nil
     ) -> SocialAccount {
         SocialAccount(
-            credential: .stub(provider: provider, idToken: idToken),
+            credential: credential ?? .stub(provider: provider, idToken: idToken),
             issuer: issuer ?? provider.issuer,
             subject: subject,
             email: email,

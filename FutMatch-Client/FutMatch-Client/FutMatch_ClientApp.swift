@@ -138,7 +138,7 @@ struct FutMatchApp: App {
             // save (e.g. MatchCoreDataCacheRepository) at the exact moment logout
             // fires, and touching it outside its own queue corrupts its object set.
             context.perform {
-                for entityName in ["CachedMatchEntity", "CachedReservedMatchEntity", "CachedAdminFieldEntity"] {
+                for entityName in ["CachedMatchEntity", "CachedReservedMatchEntity", "CachedAdminFieldEntity", "CachedTeamCatalogEntity"] {
                     let request = NSFetchRequest<NSFetchRequestResult>(entityName: entityName)
                     let delete = NSBatchDeleteRequest(fetchRequest: request)
                     _ = try? context.execute(delete)
@@ -405,6 +405,15 @@ struct RootView: View {
             makeRegisterSocialUserUseCase: { provider in
                 guard let auth = socialProviders[provider] else { return nil }
                 return factory.makeRegisterSocialUserUseCase(socialAuth: auth)
+            },
+            makeSocialLinkViewModel: { request, socialAuth in
+                factory.makeSocialLinkViewModel(
+                    request: request,
+                    socialAuth: socialAuth,
+                    firebaseSignIn: { token in
+                        try await Auth.auth().signIn(withCustomToken: token)
+                    }
+                )
             },
             saveOnboardingDraftUseCase: factory.makeSaveOnboardingDraftUseCase(),
             getOnboardingDraftUseCase: factory.makeGetOnboardingDraftUseCase(),

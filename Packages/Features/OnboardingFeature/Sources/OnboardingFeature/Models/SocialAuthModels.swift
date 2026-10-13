@@ -193,6 +193,9 @@ public struct SocialAuthResponse: Codable {
         public let deviceId: String?
         public let authTokenResponse: AuthTokenResponse?
         public let firebaseToken: String?
+        /// Single-use, 10-minute handle for the account-linking attempt. Carried
+        /// only by `LINK_REQUIRED`, which brings no session at all.
+        public let linkAttemptToken: String?
 
         /// Whichever discriminator the payload actually carried.
         var outcome: String? { flow ?? authCode ?? authResponse?.authCode }
@@ -205,6 +208,7 @@ public struct SocialAuthResponse: Codable {
         public let authTokenResponse: AuthTokenResponse?
         public let firebaseToken: String?
         public let authCode: String?
+        public let linkAttemptToken: String?
     }
 
     public struct AuthTokenResponse: Codable {
@@ -215,6 +219,19 @@ public struct SocialAuthResponse: Codable {
     /// `true` when no identity exists yet and the client must run onboarding.
     public var requiresSignUp: Bool {
         data.outcome == "SIGN_UP_REQUIRED"
+    }
+
+    /// `true` when a Futmatch account already owns this email and the provider must
+    /// be added to it rather than creating a second account. Answered only when the
+    /// provider handed over a real, verified, non-private address.
+    public var requiresLink: Bool {
+        data.outcome == "LINK_REQUIRED"
+    }
+
+    /// Handle for the linking attempt. Read from both shapes for the same reason
+    /// `session` is: the envelope arrives nested on some endpoints and flat on others.
+    public var linkAttemptToken: String? {
+        data.linkAttemptToken ?? data.authResponse?.linkAttemptToken
     }
 
     /// The authenticated session, or `nil` when the payload carries none.

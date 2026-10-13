@@ -5,6 +5,16 @@ public enum AuthProvider: String, Codable, Equatable, CaseIterable {
     case google = "GOOGLE"
     case apple = "APPLE"
 
+    /// Brand name, shown to the user when naming the sign-in method being added.
+    /// Not localized on purpose — "Google" and "Apple" are proper nouns and are
+    /// written the same way in both supported languages.
+    public var displayName: String {
+        switch self {
+        case .google: return "Google"
+        case .apple: return "Apple"
+        }
+    }
+
     /// The `iss` claim the backend keys on. Fixed per provider.
     public var issuer: String {
         switch self {
