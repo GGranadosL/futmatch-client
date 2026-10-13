@@ -50,8 +50,14 @@ final class FetchLocationCatalogUseCaseTests: XCTestCase {
 
         let result = await sut.execute()
 
-        XCTAssertEqual(result.map(\.code), [LocationCountry.mexico.rawValue])
-        XCTAssertEqual(result.first?.cities.map(\.code), [LocationCity.cdmx.rawValue])
+        // Derived from the enum rather than spelled out: the fallback's job is to mirror
+        // `LocationCountry`, so adding a country or a city must not fail this test.
+        XCTAssertEqual(result.map(\.code), LocationCountry.allCases.map(\.rawValue))
+        XCTAssertEqual(
+            result.first?.cities.map(\.code),
+            LocationCountry.mexico.cities.map(\.rawValue)
+        )
+        XCTAssertEqual(result.first?.code, LocationCountry.mexico.rawValue)
     }
 }
 
@@ -78,9 +84,11 @@ final class NewLocationViewModelTests: XCTestCase {
 
     func test_defaults_areMexicoCDMX() {
         let sut = makeSUT()
+        // The default selection is the rule under test; the catalog is whatever the enum
+        // fallback holds, so it's derived instead of hard-coded.
         XCTAssertEqual(sut.selectedCountry, "MX")
         XCTAssertEqual(sut.selectedCity, "MX_CDMX")
-        XCTAssertEqual(sut.catalog.map(\.code), ["MX"])
+        XCTAssertEqual(sut.catalog.map(\.code), LocationCountry.allCases.map(\.rawValue))
     }
 
     func test_onAppear_remoteCatalogReplacesFallback() async {

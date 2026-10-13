@@ -58,11 +58,7 @@ struct EditMatchView: View {
                 )
             }
         }
-        .navigationBarBackButtonHidden(true)
         .toolbar {
-            ToolbarItem(placement: .navigationBarLeading) {
-                FMBackButton { dismiss() }
-            }
             ToolbarItem(placement: .principal) {
                 AdminNavTitle(title: L10n.EditMatch.title, subtitle: navSubtitle)
             }
@@ -71,7 +67,7 @@ struct EditMatchView: View {
             FMStickyActionBar(
                 title: L10n.EditMatch.saveChanges,
                 isLoading: viewModel.isSaving,
-                isEnabled: viewModel.isValid,
+                isEnabled: viewModel.isValid && viewModel.hasChanges,
                 action: { showConfirmation = true }
             )
         }

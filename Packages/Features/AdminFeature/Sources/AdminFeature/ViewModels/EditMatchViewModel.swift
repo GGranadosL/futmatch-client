@@ -27,6 +27,8 @@ final class EditMatchViewModel: ObservableObject {
 
     private let originalMatchId: String
     private let originalFieldId: String
+    /// The form exactly as it was loaded, so Save can stay disabled until something differs.
+    private let originalForm: FormSnapshot
     private let updateUseCase: UpdateAdminMatchUseCaseProtocol
     private let fetchFieldIdNamesUseCase: FetchFieldIdNamesUseCaseProtocol
 
@@ -54,6 +56,18 @@ final class EditMatchViewModel: ObservableObject {
 
         self.updateUseCase = updateUseCase
         self.fetchFieldIdNamesUseCase = fetchFieldIdNamesUseCase
+
+        self.originalForm = FormSnapshot(
+            fieldId: match.fieldId,
+            day: Calendar.current.startOfDay(for: match.startDate),
+            startMinuteOfDay: Self.minuteOfDay(match.startDate),
+            endMinuteOfDay: Self.minuteOfDay(match.endDate),
+            minPlayers: match.minPlayers > 0 ? match.minPlayers : nil,
+            maxPlayers: match.spotsTotal > 0 ? match.spotsTotal : nil,
+            priceInCents: Self.parsePriceInCents(raw),
+            gender: match.gender,
+            playerLevel: match.playerLevel
+        )
     }
 
     // MARK: - Load Fields
@@ -79,18 +93,63 @@ final class EditMatchViewModel: ObservableObject {
         return v
     }
 
-    var priceInCents: Int? {
-        let cleaned = priceText
+    var priceInCents: Int? { Self.parsePriceInCents(priceText) }
+
+    private static func parsePriceInCents(_ text: String) -> Int? {
+        let cleaned = text
             .replacingOccurrences(of: ",", with: ".")
             .filter { $0.isNumber || $0 == "." }
         guard let amount = Double(cleaned), amount > 0 else { return nil }
         return Int((amount * 100).rounded())
     }
 
+    /// Compared field by field rather than by raw `Date`/`String` equality: the date
+    /// picker hands back a full timestamp, so re-picking the same day or retyping
+    /// "170" as "$170.00" would otherwise register as an edit.
+    private struct FormSnapshot: Equatable {
+        let fieldId: String
+        let day: Date
+        let startMinuteOfDay: Int
+        let endMinuteOfDay: Int
+        let minPlayers: Int?
+        let maxPlayers: Int?
+        let priceInCents: Int?
+        let gender: MatchGender?
+        let playerLevel: MatchPlayerLevel?
+    }
+
+    private static func minuteOfDay(_ date: Date) -> Int {
+        let parts = Calendar.current.dateComponents([.hour, .minute], from: date)
+        return (parts.hour ?? 0) * 60 + (parts.minute ?? 0)
+    }
+
+    private var currentForm: FormSnapshot {
+        FormSnapshot(
+            // `selectedField` is nil until `loadFields()` resolves it, which would
+            // otherwise read as "the field changed" while the screen is still loading.
+            fieldId: selectedField?.id ?? originalFieldId,
+            day: Calendar.current.startOfDay(for: date),
+            startMinuteOfDay: Self.minuteOfDay(startTime),
+            endMinuteOfDay: Self.minuteOfDay(endTime),
+            minPlayers: minPlayers,
+            maxPlayers: maxPlayers,
+            priceInCents: priceInCents,
+            gender: selectedGender,
+            playerLevel: selectedLevel
+        )
+    }
+
+    /// False while the form still matches the match it was loaded from — saving then would
+    /// be a no-op round trip.
+    var hasChanges: Bool { currentForm != originalForm }
+
     var isValid: Bool {
         guard let minPlayers, let maxPlayers else { return false }
         return selectedField != nil
-            && minPlayers < maxPlayers
+            // `<=`, not `<`: a match that only starts at full capacity (min == max) is
+            // legitimate, and creation allows it — with `<` those matches could never be
+            // edited again, because Save stayed disabled no matter what was changed.
+            && minPlayers <= maxPlayers
             && priceInCents != nil
             && selectedGender != nil
             && selectedLevel != nil

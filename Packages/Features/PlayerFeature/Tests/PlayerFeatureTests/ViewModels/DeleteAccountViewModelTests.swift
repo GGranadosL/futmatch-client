@@ -7,11 +7,11 @@ final class DeleteAccountViewModelTests: XCTestCase {
 
     private func makeSUT(
         deleteUseCase: MockDeleteAccountUseCase = MockDeleteAccountUseCase(),
-        confirmIdentityUseCase: MockConfirmDeletionIdentityUseCase = MockConfirmDeletionIdentityUseCase()
+        authorizeUseCase: MockAuthorizeSensitiveActionUseCase = MockAuthorizeSensitiveActionUseCase()
     ) -> DeleteAccountViewModel {
         DeleteAccountViewModel(
             deleteAccountUseCase: deleteUseCase,
-            confirmIdentityUseCase: confirmIdentityUseCase
+            authorizeUseCase: authorizeUseCase
         )
     }
 
@@ -20,8 +20,8 @@ final class DeleteAccountViewModelTests: XCTestCase {
     // MARK: - Identity gate
 
     func test_requestDeletion_success_setsIdentityConfirmed() async {
-        let identity = MockConfirmDeletionIdentityUseCase()
-        let sut = makeSUT(confirmIdentityUseCase: identity)
+        let identity = MockAuthorizeSensitiveActionUseCase()
+        let sut = makeSUT(authorizeUseCase: identity)
 
         await sut.requestDeletion()
 
@@ -32,9 +32,9 @@ final class DeleteAccountViewModelTests: XCTestCase {
     }
 
     func test_requestDeletion_failure_setsBiometricErrorAndDoesNotConfirm() async {
-        let identity = MockConfirmDeletionIdentityUseCase()
+        let identity = MockAuthorizeSensitiveActionUseCase()
         identity.result = .failure(BiometricAuthError.failed)
-        let sut = makeSUT(confirmIdentityUseCase: identity)
+        let sut = makeSUT(authorizeUseCase: identity)
 
         await sut.requestDeletion()
 
@@ -140,16 +140,6 @@ final class MockDeleteAccountUseCase: DeleteAccountUseCaseProtocol {
 
     func execute() async throws {
         executeCallCount += 1
-        try result.get()
-    }
-}
-
-final class MockConfirmDeletionIdentityUseCase: ConfirmDeletionIdentityUseCaseProtocol {
-    var result: Result<Void, Error> = .success(())
-    private(set) var callCount = 0
-
-    func execute(reason: String) async throws {
-        callCount += 1
         try result.get()
     }
 }

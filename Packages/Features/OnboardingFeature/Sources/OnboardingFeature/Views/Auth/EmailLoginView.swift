@@ -60,12 +60,6 @@ struct EmailLoginView: View {
         .allowsHitTesting(!viewModel.isLoginSuccessful)
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden(true)
-        .toolbar {
-            ToolbarItem(placement: .navigationBarLeading) {
-                FMBackButton { dismiss() }
-            }
-        }
         .navigationDestination(isPresented: $showForgotPassword) {
             ForgotPasswordView(coordinator: makeForgotPasswordCoordinator())
         }

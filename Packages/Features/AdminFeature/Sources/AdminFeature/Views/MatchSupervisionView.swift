@@ -39,12 +39,6 @@ struct MatchSupervisionView: View {
         }
         .navigationTitle(L10n.MatchSupervision.title)
         .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden(true)
-        .toolbar {
-            ToolbarItem(placement: .navigationBarLeading) {
-                FMBackButton { dismiss() }
-            }
-        }
         .alert(
             L10n.MatchSupervision.finalizeTitle,
             isPresented: Binding(

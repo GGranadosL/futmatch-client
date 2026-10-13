@@ -85,11 +85,7 @@ struct AdminFieldDetailView: View {
             }
         }
         .fmToast("¡Ubicación asignada!", isPresented: $showLocationLinkedToast, style: .success)
-        .navigationBarBackButtonHidden(true)
         .toolbar {
-            ToolbarItem(placement: .navigationBarLeading) {
-                FMBackButton { dismiss() }
-            }
             ToolbarItem(placement: .principal) {
                 AdminNavTitle(title: field.name)
             }

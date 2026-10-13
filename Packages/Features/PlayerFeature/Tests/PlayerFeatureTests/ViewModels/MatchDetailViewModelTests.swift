@@ -13,11 +13,12 @@ final class MatchDetailViewModelTests: XCTestCase {
 
     private func makeSUT(
         match: MatchItem = .stub(),
-        joinUseCase: MockJoinMatchUseCase = MockJoinMatchUseCase(),
+        joinUseCase: JoinMatchUseCaseProtocol = MockJoinMatchUseCase(),
         subscribeUseCase: SubscribeMatchPlayersUseCaseProtocol = MockSubscribeMatchPlayersUseCase(),
         pendingPaymentStore: MockPendingPaymentStore = MockPendingPaymentStore(),
-        fetchPendingPaymentUseCase: MockFetchPendingMatchPaymentUseCase = MockFetchPendingMatchPaymentUseCase(),
+        fetchPendingPaymentUseCase: FetchPendingMatchPaymentUseCaseProtocol = MockFetchPendingMatchPaymentUseCase(),
         leaveUseCase: MockLeaveMatchUseCase = MockLeaveMatchUseCase(),
+        authorizeSensitiveActionUseCase: MockAuthorizeSensitiveActionUseCase = MockAuthorizeSensitiveActionUseCase(),
         userId: String? = MatchDetailViewModelTests.currentUserId
     ) -> MatchDetailViewModel {
         MatchDetailViewModel(
@@ -31,6 +32,7 @@ final class MatchDetailViewModelTests: XCTestCase {
             pendingPaymentStore: pendingPaymentStore,
             fetchPendingPaymentUseCase: fetchPendingPaymentUseCase,
             fetchFieldAttributeCatalogsUseCase: MockFetchFieldAttributeCatalogsUseCase(),
+            authorizeSensitiveActionUseCase: authorizeSensitiveActionUseCase,
             currentUserId: { userId }
         )
     }
@@ -187,6 +189,30 @@ final class MatchDetailViewModelTests: XCTestCase {
         XCTAssertNotNil(sut.joinError)
     }
 
+    // MARK: - Payment Security Gate
+
+    func test_authorizePayment_whenAuthorizeSucceeds_returnsTrue() async {
+        let authorize = MockAuthorizeSensitiveActionUseCase()
+        let sut = makeSUT(authorizeSensitiveActionUseCase: authorize)
+
+        let authorized = await sut.authorizePayment()
+
+        XCTAssertTrue(authorized)
+        XCTAssertEqual(authorize.callCount, 1)
+        XCTAssertFalse(sut.isVerifyingPaymentSecurity)
+    }
+
+    func test_authorizePayment_whenAuthorizeFails_returnsFalse() async {
+        let authorize = MockAuthorizeSensitiveActionUseCase()
+        authorize.result = .failure(BiometricAuthError.failed)
+        let sut = makeSUT(authorizeSensitiveActionUseCase: authorize)
+
+        let authorized = await sut.authorizePayment()
+
+        XCTAssertFalse(authorized)
+        XCTAssertFalse(sut.isVerifyingPaymentSecurity)
+    }
+
     // MARK: - Pending payment recovery: local cache first
 
     func test_reservedWithCachedPayment_usesCache_withoutCallingBackend() async {
@@ -340,6 +366,79 @@ final class MatchDetailViewModelTests: XCTestCase {
         await streaming.value
     }
 
+    // MARK: - Pending payment recovery: must not race a join in flight
+
+    /// Regression: the backend publishes the RESERVED slot to Firestore before
+    /// `POST /match/{id}/join` returns. The snapshot arrived with `joinData` still nil,
+    /// fired a recovery for a payment the backend hadn't finished creating, got a 404,
+    /// and stacked a "Payment Cannot Be Recovered" dialog on top of the "your spot is
+    /// reserved" overlay of a reservation that was perfectly healthy.
+    func test_reservationSnapshotWhileJoinInFlight_doesNotAttemptRecovery() async {
+        let recovery = MockFetchPendingMatchPaymentUseCase()
+        recovery.result = .notRecoverable(message: "No se pudieron encontrar los detalles del pago solicitado.")
+        let joinUseCase = ControllableJoinMatchUseCase()
+        let subscribeUseCase = ControllableSubscribeMatchPlayersUseCase()
+
+        let sut = makeSUT(
+            match: .stub(matchStatus: .scheduled),
+            joinUseCase: joinUseCase,
+            subscribeUseCase: subscribeUseCase,
+            fetchPendingPaymentUseCase: recovery
+        )
+        let streaming = Task { await sut.subscribeToPlayers() }
+        await waitUntil { subscribeUseCase.callCount > 0 }
+
+        let joining = Task { await sut.joinMatch(team: nil) }
+        await waitUntil { sut.isJoining }
+
+        // Firestore sees the reservation before the join call returns.
+        subscribeUseCase.emit(reservedSnapshot(secondsFromNow: 300))
+        await waitUntil { sut.currentUserReservedUntil != nil }
+
+        XCTAssertEqual(recovery.executeCallCount, 0, "The join response carries the payment data — recovery must not race it")
+
+        joinUseCase.complete(with: .success(.stub(paymentId: "join-1")))
+        await joining.value
+        await waitForPendingRecovery(sut)
+
+        XCTAssertEqual(sut.joinData, .stub(paymentId: "join-1"))
+        XCTAssertNil(sut.pendingPaymentIssue, "A healthy reservation must not raise a recovery dialog")
+
+        subscribeUseCase.finish()
+        await streaming.value
+    }
+
+    /// Same race, the other ordering: recovery was already in flight when the join
+    /// response landed. Its (stale) answer must be dropped rather than raising a dialog
+    /// over the payment data the join just delivered.
+    func test_joinCompletesWhileRecoveryInFlight_dropsTheRecoveryOutcome() async {
+        let recovery = ControllableFetchPendingMatchPaymentUseCase()
+        let subscribeUseCase = ControllableSubscribeMatchPlayersUseCase()
+
+        let sut = makeSUT(
+            match: .stub(matchStatus: .scheduled),
+            subscribeUseCase: subscribeUseCase,
+            fetchPendingPaymentUseCase: recovery
+        )
+        let streaming = Task { await sut.subscribeToPlayers() }
+        await waitUntil { subscribeUseCase.callCount > 0 }
+
+        subscribeUseCase.emit(reservedSnapshot(secondsFromNow: 300))
+        await waitUntil { sut.isRecoveringPayment }
+
+        // The join lands first, with the authoritative payment data.
+        await sut.joinMatch(team: nil)
+        XCTAssertNotNil(sut.joinData)
+
+        recovery.complete(with: .notRecoverable(message: "No se pudieron encontrar los detalles del pago solicitado."))
+        await waitForPendingRecovery(sut)
+
+        XCTAssertNil(sut.pendingPaymentIssue, "A recovery answer that lost the race to the join must be discarded")
+
+        subscribeUseCase.finish()
+        await streaming.value
+    }
+
     // MARK: - Async helpers
 
     /// Recovery runs in a detached `Task` so the Firestore stream isn't stalled — give it
@@ -379,6 +478,43 @@ private final class ControllableSubscribeMatchPlayersUseCase: SubscribeMatchPlay
 
     func emit(_ snapshot: MatchPlayersSnapshot) { continuation?.yield(snapshot) }
     func finish() { continuation?.finish() }
+}
+
+// MARK: - ControllableJoinMatchUseCase
+
+/// Suspends inside `execute` so a test can hold a join in flight while Firestore emits.
+private final class ControllableJoinMatchUseCase: JoinMatchUseCaseProtocol {
+    private var continuation: CheckedContinuation<JoinMatchData, Error>?
+    private(set) var callCount = 0
+
+    func execute(matchId: String, team: String?) async throws -> JoinMatchData {
+        callCount += 1
+        return try await withCheckedThrowingContinuation { self.continuation = $0 }
+    }
+
+    func complete(with result: Result<JoinMatchData, Error>) {
+        continuation?.resume(with: result)
+        continuation = nil
+    }
+}
+
+// MARK: - ControllableFetchPendingMatchPaymentUseCase
+
+/// Suspends inside `execute` so a test can decide when the recovery answer lands
+/// relative to the join response.
+private final class ControllableFetchPendingMatchPaymentUseCase: FetchPendingMatchPaymentUseCaseProtocol {
+    private var continuation: CheckedContinuation<PendingPaymentRecovery, Never>?
+    private(set) var executeCallCount = 0
+
+    func execute(matchId: String) async -> PendingPaymentRecovery {
+        executeCallCount += 1
+        return await withCheckedContinuation { self.continuation = $0 }
+    }
+
+    func complete(with result: PendingPaymentRecovery) {
+        continuation?.resume(returning: result)
+        continuation = nil
+    }
 }
 
 // MARK: - MatchPlayer stub

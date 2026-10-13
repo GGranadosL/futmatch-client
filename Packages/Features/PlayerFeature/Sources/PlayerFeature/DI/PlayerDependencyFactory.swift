@@ -14,6 +14,7 @@ public struct PlayerDependencyFactory {
     /// instead of each one racing its own CLLocationManager (see
     /// `CurrentLocationService`'s in-flight/caching logic).
     private static let sharedCurrentLocationService = CurrentLocationService()
+    private static let sharedPaymentSecurityPreferenceStore = UserDefaultsPaymentSecurityPreferenceStore()
 
     private let isDemoMode: Bool
     private let countryRepository: CountryRepositoryProtocol
@@ -169,8 +170,8 @@ public struct PlayerDependencyFactory {
         BiometricAuthenticator()
     }
 
-    func makeConfirmDeletionIdentityUseCase() -> ConfirmDeletionIdentityUseCaseProtocol {
-        ConfirmDeletionIdentityUseCase(authenticator: makeBiometricAuthenticator())
+    func makeConfirmLocalIdentityUseCase() -> ConfirmLocalIdentityUseCaseProtocol {
+        ConfirmLocalIdentityUseCase(authenticator: makeBiometricAuthenticator())
     }
 
     @MainActor
@@ -179,6 +180,36 @@ public struct PlayerDependencyFactory {
             userId: userId,
             profileService: makeProfileService(),
             fetchMatchDetailUseCase: makeFetchMatchDetailUseCase()
+        )
+    }
+
+    // MARK: - Payment Security
+
+    func makePaymentSecurityPreferenceStore() -> PaymentSecurityPreferenceStoring {
+        Self.sharedPaymentSecurityPreferenceStore
+    }
+
+    func makeAuthorizeSensitiveActionUseCase() -> AuthorizeSensitiveActionUseCaseProtocol {
+        AuthorizeSensitiveActionUseCase(
+            preferenceStore: makePaymentSecurityPreferenceStore(),
+            confirmIdentityUseCase: makeConfirmLocalIdentityUseCase()
+        )
+    }
+
+    func makeGetPaymentSecurityEnabledUseCase() -> GetPaymentSecurityEnabledUseCaseProtocol {
+        GetPaymentSecurityEnabledUseCase(store: makePaymentSecurityPreferenceStore())
+    }
+
+    func makeSetPaymentSecurityEnabledUseCase() -> SetPaymentSecurityEnabledUseCaseProtocol {
+        SetPaymentSecurityEnabledUseCase(store: makePaymentSecurityPreferenceStore())
+    }
+
+    @MainActor
+    func makePaymentSecurityViewModel() -> PaymentSecurityViewModel {
+        PaymentSecurityViewModel(
+            getEnabledUseCase: makeGetPaymentSecurityEnabledUseCase(),
+            setEnabledUseCase: makeSetPaymentSecurityEnabledUseCase(),
+            authorizeUseCase: makeAuthorizeSensitiveActionUseCase()
         )
     }
 

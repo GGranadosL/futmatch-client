@@ -54,6 +54,16 @@ public enum HomeTab: Int, CaseIterable {
 
 /// Liquid Glass Tab Bar
 public struct FMTabBar: View {
+
+    /// Placeholder height used for the single frame before the bar has measured itself.
+    /// Nothing should depend on this number being right — see `TabBarHeightPreferenceKey`.
+    static let contentBottomInset: CGFloat = 72
+
+    /// Gap between the last row of a screen's content and the bar. Purely a breathing
+    /// space — the bar's own height is measured, so this is the only part that is a
+    /// design choice rather than geometry.
+    static let contentBreathingSpace: CGFloat = 24
+
     @Binding var selectedTab: HomeTab
     let profileImageUrl: String?
     let profileDefaultImageName: String?
@@ -260,5 +270,23 @@ private struct TabBarItem: View {
             Spacer()
             FMTabBar(selectedTab: .constant(.home))
         }
+    }
+}
+
+
+// MARK: - Measured Height
+
+/// The tab bar's real rendered height, measured by `HomeContainerView` and reserved
+/// through `.safeAreaInset`.
+///
+/// The bar floats in an `.overlay`, so it takes no layout space of its own. Screens used
+/// to compensate with a hand-picked `.padding(.bottom, 100)`, which was always either too
+/// much or too little — the bar's height moves with Dynamic Type, and the home-indicator
+/// strip is easy to count twice. Measuring it and handing it to `.safeAreaInset` lets
+/// SwiftUI do that arithmetic instead.
+struct TabBarHeightPreferenceKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
     }
 }

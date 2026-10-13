@@ -120,7 +120,8 @@ private struct MatchPricingContentView: View {
                 minimumCard
                 breakdownCard
             }
-            .padding(16)
+            .padding(.horizontal, 16)
+            .padding(.top, 16)
         }
         .background(FMColors.background)
         .navigationTitle(L10n.Pricing.title)
@@ -137,11 +138,12 @@ private struct MatchPricingContentView: View {
                 }
             }
         }
-        .safeAreaInset(edge: .bottom) {
+        .safeAreaInset(edge: .bottom, spacing: 0) {
             FMStickyActionBar(
                 title: L10n.Pricing.confirm,
                 isLoading: isSaving,
                 isEnabled: viewModel.selectedOption.isViable && !viewModel.isLoadingCustom && !isSaving,
+                fadeHeight: 12,
                 action: {
                     onConfirm(viewModel.selectedOption)
                 }

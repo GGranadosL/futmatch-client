@@ -130,8 +130,13 @@ public struct FMNextGameCardSkeleton: View {
 
             HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 6) {
-                    FMSkeleton(cornerRadius: 4).frame(width: 150, height: 18)
-                    FMSkeleton(cornerRadius: 4).frame(width: 110, height: 14)
+                    // Date label over time, mirroring the card's two-line header.
+                    VStack(alignment: .leading, spacing: 2) {
+                        FMSkeleton(cornerRadius: 4).frame(width: 80, height: 12)
+                        FMSkeleton(cornerRadius: 4).frame(width: 120, height: 22)
+                    }
+                    FMSkeleton(cornerRadius: 4).frame(width: 150, height: 14)
+                    FMSkeleton(cornerRadius: 4).frame(width: 60, height: 11)
                     FMSkeleton(cornerRadius: 4)
                         .frame(width: 90, height: 14)
                         .padding(.top, 4)
@@ -140,7 +145,7 @@ public struct FMNextGameCardSkeleton: View {
                 Spacer()
 
                 FMSkeleton(cornerRadius: 12)
-                    .frame(width: 100, height: 72)
+                    .frame(width: 84, height: 84)
             }
         }
         .padding(16)

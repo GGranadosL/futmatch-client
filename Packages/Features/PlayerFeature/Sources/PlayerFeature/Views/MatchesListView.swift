@@ -371,7 +371,7 @@ struct MatchesListView: View {
                 }
                 .padding(.horizontal, 16)
             }
-            .padding(.bottom, 100)
+            .padding(.bottom, FMTabBar.contentBreathingSpace)
         }
         .disabled(true)
     }
@@ -403,7 +403,7 @@ struct MatchesListView: View {
                     }
                 }
             }
-            .padding(.bottom, 100)
+            .padding(.bottom, FMTabBar.contentBreathingSpace)
         }
         .refreshable { await matchesViewModel.reload() }
     }

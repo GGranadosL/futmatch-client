@@ -117,17 +117,6 @@ struct VerificationCodeView: View {
         .background(FMColors.background)
         .navigationTitle(L10n.Verification.navTitle)
         .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden(true)
-        .toolbar {
-            ToolbarItem(placement: .navigationBarLeading) {
-                Button {
-                    dismiss()
-                } label: {
-                    Image(systemName: "chevron.left")
-                        .foregroundColor(FMColors.primary)
-                }
-            }
-        }
         .onChange(of: code) { newValue in
             // Only dismiss error when the user starts typing (not when we clear programmatically)
             if viewModel.errorMessage != nil, !newValue.isEmpty {

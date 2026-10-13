@@ -113,11 +113,7 @@ struct EditProfileView: View {
             }
         }
         .background(FMColors.background)
-        .navigationBarBackButtonHidden(true)
         .toolbar {
-            ToolbarItem(placement: .navigationBarLeading) {
-                FMBackButton { dismiss() }
-            }
             ToolbarItem(placement: .principal) {
                 Text(L10n.EditProfile.title)
                     .font(FMTypography.titleMedium)

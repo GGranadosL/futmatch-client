@@ -449,6 +449,18 @@ public enum L10n {
         public static var paymentHistoryDesc: String {
             NSLocalizedString("settings.paymentHistoryDesc", bundle: .module, comment: "")
         }
+        public static var paymentSecurity: String {
+            NSLocalizedString("settings.paymentSecurity", bundle: .module, comment: "")
+        }
+        public static var paymentSecurityDesc: String {
+            NSLocalizedString("settings.paymentSecurityDesc", bundle: .module, comment: "")
+        }
+        public static var paymentSecurityBiometricReason: String {
+            NSLocalizedString("settings.paymentSecurityBiometricReason", bundle: .module, comment: "")
+        }
+        public static var paymentSecurityBiometricFailedError: String {
+            NSLocalizedString("settings.paymentSecurityBiometricFailedError", bundle: .module, comment: "")
+        }
         public static var help: String {
             NSLocalizedString("settings.help", bundle: .module, comment: "")
         }
@@ -688,6 +700,10 @@ public enum L10n {
         }
         public static var understood: String {
             NSLocalizedString("payment.understood", bundle: .module, comment: "")
+        }
+        /// `LAContext` prompt shown before the Stripe payment sheet is presented.
+        public static var biometricReason: String {
+            NSLocalizedString("payment.biometricReason", bundle: .module, comment: "")
         }
         public static var confirmationError: String {
             NSLocalizedString("payment.confirmationError", bundle: .module, comment: "")

@@ -73,11 +73,7 @@ struct AdminLocationsListView: View {
         }
         .frame(maxHeight: .infinity)
         .background(FMColors.background.ignoresSafeArea())
-        .navigationBarBackButtonHidden(true)
         .toolbar {
-            ToolbarItem(placement: .navigationBarLeading) {
-                FMBackButton { dismiss() }
-            }
             ToolbarItem(placement: .principal) {
                 AdminNavTitle(title: "Ubicaciones")
             }

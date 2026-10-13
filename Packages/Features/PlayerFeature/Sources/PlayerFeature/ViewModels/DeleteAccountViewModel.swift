@@ -17,14 +17,14 @@ final class DeleteAccountViewModel: ObservableObject {
     @Published private(set) var biometricErrorMessage: String?
 
     private let deleteAccountUseCase: DeleteAccountUseCaseProtocol
-    private let confirmIdentityUseCase: ConfirmDeletionIdentityUseCaseProtocol
+    private let authorizeUseCase: AuthorizeSensitiveActionUseCaseProtocol
 
     init(
         deleteAccountUseCase: DeleteAccountUseCaseProtocol,
-        confirmIdentityUseCase: ConfirmDeletionIdentityUseCaseProtocol
+        authorizeUseCase: AuthorizeSensitiveActionUseCaseProtocol
     ) {
         self.deleteAccountUseCase = deleteAccountUseCase
-        self.confirmIdentityUseCase = confirmIdentityUseCase
+        self.authorizeUseCase = authorizeUseCase
     }
 
     /// Step 1 — triggered by the "Delete account" button. Runs the local identity
@@ -35,7 +35,7 @@ final class DeleteAccountViewModel: ObservableObject {
         biometricErrorMessage = nil
         errorMessage = nil
         do {
-            try await confirmIdentityUseCase.execute(reason: L10n.DeleteAccount.biometricReason)
+            try await authorizeUseCase.execute(reason: L10n.DeleteAccount.biometricReason)
             identityConfirmed = true
         } catch {
             biometricErrorMessage = L10n.DeleteAccount.biometricFailedError

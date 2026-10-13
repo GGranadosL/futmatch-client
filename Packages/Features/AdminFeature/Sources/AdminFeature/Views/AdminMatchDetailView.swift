@@ -150,12 +150,6 @@ struct AdminMatchDetailView: View {
             }
         }
         .background(FMColors.background.ignoresSafeArea())
-        .navigationBarBackButtonHidden(true)
-        .toolbar {
-            ToolbarItem(placement: .navigationBarLeading) {
-                FMBackButton { dismiss() }
-            }
-        }
         .modifier(HideTabBarModifier())
         .navigationDestination(isPresented: $showEditMatch) {
             EditMatchView(

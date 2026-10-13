@@ -26,6 +26,7 @@ struct SettingsView: View {
 
     @StateObject private var paymentMethodsVM: PaymentMethodsViewModel
     @StateObject private var deleteAccountVM: DeleteAccountViewModel
+    @StateObject private var paymentSecurityVM: PaymentSecurityViewModel
     @State private var presentCustomerSheet = false
     @State private var showPaymentHistory = false
     @State private var safariURL: URL? = nil
@@ -34,6 +35,7 @@ struct SettingsView: View {
     @State private var deleteAccountConfirmationText = ""
     @State private var showDeleteAccountSuccessToast = false
     @State private var showBiometricErrorToast = false
+    @State private var showPaymentSecurityErrorToast = false
     private let linksConfig: LegalLinksProtocol
 
     init(
@@ -41,6 +43,7 @@ struct SettingsView: View {
         onAccountDeleted: (() -> Void)? = nil,
         paymentMethodsViewModel: PaymentMethodsViewModel? = nil,
         deleteAccountViewModel: DeleteAccountViewModel? = nil,
+        paymentSecurityViewModel: PaymentSecurityViewModel? = nil,
         paymentHistoryViewModelFactory: (() -> PaymentHistoryViewModel)? = nil,
         linksConfig: LegalLinksProtocol = LegalLinksConfig()
     ) {
@@ -51,8 +54,9 @@ struct SettingsView: View {
         _paymentMethodsVM = StateObject(wrappedValue: paymentMethodsViewModel ?? PaymentMethodsViewModel(paymentService: PaymentService()))
         _deleteAccountVM = StateObject(wrappedValue: deleteAccountViewModel ?? DeleteAccountViewModel(
             deleteAccountUseCase: PlayerDependencyFactory().makeDeleteAccountUseCase(),
-            confirmIdentityUseCase: PlayerDependencyFactory().makeConfirmDeletionIdentityUseCase()
+            authorizeUseCase: PlayerDependencyFactory().makeAuthorizeSensitiveActionUseCase()
         ))
+        _paymentSecurityVM = StateObject(wrappedValue: paymentSecurityViewModel ?? PlayerDependencyFactory().makePaymentSecurityViewModel())
     }
 
     // MARK: - Row Data
@@ -64,7 +68,8 @@ struct SettingsView: View {
         return "\(L10n.Settings.version) \(version) (\(build))"
     }
 
-    private var generalRows: [SettingsRow] {
+    /// Rows shown before the "Seguridad en pagos" toggle row.
+    private var topGeneralRows: [SettingsRow] {
         [
             SettingsRow(
                 icon: "creditcard",
@@ -77,7 +82,13 @@ struct SettingsView: View {
                 iconColor: FMColors.primary,
                 title: L10n.Settings.paymentHistory,
                 subtitle: L10n.Settings.paymentHistoryDesc
-            ),
+            )
+        ]
+    }
+
+    /// Rows shown after the "Seguridad en pagos" toggle row.
+    private var bottomGeneralRows: [SettingsRow] {
+        [
             SettingsRow(
                 icon: "questionmark.circle",
                 iconColor: FMColors.primary,
@@ -107,7 +118,11 @@ struct SettingsView: View {
                 List {
                     // General section
                     Section {
-                        ForEach(generalRows) { row in
+                        ForEach(topGeneralRows) { row in
+                            settingsRowView(row)
+                        }
+                        paymentSecurityRow
+                        ForEach(bottomGeneralRows) { row in
                             settingsRowView(row)
                         }
                     }
@@ -197,16 +212,15 @@ struct SettingsView: View {
                 )
             }
         }
-        .navigationBarBackButtonHidden(true)
         .toolbar {
-            ToolbarItem(placement: .navigationBarLeading) {
-                FMBackButton { dismiss() }
-            }
             ToolbarItem(placement: .principal) {
                 Text(L10n.Settings.title)
                     .font(FMTypography.titleMedium)
                     .foregroundColor(FMColors.onBackground)
             }
+        }
+        .task {
+            paymentSecurityVM.load()
         }
         .onChange(of: paymentMethodsVM.customerSheet != nil) { ready in
             if ready {
@@ -278,6 +292,64 @@ struct SettingsView: View {
         .onChange(of: showBiometricErrorToast) { showing in
             if !showing { deleteAccountVM.clearBiometricError() }
         }
+        .onChange(of: paymentSecurityVM.errorMessage != nil) { hasError in
+            if hasError { showPaymentSecurityErrorToast = true }
+        }
+        .fmToast(paymentSecurityVM.errorMessage ?? "", isPresented: $showPaymentSecurityErrorToast, style: .error)
+        .onChange(of: showPaymentSecurityErrorToast) { showing in
+            if !showing { paymentSecurityVM.clearError() }
+        }
+    }
+
+    // MARK: - Payment Security Row
+
+    /// Hand-built (not through `SettingsRow`/`settingsRowView`, which is
+    /// chevron/navigation-only) since this row needs a `Toggle`.
+    private var paymentSecurityRow: some View {
+        HStack(spacing: 14) {
+            Image(systemName: "lock.fill")
+                .font(.system(size: 18, weight: .medium))
+                .foregroundColor(FMColors.primary)
+                .frame(width: 28, height: 28)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(L10n.Settings.paymentSecurity)
+                    .font(FMTypography.bodyMedium)
+                    .foregroundColor(FMColors.onSurface)
+
+                Text(L10n.Settings.paymentSecurityDesc)
+                    .font(FMTypography.bodySmall)
+                    .foregroundColor(FMColors.onSurfaceVariant)
+            }
+
+            Spacer()
+
+            if paymentSecurityVM.isVerifying {
+                ProgressView()
+            } else {
+                Toggle("", isOn: paymentSecurityToggleBinding)
+                    .labelsHidden()
+                    .tint(FMColors.primary)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    /// Turning ON persists immediately; turning OFF must pass the biometric /
+    /// passcode gate first (`PaymentSecurityViewModel.disable()`). A rejected
+    /// `disable()` leaves `isEnabled == true`, so reading it back here snaps
+    /// the switch back to ON with no extra revert code.
+    private var paymentSecurityToggleBinding: Binding<Bool> {
+        Binding(
+            get: { paymentSecurityVM.isEnabled },
+            set: { newValue in
+                if newValue {
+                    paymentSecurityVM.enable()
+                } else {
+                    Task { await paymentSecurityVM.disable() }
+                }
+            }
+        )
     }
 
     // MARK: - Row View

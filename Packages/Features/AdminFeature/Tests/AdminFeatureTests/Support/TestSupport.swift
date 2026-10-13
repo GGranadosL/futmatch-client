@@ -113,7 +113,9 @@ extension AdminMatch {
         id: String = "match-1",
         fieldName: String = "Cancha Central",
         status: AdminMatchStatus = .scheduled,
-        startDate: Date = Date()
+        startDate: Date = Date(),
+        minPlayers: Int = 6,
+        spotsTotal: Int = 10
     ) -> AdminMatch {
         AdminMatch(
             id: id,
@@ -124,13 +126,13 @@ extension AdminMatch {
             gender: .mixed,
             playerLevel: .any,
             spotsFilled: 0,
-            spotsTotal: 10,
+            spotsTotal: spotsTotal,
             status: status,
             fieldImageUrl: nil,
             startDate: startDate,
             fieldId: "field-1",
             endDate: startDate.addingTimeInterval(7200),
-            minPlayers: 6
+            minPlayers: minPlayers
         )
     }
 }

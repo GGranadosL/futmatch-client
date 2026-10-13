@@ -28,12 +28,6 @@ struct PlayerProfileView: View {
             content
         }
         .background(FMColors.background)
-        .navigationBarBackButtonHidden(true)
-        .toolbar {
-            ToolbarItem(placement: .navigationBarLeading) {
-                FMBackButton { dismiss() }
-            }
-        }
         .navigationDestination(isPresented: Binding(
             get: { lastMatchDetail != nil },
             set: { if !$0 { lastMatchDetail = nil } }

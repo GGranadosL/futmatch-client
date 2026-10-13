@@ -8,16 +8,22 @@ public struct FMNextGameCard: View {
     let dateLabel: String
     let time: String
     let location: String
+    let distance: String?
     let detailLabel: String
     var fieldImageUrl: String?
     var fieldImage: Image?
     var onDetailTap: (() -> Void)?
 
+    /// - Parameters:
+    ///   - location: venue only. Distance goes in `distance` — joining them into one
+    ///     string made the distance wrap as if it were part of the address.
+    ///   - distance: preformatted, e.g. "3.8 km". Nil or empty hides the line.
     public init(
         title: String,
         dateLabel: String,
         time: String,
         location: String,
+        distance: String? = nil,
         detailLabel: String,
         fieldImageUrl: String? = nil,
         fieldImage: Image? = nil,
@@ -27,6 +33,7 @@ public struct FMNextGameCard: View {
         self.dateLabel = dateLabel
         self.time = time
         self.location = location
+        self.distance = distance
         self.detailLabel = detailLabel
         self.fieldImageUrl = fieldImageUrl
         self.fieldImage = fieldImage
@@ -44,20 +51,40 @@ public struct FMNextGameCard: View {
             HStack(alignment: .top, spacing: 12) {
                 // Info section
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("\(dateLabel) - \(time)")
-                        .font(FMTypography.titleMedium)
-                        .foregroundColor(FMColors.onSurface)
-                    
-                    HStack(spacing: 4) {
+                    // Date as a quiet label over the time as the value. Concatenating the
+                    // two ("Jue, 10 Sep - 7:00 p.m.") overflowed the column and broke with
+                    // the separator dangling at the end of the first line.
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(dateLabel)
+                            .font(FMTypography.labelMedium)
+                            .foregroundColor(FMColors.onSurfaceVariant)
+
+                        Text(time)
+                            .font(FMTypography.titleLarge)
+                            .foregroundColor(FMColors.onSurface)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                    }
+
+                    // `.firstTextBaseline`, so the pin stays beside the first line of a
+                    // wrapped venue name instead of centring itself mid-sentence.
+                    HStack(alignment: .firstTextBaseline, spacing: 4) {
                         Image(systemName: "mappin.and.ellipse")
-                            .font(.system(size: 14))
+                            .font(.system(size: 12))
                             .foregroundColor(FMColors.primary)
-                        
+
                         Text(location)
                             .font(FMTypography.bodyMedium)
                             .foregroundColor(FMColors.onSurfaceVariant)
+                            .lineLimit(2)
                     }
-                    
+
+                    if let distance, !distance.isEmpty {
+                        Text(distance)
+                            .font(FMTypography.labelSmall)
+                            .foregroundColor(FMColors.onSurfaceVariant)
+                    }
+
                     Button {
                         onDetailTap?()
                     } label: {
@@ -99,7 +126,7 @@ public struct FMNextGameCard: View {
             }
         }
         .scaledToFill()
-        .frame(width: 100, height: 72)
+        .frame(width: 84, height: 84)
         .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
@@ -119,9 +146,10 @@ public struct FMNextGameCard: View {
 #Preview("With Game") {
     FMNextGameCard(
         title: "Tu Próximo Partido",
-        dateLabel: "Hoy",
-        time: "19:50 PM",
-        location: "CDXM Roma Norte",
+        dateLabel: "Jue, 10 Sep",
+        time: "7:00 p.m.",
+        location: "Calzada Casa del Obrero Mundial",
+        distance: "3.8 km",
         detailLabel: "Ver detalle"
     )
     .padding()

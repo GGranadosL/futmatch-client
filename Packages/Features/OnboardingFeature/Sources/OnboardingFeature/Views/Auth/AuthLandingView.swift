@@ -134,18 +134,10 @@ public struct AuthLandingView: View {
 
     // MARK: - Subviews
 
+    /// Same logo + wordmark style as Home's header bar, centered here.
     private var brandSection: some View {
         VStack(spacing: 8) {
-            Text(L10n.Login.appName)
-                .font(.interBold(size: 32))
-                .tracking(1.5)
-                .foregroundStyle(
-                    LinearGradient(
-                        colors: [FMColors.primary, FMColors.inversePrimary],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                )
+            FMBrandLogo(iconSize: 36, fontSize: 30)
 
             Text(L10n.Login.landingTagline)
                 .font(FMTypography.caption)
