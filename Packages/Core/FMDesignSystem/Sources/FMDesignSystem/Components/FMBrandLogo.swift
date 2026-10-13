@@ -20,7 +20,7 @@ public struct FMBrandLogo: View {
                 .scaledToFit()
                 .frame(width: iconSize, height: iconSize)
 
-            Text("FutMatch")
+            Text("Interfut")
                 .font(.montserratBold(size: fontSize))
                 .foregroundStyle(
                     LinearGradient(

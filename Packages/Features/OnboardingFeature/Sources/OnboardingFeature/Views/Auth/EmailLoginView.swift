@@ -113,7 +113,7 @@ struct EmailLoginView: View {
                 .scaledToFit()
                 .frame(width: 61, height: 73)
 
-            Text("FutMatch")
+            Text("Interfut")
                 .font(.montserratBold(size: 32))
                 .tracking(1.5)
                 .foregroundStyle(
