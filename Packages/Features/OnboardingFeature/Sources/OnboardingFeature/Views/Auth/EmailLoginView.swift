@@ -108,7 +108,7 @@ struct EmailLoginView: View {
 
     private var logoSection: some View {
         VStack(spacing: 8) {
-            Image("logo_futmatch", bundle: .main)
+            Image("logo_interfut", bundle: .main)
                 .resizable()
                 .scaledToFit()
                 .frame(width: 61, height: 73)

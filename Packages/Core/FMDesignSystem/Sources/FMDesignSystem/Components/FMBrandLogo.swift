@@ -15,7 +15,7 @@ public struct FMBrandLogo: View {
 
     private var logo: some View {
         HStack(spacing: 8) {
-            Image("logo_futmatch", bundle: .main)
+            Image("logo_interfut", bundle: .main)
                 .resizable()
                 .scaledToFit()
                 .frame(width: iconSize, height: iconSize)
