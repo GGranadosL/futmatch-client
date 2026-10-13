@@ -67,7 +67,7 @@ public struct OrganizerHomeView: View {
             }
 
             Text("organizer")
-                .font(.system(size: 10, weight: .bold))
+                .font(.montserratBold(size: 10))
                 .foregroundColor(FMColors.primary)
                 .kerning(1.5)
         }

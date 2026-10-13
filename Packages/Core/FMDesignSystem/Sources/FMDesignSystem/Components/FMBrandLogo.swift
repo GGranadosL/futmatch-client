@@ -21,7 +21,7 @@ public struct FMBrandLogo: View {
                 .frame(width: iconSize, height: iconSize)
 
             Text("FutMatch")
-                .font(.interBold(size: fontSize))
+                .font(.montserratBold(size: fontSize))
                 .foregroundStyle(
                     LinearGradient(
                         colors: [FMColors.primary, FMColors.inversePrimary],

@@ -114,7 +114,7 @@ struct EmailLoginView: View {
                 .frame(width: 61, height: 73)
 
             Text("FutMatch")
-                .font(.interBold(size: 32))
+                .font(.montserratBold(size: 32))
                 .tracking(1.5)
                 .foregroundStyle(
                     LinearGradient(
