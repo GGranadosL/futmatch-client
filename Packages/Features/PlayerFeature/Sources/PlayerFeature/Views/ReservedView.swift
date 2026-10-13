@@ -196,14 +196,16 @@ struct ReservedView: View {
             spotsLeft: match.spotsLeft,
             spotsLabel: L10n.Matches.spotsLeft(match.spotsLeft),
             teamA: FMMatchTeam(
-                name: L10n.Matches.teamA,
+                name: match.teamAName,
                 avatarURLs: match.teamAPlayers.prefix(3).map { $0.avatarUrl },
-                playerCount: match.teamAPlayers.count
+                playerCount: match.teamAPlayers.count,
+                colorHex: match.teamAColorHex
             ),
             teamB: FMMatchTeam(
-                name: L10n.Matches.teamB,
+                name: match.teamBName,
                 avatarURLs: match.teamBPlayers.prefix(3).map { $0.avatarUrl },
-                playerCount: match.teamBPlayers.count
+                playerCount: match.teamBPlayers.count,
+                colorHex: match.teamBColorHex
             ),
             distance: match.formattedDistance(from: viewModel.userCoordinate),
             fieldImageUrl: match.fieldImageUrl,

@@ -115,7 +115,8 @@ extension AdminMatch {
         status: AdminMatchStatus = .scheduled,
         startDate: Date = Date(),
         minPlayers: Int = 6,
-        spotsTotal: Int = 10
+        spotsTotal: Int = 10,
+        teamVisuals: AdminMatchTeamVisuals? = nil
     ) -> AdminMatch {
         AdminMatch(
             id: id,
@@ -132,8 +133,15 @@ extension AdminMatch {
             startDate: startDate,
             fieldId: "field-1",
             endDate: startDate.addingTimeInterval(7200),
-            minPlayers: minPlayers
+            minPlayers: minPlayers,
+            teamVisuals: teamVisuals
         )
+    }
+}
+
+extension TeamVisualCatalogItem {
+    static func stub(id: String = "t-1", name: String = "Les Bleus", colorHex: String = "#315DA8") -> TeamVisualCatalogItem {
+        TeamVisualCatalogItem(id: id, name: name, colorHex: colorHex)
     }
 }
 

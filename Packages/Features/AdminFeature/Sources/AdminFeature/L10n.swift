@@ -221,6 +221,14 @@ enum L10n {
                     NSLocalizedString("newMatch.section.organizer.description", bundle: .module, comment: "")
                 }
             }
+            enum Teams {
+                static var title: String {
+                    NSLocalizedString("newMatch.section.teams", bundle: .module, comment: "")
+                }
+                static var description: String {
+                    NSLocalizedString("newMatch.section.teams.description", bundle: .module, comment: "")
+                }
+            }
             enum Gender {
                 static var title: String {
                     NSLocalizedString("newMatch.section.gender", bundle: .module, comment: "")
@@ -277,6 +285,15 @@ enum L10n {
         }
         static var loadingFields: String {
             NSLocalizedString("newMatch.loadingFields", bundle: .module, comment: "")
+        }
+        static var teamALabel: String {
+            NSLocalizedString("newMatch.teamA.label", bundle: .module, comment: "")
+        }
+        static var teamBLabel: String {
+            NSLocalizedString("newMatch.teamB.label", bundle: .module, comment: "")
+        }
+        static var loadingTeams: String {
+            NSLocalizedString("newMatch.loadingTeams", bundle: .module, comment: "")
         }
         static var loadingOrganizers: String {
             NSLocalizedString("newMatch.loadingOrganizers", bundle: .module, comment: "")

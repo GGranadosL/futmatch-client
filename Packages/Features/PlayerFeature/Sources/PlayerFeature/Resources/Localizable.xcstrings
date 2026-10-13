@@ -2611,6 +2611,40 @@
         }
       }
     },
+    "matchDetail.winner" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ won"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ganó %@"
+          }
+        }
+      }
+    },
+    "matchDetail.draw" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Draw"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Empate"
+          }
+        }
+      }
+    },
     "matches.teamB" : {
       "extractionState" : "manual",
       "localizations" : {

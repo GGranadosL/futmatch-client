@@ -16,6 +16,8 @@ public final class NewMatchViewModel: ObservableObject {
     @Published public var selectedGender: MatchGender?
     @Published public var selectedLevel: MatchPlayerLevel?
     @Published public var selectedPricingOption: PricingOption?
+    @Published public var selectedTeamA: TeamVisualCatalogItem?
+    @Published public var selectedTeamB: TeamVisualCatalogItem?
 
     // MARK: - Submit / Load State
 
@@ -23,6 +25,10 @@ public final class NewMatchViewModel: ObservableObject {
     @Published public private(set) var isLoadingFields: Bool = false
     @Published public private(set) var availableOrganizers: [Organizer] = []
     @Published public private(set) var isLoadingOrganizers: Bool = false
+    @Published public private(set) var availableTeams: [TeamVisualCatalogItem] = []
+    @Published public private(set) var isLoadingTeams: Bool = false
+    /// Last catalog load error; the stored catalog and valid selections are kept.
+    @Published public var teamsErrorMessage: String?
     @Published public private(set) var isSaving: Bool = false
     @Published public var errorMessage: String?
     @Published public private(set) var createdMatch: AdminMatch?
@@ -32,6 +38,7 @@ public final class NewMatchViewModel: ObservableObject {
     private let createMatchUseCase: CreateMatchUseCaseProtocol
     private let fetchFieldIdNamesUseCase: FetchFieldIdNamesUseCaseProtocol
     private let fetchOrganizersUseCase: FetchOrganizersUseCaseProtocol
+    private let fetchTeamCatalogUseCase: FetchTeamCatalogUseCaseProtocol
     public let fetchPricingEstimateUseCase: FetchPricingEstimateUseCaseProtocol
     public let fetchCustomPricingUseCase: FetchCustomPricingUseCaseProtocol
 
@@ -39,12 +46,14 @@ public final class NewMatchViewModel: ObservableObject {
         createMatchUseCase: CreateMatchUseCaseProtocol,
         fetchFieldIdNamesUseCase: FetchFieldIdNamesUseCaseProtocol,
         fetchOrganizersUseCase: FetchOrganizersUseCaseProtocol,
+        fetchTeamCatalogUseCase: FetchTeamCatalogUseCaseProtocol,
         fetchPricingEstimateUseCase: FetchPricingEstimateUseCaseProtocol,
         fetchCustomPricingUseCase: FetchCustomPricingUseCaseProtocol
     ) {
         self.createMatchUseCase = createMatchUseCase
         self.fetchFieldIdNamesUseCase = fetchFieldIdNamesUseCase
         self.fetchOrganizersUseCase = fetchOrganizersUseCase
+        self.fetchTeamCatalogUseCase = fetchTeamCatalogUseCase
         self.fetchPricingEstimateUseCase = fetchPricingEstimateUseCase
         self.fetchCustomPricingUseCase = fetchCustomPricingUseCase
     }
@@ -61,6 +70,33 @@ public final class NewMatchViewModel: ObservableObject {
         isLoadingOrganizers = true
         availableOrganizers = (try? await fetchOrganizersUseCase.execute()) ?? []
         isLoadingOrganizers = false
+    }
+
+    // MARK: - Teams
+
+    /// Team B can't repeat the identity picked for Team A.
+    public var teamBOptions: [TeamVisualCatalogItem] {
+        availableTeams.filter { $0.id != selectedTeamA?.id }
+    }
+
+    public func loadTeams(forceRefresh: Bool = false) async {
+        isLoadingTeams = true
+        teamsErrorMessage = nil
+        do {
+            let teams = try await fetchTeamCatalogUseCase.execute(forceRefresh: forceRefresh)
+            availableTeams = teams
+            selectedTeamA = teams.first { $0.id == selectedTeamA?.id } ?? selectedTeamA
+            selectedTeamB = teams.first { $0.id == selectedTeamB?.id } ?? selectedTeamB
+        } catch {
+            teamsErrorMessage = error.localizedDescription
+        }
+        isLoadingTeams = false
+    }
+
+    /// Both identities are required and must differ.
+    public var hasValidTeams: Bool {
+        guard let a = selectedTeamA, let b = selectedTeamB else { return false }
+        return a.id != b.id
     }
 
     // MARK: - Validation
@@ -96,6 +132,7 @@ public final class NewMatchViewModel: ObservableObject {
             && selectedOrganizer != nil
             && selectedGender != nil
             && selectedLevel != nil
+            && hasValidTeams
             && startTime != nil
             && endTime != nil
             && dateError == nil
@@ -127,7 +164,9 @@ public final class NewMatchViewModel: ObservableObject {
             maxPlayers: maxPlayers,
             priceInCents: option.pricePerPlayerInCents,
             gender: gender,
-            playerLevel: level
+            playerLevel: level,
+            teamAId: selectedTeamA?.id,
+            teamBId: selectedTeamB?.id
         )
 
         isSaving = true

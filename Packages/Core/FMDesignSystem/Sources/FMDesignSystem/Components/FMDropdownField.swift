@@ -3,6 +3,27 @@ import SwiftUI
 /// Dropdown option protocol
 public protocol FMDropdownOption: Identifiable, Hashable {
     var displayName: String { get }
+    /// Optional hex color; when present a color dot is drawn before the name.
+    var leadingColorHex: String? { get }
+}
+
+public extension FMDropdownOption {
+    var leadingColorHex: String? { nil }
+}
+
+/// 18pt color swatch with a subtle outline so white/black stay visible.
+struct FMColorDot: View {
+    let colorHex: String
+
+    var body: some View {
+        if let color = Color(fmHex: colorHex) {
+            Circle()
+                .fill(color)
+                .frame(width: 18, height: 18)
+                .overlay(Circle().stroke(FMColors.outlineVariant, lineWidth: 1))
+                .accessibilityHidden(true)
+        }
+    }
 }
 
 /// Simple string-based dropdown option
@@ -128,6 +149,9 @@ public struct FMDropdownField<Option: FMDropdownOption>: View {
     private var selectionRow: some View {
         HStack {
             if let selected = selectedOption {
+                if let hex = selected.leadingColorHex {
+                    FMColorDot(colorHex: hex)
+                }
                 Text(selected.displayName)
                     .font(FMTypography.inputText)
                     .foregroundColor(FMColors.onSurface)
@@ -206,6 +230,9 @@ public struct FMDropdownField<Option: FMDropdownOption>: View {
             }
         } label: {
             HStack {
+                if let hex = option.leadingColorHex {
+                    FMColorDot(colorHex: hex)
+                }
                 Text(option.displayName)
                     .font(FMTypography.inputText)
                     .fontWeight(.regular)
@@ -221,6 +248,7 @@ public struct FMDropdownField<Option: FMDropdownOption>: View {
             }
             .frame(height: itemHeight)
             .padding(.horizontal, 16)
+            .contentShape(Rectangle())
             .background(isSelected ? FMColors.primary.opacity(0.08) : FMColors.surfaceContainerLowest)
         }
         .buttonStyle(.plain)

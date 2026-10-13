@@ -7,6 +7,7 @@ struct AdminMatchesListView: View {
     @StateObject private var viewModel: AdminMatchesViewModel
     @Environment(\.dismiss) private var dismiss
 
+    @Environment(\.managedObjectContext) private var context
     private let factory: AdminDependencyFactory
     @State private var selectedTab: AdminMatchListTab = .upcoming
     @State private var showNewMatch = false
@@ -42,7 +43,7 @@ struct AdminMatchesListView: View {
         .task { await viewModel.load() }
         .navigationDestination(isPresented: $showNewMatch) {
             NewMatchView(
-                viewModel: factory.makeNewMatchViewModel(),
+                viewModel: factory.makeNewMatchViewModel(context: context),
                 onCreated: {
                     showNewMatch = false
                     Task { await viewModel.load() }

@@ -90,6 +90,16 @@ extension Color {
         )
     }
     
+    /// Failable parser for server-provided colors (`#RRGGBB`, `#AARRGGBB` or without `#`).
+    /// Returns `nil` for anything it cannot interpret so callers can omit the color
+    /// instead of rendering an almost-transparent fallback.
+    public init?(fmHex raw: String) {
+        let hex = raw.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        guard hex.count == 6 || hex.count == 8,
+              hex.allSatisfy({ $0.isHexDigit }) else { return nil }
+        self.init(hex: hex)
+    }
+
     /// Creates an adaptive color that automatically adjusts for light/dark mode
     static func adaptive(light: String, dark: String) -> Color {
         Color(UIColor { traitCollection in

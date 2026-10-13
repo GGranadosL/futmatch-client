@@ -138,7 +138,7 @@ struct FutMatchApp: App {
             // save (e.g. MatchCoreDataCacheRepository) at the exact moment logout
             // fires, and touching it outside its own queue corrupts its object set.
             context.perform {
-                for entityName in ["CachedMatchEntity", "CachedReservedMatchEntity", "CachedAdminFieldEntity"] {
+                for entityName in ["CachedMatchEntity", "CachedReservedMatchEntity", "CachedAdminFieldEntity", "CachedTeamCatalogEntity"] {
                     let request = NSFetchRequest<NSFetchRequestResult>(entityName: entityName)
                     let delete = NSBatchDeleteRequest(fetchRequest: request)
                     _ = try? context.execute(delete)
