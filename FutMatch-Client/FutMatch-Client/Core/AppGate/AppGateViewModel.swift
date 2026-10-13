@@ -39,7 +39,7 @@ final class AppGateViewModel: ObservableObject {
         if maintenance.enabled {
             let copy = maintenance.copy.resolved()
             return .maintenance(
-                title: copy?.title ?? "We are improving FutMatch",
+                title: copy?.title ?? AppGateL10n.Maintenance.defaultTitle,
                 message: copy?.message ?? "The app is temporarily unavailable. Please try again in a moment."
             )
         }
@@ -52,7 +52,7 @@ final class AppGateViewModel: ObservableObject {
             let copy = update.copy.resolved()
             return .mandatoryUpdate(
                 title: copy?.title ?? "Version no longer supported",
-                message: copy?.message ?? "This version of FutMatch is no longer supported. Please update to continue.",
+                message: copy?.message ?? AppGateL10n.MandatoryUpdate.defaultMessage,
                 updateButtonLabel: copy?.updateButton ?? "Update",
                 storeUrl: storeUrl
             )
@@ -64,7 +64,7 @@ final class AppGateViewModel: ObservableObject {
             let copy = update.copy.resolved()
             return .softUpdate(
                 title: copy?.title ?? "New version available",
-                message: copy?.message ?? "Update FutMatch to enjoy the latest improvements.",
+                message: copy?.message ?? AppGateL10n.SoftUpdate.defaultMessage,
                 updateButtonLabel: copy?.updateButton ?? "Update",
                 skipButtonLabel: copy?.skipButton ?? "Skip for now",
                 storeUrl: storeUrl

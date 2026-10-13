@@ -1,6 +1,22 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "appgate.maintenance.default_title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "We are improving Interfut"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Estamos mejorando Interfut"
+          }
+        }
+      }
+    },
     "appgate.maintenance.exit_app" : {
       "localizations" : {
         "en" : {
@@ -13,6 +29,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Salir de la app"
+          }
+        }
+      }
+    },
+    "appgate.mandatory_update.default_message" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This version of Interfut is no longer supported. Please update to continue."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta versión de Interfut ya no es compatible. Actualiza para continuar."
+          }
+        }
+      }
+    },
+    "appgate.soft_update.default_message" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Update Interfut to enjoy the latest improvements."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Actualiza Interfut para disfrutar de las últimas mejoras."
           }
         }
       }
