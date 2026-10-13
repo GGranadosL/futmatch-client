@@ -25,7 +25,11 @@ enum AdminMatchListTab: CaseIterable {
     /// Matches that belong to this tab.
     func filter(_ matches: [AdminMatch]) -> [AdminMatch] {
         switch self {
-        case .upcoming:  return matches.filter { $0.status == .scheduled || $0.status == .inProgress }
+        // `pendingResult` (ended, organizer hasn't recorded the result) stays here
+        // until it is completed — it is the one status that still needs action.
+        case .upcoming:  return matches.filter {
+            $0.status == .scheduled || $0.status == .inProgress || $0.status == .pendingResult
+        }
         case .finished:  return matches.filter { $0.status == .completed }
         case .canceled:  return matches.filter { $0.status == .canceled }
         }

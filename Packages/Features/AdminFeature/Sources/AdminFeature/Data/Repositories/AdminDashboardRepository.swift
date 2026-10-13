@@ -15,24 +15,48 @@ struct AdminDashboardRepository: AdminDashboardRepositoryProtocol {
         async let matchesFetch = matchRepository.fetchMatches()
         let (fields, matches) = try await (fieldsFetch, matchesFetch)
 
-        let now = Date()
-        let threeHours: TimeInterval = 3 * 3600
+        return AdminDashboardComposer.compose(fieldsCount: fields.count, matches: matches, now: Date())
+    }
+}
 
-        let activeMatches = matches.filter { $0.status == .scheduled || $0.status == .inProgress }
-        let ongoingMatches = activeMatches.filter { abs($0.startDate.timeIntervalSince(now)) <= threeHours }
+/// Pure dashboard assembly, kept apart from the fetching so the status rules can be tested.
+enum AdminDashboardComposer {
+    /// Live and upcoming matches only show within this window of "now"; matches
+    /// awaiting their result are always shown because the organizer must act on them.
+    private static let nearWindow: TimeInterval = 3 * 3600
 
-        let sorted = ongoingMatches.sorted { a, b in
-            if a.status == .inProgress && b.status != .inProgress { return true }
-            if a.status != .inProgress && b.status == .inProgress { return false }
+    static func compose(fieldsCount: Int, matches: [AdminMatch], now: Date) -> AdminDashboard {
+        let active = matches.filter {
+            $0.status == .scheduled || $0.status == .inProgress || $0.status == .pendingResult
+        }
+        let shown = active.filter {
+            $0.status == .pendingResult || abs($0.startDate.timeIntervalSince(now)) <= nearWindow
+        }
+
+        let sorted = shown.sorted { a, b in
+            if a.status.dashboardPriority != b.status.dashboardPriority {
+                return a.status.dashboardPriority < b.status.dashboardPriority
+            }
             return a.startDate < b.startDate
         }
 
         return AdminDashboard(
-            scheduledMatchesCount: activeMatches.count,
-            registeredVenuesCount: fields.count,
+            scheduledMatchesCount: active.count,
+            registeredVenuesCount: fieldsCount,
             upcomingMatches: sorted.map { $0.toUpcomingMatch() },
             ongoingFullMatches: sorted
         )
+    }
+}
+
+private extension AdminMatchStatus {
+    /// Live first, then matches waiting on a result, then the rest by start time.
+    var dashboardPriority: Int {
+        switch self {
+        case .inProgress:    return 0
+        case .pendingResult: return 1
+        default:             return 2
+        }
     }
 }
 
@@ -48,7 +72,8 @@ private extension AdminMatch {
             matchType: gender.displayName,
             spotsFilled: spotsFilled,
             spotsTotal: spotsTotal,
-            fieldImageUrl: fieldImageUrl
+            fieldImageUrl: fieldImageUrl,
+            status: status
         )
     }
 }

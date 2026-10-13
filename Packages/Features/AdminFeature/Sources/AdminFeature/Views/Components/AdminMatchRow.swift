@@ -45,11 +45,13 @@ struct AdminMatchRow: View {
                     }
                     .foregroundColor(FMColors.onSurfaceVariant)
 
-                    if match.isIncomplete {
+                    if match.isIncomplete && match.status != .pendingResult {
                         Text(L10n.AdminMatches.incomplete)
                             .font(FMTypography.bodySmall)
                             .foregroundColor(FMColors.onSurfaceVariant)
                     }
+
+                    AdminMatchStatusBadge(status: match.status)
 
                     Text(match.matchType)
                         .font(FMTypography.labelSmall)

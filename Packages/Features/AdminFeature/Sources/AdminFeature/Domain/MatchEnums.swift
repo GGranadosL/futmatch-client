@@ -59,7 +59,7 @@ public enum MatchPlayerLevel: String, Codable, CaseIterable, Identifiable, Hasha
 // MARK: - AdminMatchStatus
 
 /// Lifecycle state of a match as returned by the admin API.
-public enum AdminMatchStatus: String, Equatable {
+public enum AdminMatchStatus: String, Equatable, CaseIterable {
     case scheduled     = "SCHEDULED"
     case inProgress    = "IN_PROGRESS"
     case pendingResult = "PENDING_RESULT"

@@ -15,6 +15,26 @@ final class AdminMatchListGroupingTests: XCTestCase {
         return calendar.date(bySettingHour: hour, minute: 0, second: 0, of: day)!
     }
 
+    // MARK: - Tab membership by status
+
+    func test_upcomingTab_includesScheduled_inProgress_andPendingResult() {
+        let matches: [AdminMatch] = AdminMatchStatus.allCases.map { .stub(id: $0.rawValue, status: $0) }
+
+        let ids = Set(AdminMatchListTab.upcoming.filter(matches).map(\.id))
+
+        XCTAssertEqual(ids, ["SCHEDULED", "IN_PROGRESS", "PENDING_RESULT"])
+    }
+
+    func test_finishedAndCanceledTabs_neverIncludePendingOrLiveMatches() {
+        let matches: [AdminMatch] = [
+            .stub(id: "live", status: .inProgress),
+            .stub(id: "pending", status: .pendingResult)
+        ]
+
+        XCTAssertTrue(AdminMatchListTab.finished.filter(matches).isEmpty)
+        XCTAssertTrue(AdminMatchListTab.canceled.filter(matches).isEmpty)
+    }
+
     // MARK: - Upcoming
 
     func test_upcoming_todayComesFirst_thenFutureDaysAscending() {
