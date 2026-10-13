@@ -1,6 +1,6 @@
-# FutMatch
+# Interfut
 
-FutMatch is a native iOS app for organizing football (soccer) matches and booking sports venues. Players discover and join nearby matches, pay their share in-app, and get real-time updates on who's playing; organizers create matches, manage venues, and supervise games from an admin experience.
+Interfut (formerly FutMatch) is a native iOS app for organizing football (soccer) matches and booking sports venues. Players discover and join nearby matches, pay their share in-app, and get real-time updates on who's playing; organizers create matches, manage venues, and supervise games from an admin experience.
 
 Built with **Swift** and **SwiftUI** on a modular **Swift Package Manager** architecture.
 

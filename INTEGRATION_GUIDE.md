@@ -15,7 +15,7 @@ Opción A: **Si usas OnboardingContainerView directamente**
 
 ```swift
 @main
-struct FutMatch_ClientApp: App {
+struct FutMatchApp: App {
     let persistenceController = PersistenceController.shared
     
     var body: some Scene {
@@ -31,7 +31,7 @@ Opción B: **Si necesitas crear el ViewModel externamente**
 
 ```swift
 @main
-struct FutMatch_ClientApp: App {
+struct FutMatchApp: App {
     let persistenceController = PersistenceController.shared
     
     var body: some Scene {
