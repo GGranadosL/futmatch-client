@@ -18,6 +18,8 @@ public struct AdminUpcomingMatch: Identifiable, Equatable {
     public let spotsTotal: Int
     /// Remote field image URL (nil → bundled default field image).
     public let fieldImageUrl: String?
+    /// Lets the row flag matches that are live or waiting for their result.
+    public let status: AdminMatchStatus
 
     public init(
         id: String,
@@ -28,7 +30,8 @@ public struct AdminUpcomingMatch: Identifiable, Equatable {
         matchType: String,
         spotsFilled: Int,
         spotsTotal: Int,
-        fieldImageUrl: String? = nil
+        fieldImageUrl: String? = nil,
+        status: AdminMatchStatus = .scheduled
     ) {
         self.id = id
         self.venueName = venueName
@@ -39,6 +42,7 @@ public struct AdminUpcomingMatch: Identifiable, Equatable {
         self.spotsFilled = spotsFilled
         self.spotsTotal = spotsTotal
         self.fieldImageUrl = fieldImageUrl
+        self.status = status
     }
 
     /// "8/14"

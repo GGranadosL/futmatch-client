@@ -63,9 +63,7 @@ struct AdminMatchCard: View {
                             .foregroundColor(FMColors.onSurfaceVariant)
                     }
 
-                    if match.status == .completed || match.status == .canceled || match.status == .pendingResult {
-                        statusBadge(for: match.status)
-                    }
+                    AdminMatchStatusBadge(status: match.status)
                 }
             }
             .contentShape(Rectangle())
@@ -97,19 +95,6 @@ struct AdminMatchCard: View {
         Image("defaultField1x1", bundle: .main)
             .resizable()
             .scaledToFill()
-    }
-
-    private func statusBadge(for status: AdminMatchStatus) -> some View {
-        let (fg, bg): (Color, Color) = status == .completed
-            ? (FMColors.primary, FMColors.primary.opacity(0.12))
-            : (FMColors.error, FMColors.error.opacity(0.12))
-
-        return Text(status.displayName)
-            .font(FMTypography.labelSmall)
-            .foregroundColor(fg)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(Capsule().fill(bg))
     }
 }
 
