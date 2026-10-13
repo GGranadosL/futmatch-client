@@ -67,6 +67,7 @@ struct AdminMatchDetailView: View {
     @State private var showCompleteSuccessToast = false
     @State private var highlightedDropId: String? = nil
 
+    @Environment(\.managedObjectContext) private var context
     private let factory: AdminDependencyFactory
     private let navSubtitle: String
 
@@ -153,7 +154,7 @@ struct AdminMatchDetailView: View {
         .modifier(HideTabBarModifier())
         .navigationDestination(isPresented: $showEditMatch) {
             EditMatchView(
-                viewModel: factory.makeEditMatchViewModel(match: match),
+                viewModel: factory.makeEditMatchViewModel(match: match, context: context),
                 subtitle: navSubtitle,
                 onUpdated: { showEditMatch = false }
             )
@@ -401,8 +402,8 @@ struct AdminMatchDetailView: View {
                 skeletonTeamCard(name: L10n.AdminMatchDetail.teamA)
                 skeletonTeamCard(name: L10n.AdminMatchDetail.teamB)
             } else {
-                teamLineup(name: L10n.AdminMatchDetail.teamA, team: "A", players: liveA, maxPlayers: maxA)
-                teamLineup(name: L10n.AdminMatchDetail.teamB, team: "B", players: liveB, maxPlayers: maxB)
+                teamLineup(name: match.teamVisuals?.teamA.name ?? L10n.AdminMatchDetail.teamA, colorHex: match.teamVisuals?.teamA.colorHex, team: "A", players: liveA, maxPlayers: maxA)
+                teamLineup(name: match.teamVisuals?.teamB.name ?? L10n.AdminMatchDetail.teamB, colorHex: match.teamVisuals?.teamB.colorHex, team: "B", players: liveB, maxPlayers: maxB)
             }
         }
         .padding(.horizontal, 20)
@@ -411,13 +412,11 @@ struct AdminMatchDetailView: View {
 
     // MARK: - Team Card
 
-    private func teamLineup(name: String, team: String, players: [AdminMatchPlayer], maxPlayers: Int) -> some View {
+    private func teamLineup(name: String, colorHex: String?, team: String, players: [AdminMatchPlayer], maxPlayers: Int) -> some View {
         let emptyCount = max(0, maxPlayers - players.count)
         return VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text(name)
-                    .font(FMTypography.labelLarge)
-                    .foregroundColor(FMColors.onBackground)
+                FMTeamIdentityLabel(name: name, colorHex: colorHex, font: FMTypography.labelLarge)
                 Spacer()
                 Text(L10n.AdminMatchDetail.playerCount(players.count, maxPlayers))
                     .font(FMTypography.bodySmall)

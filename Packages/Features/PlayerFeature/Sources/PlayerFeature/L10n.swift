@@ -253,6 +253,12 @@ public enum L10n {
 
     // MARK: - Match Detail
     public enum MatchDetail {
+        public static func winner(_ teamName: String) -> String {
+            String(format: NSLocalizedString("matchDetail.winner", bundle: .module, comment: ""), teamName)
+        }
+        public static var draw: String {
+            NSLocalizedString("matchDetail.draw", bundle: .module, comment: "")
+        }
         public static var currentLineup: String {
             NSLocalizedString("matchDetail.currentLineup", bundle: .module, comment: "")
         }

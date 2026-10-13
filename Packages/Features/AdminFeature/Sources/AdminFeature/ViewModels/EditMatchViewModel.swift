@@ -14,11 +14,16 @@ final class EditMatchViewModel: ObservableObject {
     @Published var priceText: String
     @Published var selectedGender: MatchGender?
     @Published var selectedLevel: MatchPlayerLevel?
+    @Published var selectedTeamA: TeamVisualCatalogItem?
+    @Published var selectedTeamB: TeamVisualCatalogItem?
 
     // MARK: - Submit / Load State
 
     @Published private(set) var availableFields: [FieldIdName] = []
     @Published private(set) var isLoadingFields = false
+    @Published private(set) var availableTeams: [TeamVisualCatalogItem] = []
+    @Published private(set) var isLoadingTeams = false
+    @Published var teamsErrorMessage: String?
     @Published private(set) var isSaving = false
     @Published var errorMessage: String?
     @Published private(set) var updatedMatch: AdminMatch?
@@ -31,12 +36,21 @@ final class EditMatchViewModel: ObservableObject {
     private let originalForm: FormSnapshot
     private let updateUseCase: UpdateAdminMatchUseCaseProtocol
     private let fetchFieldIdNamesUseCase: FetchFieldIdNamesUseCaseProtocol
+    private let fetchTeamCatalogUseCase: FetchTeamCatalogUseCaseProtocol?
+    /// Snapshot stored on the match; the match carries no catalog ids, so it is
+    /// matched against the catalog by name + color to preselect the dropdowns.
+    private let originalTeamVisuals: AdminMatchTeamVisuals?
+    /// Catalog ids the form started with, known once the catalog resolves them.
+    private var originalTeamIds: (a: String, b: String)?
 
     init(
         match: AdminMatch,
         updateUseCase: UpdateAdminMatchUseCaseProtocol,
-        fetchFieldIdNamesUseCase: FetchFieldIdNamesUseCaseProtocol
+        fetchFieldIdNamesUseCase: FetchFieldIdNamesUseCaseProtocol,
+        fetchTeamCatalogUseCase: FetchTeamCatalogUseCaseProtocol? = nil
     ) {
+        self.originalTeamVisuals = match.teamVisuals
+        self.fetchTeamCatalogUseCase = fetchTeamCatalogUseCase
         self.originalMatchId = match.id
         self.originalFieldId = match.fieldId
 
@@ -68,6 +82,56 @@ final class EditMatchViewModel: ObservableObject {
             gender: match.gender,
             playerLevel: match.playerLevel
         )
+    }
+
+    // MARK: - Teams
+
+    var supportsTeamSelection: Bool { fetchTeamCatalogUseCase != nil }
+
+    /// Team B can't repeat the identity picked for Team A.
+    var teamBOptions: [TeamVisualCatalogItem] {
+        availableTeams.filter { $0.id != selectedTeamA?.id }
+    }
+
+    func loadTeams(forceRefresh: Bool = false) async {
+        guard let fetchTeamCatalogUseCase else { return }
+        isLoadingTeams = true
+        teamsErrorMessage = nil
+        do {
+            let teams = try await fetchTeamCatalogUseCase.execute(forceRefresh: forceRefresh)
+            availableTeams = teams
+            if originalTeamIds == nil, let visuals = originalTeamVisuals,
+               let a = teams.first(where: { $0.matches(visuals.teamA) }),
+               let b = teams.first(where: { $0.matches(visuals.teamB) }), a.id != b.id {
+                originalTeamIds = (a.id, b.id)
+                if selectedTeamA == nil { selectedTeamA = a }
+                if selectedTeamB == nil { selectedTeamB = b }
+            }
+            selectedTeamA = teams.first { $0.id == selectedTeamA?.id } ?? selectedTeamA
+            selectedTeamB = teams.first { $0.id == selectedTeamB?.id } ?? selectedTeamB
+        } catch {
+            teamsErrorMessage = error.localizedDescription
+        }
+        isLoadingTeams = false
+    }
+
+    /// The pair differs from what the form started with. Unknown (false) until the
+    /// catalog resolved the original ids, so a slow load never reads as an edit.
+    private var teamsChanged: Bool {
+        guard let original = originalTeamIds else {
+            // Match had no usable snapshot: any complete selection is a change.
+            return originalTeamVisuals == nil && selectedTeamA != nil && selectedTeamB != nil
+        }
+        return selectedTeamA?.id != original.a || selectedTeamB?.id != original.b
+    }
+
+    /// Teams are optional on edit (omitting keeps the snapshot) but are sent as a pair.
+    private var hasValidTeams: Bool {
+        switch (selectedTeamA, selectedTeamB) {
+        case (nil, nil): return true
+        case let (a?, b?): return a.id != b.id
+        default: return false
+        }
     }
 
     // MARK: - Load Fields
@@ -141,7 +205,7 @@ final class EditMatchViewModel: ObservableObject {
 
     /// False while the form still matches the match it was loaded from — saving then would
     /// be a no-op round trip.
-    var hasChanges: Bool { currentForm != originalForm }
+    var hasChanges: Bool { currentForm != originalForm || teamsChanged }
 
     var isValid: Bool {
         guard let minPlayers, let maxPlayers else { return false }
@@ -153,6 +217,7 @@ final class EditMatchViewModel: ObservableObject {
             && priceInCents != nil
             && selectedGender != nil
             && selectedLevel != nil
+            && hasValidTeams
     }
 
     // MARK: - Price Formatting
@@ -190,7 +255,9 @@ final class EditMatchViewModel: ObservableObject {
             maxPlayers: maxPlayers,
             priceInCents: priceInCents,
             gender: gender,
-            playerLevel: level
+            playerLevel: level,
+            teamAId: teamsChanged ? selectedTeamA?.id : nil,
+            teamBId: teamsChanged ? selectedTeamB?.id : nil
         )
 
         isSaving = true

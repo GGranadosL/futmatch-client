@@ -5,11 +5,14 @@ public struct FMMatchTeam {
     public let name: String
     public let avatarURLs: [String?]
     public let playerCount: Int
-    
-    public init(name: String, avatarURLs: [String?] = [], playerCount: Int) {
+    /// Hex color (`#RRGGBB`) of the team jersey; `nil` renders the name only.
+    public let colorHex: String?
+
+    public init(name: String, avatarURLs: [String?] = [], playerCount: Int, colorHex: String? = nil) {
         self.name = name
         self.avatarURLs = avatarURLs
         self.playerCount = playerCount
+        self.colorHex = colorHex
     }
 }
 
@@ -194,10 +197,8 @@ public struct FMMatchCard: View {
     
     private func teamColumn(team: FMMatchTeam) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(team.name)
-                .font(FMTypography.labelMedium)
-                .foregroundColor(FMColors.onSurfaceVariant)
-            
+            FMTeamIdentityLabel(name: team.name, colorHex: team.colorHex)
+
             FMStackedAvatars(
                 avatarURLs: team.avatarURLs,
                 totalCount: team.playerCount,

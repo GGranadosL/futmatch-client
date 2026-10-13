@@ -28,6 +28,11 @@ class CachedMatchEntity: NSManagedObject {
     /// `MatchItem.coordinate` already treats as absent.
     @NSManaged var latitude: Double
     @NSManaged var longitude: Double
+    /// Team identity snapshot (name + `#RRGGBB`). `nil` for matches that predate it.
+    @NSManaged var teamAName: String?
+    @NSManaged var teamAColor: String?
+    @NSManaged var teamBName: String?
+    @NSManaged var teamBColor: String?
     @NSManaged var cachedAt: Date
 
     class func fetchRequest() -> NSFetchRequest<CachedMatchEntity> {

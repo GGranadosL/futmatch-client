@@ -239,13 +239,35 @@ public struct AdminDependencyFactory {
     }
 
     @MainActor
-    func makeNewMatchViewModel() -> NewMatchViewModel {
+    func makeNewMatchViewModel(context: NSManagedObjectContext) -> NewMatchViewModel {
         NewMatchViewModel(
             createMatchUseCase: makeCreateMatchUseCase(),
             fetchFieldIdNamesUseCase: makeFetchFieldIdNamesUseCase(),
             fetchOrganizersUseCase: makeFetchOrganizersUseCase(),
+            fetchTeamCatalogUseCase: makeFetchTeamCatalogUseCase(context: context),
             fetchPricingEstimateUseCase: makeFetchPricingEstimateUseCase(),
             fetchCustomPricingUseCase: makeFetchCustomPricingUseCase()
+        )
+    }
+
+    // MARK: - Team catalog
+
+    func makeTeamService() -> TeamServiceProtocol {
+        TeamService()
+    }
+
+    func makeTeamCatalogRepository() -> TeamCatalogRepositoryProtocol {
+        TeamCatalogRepository(service: makeTeamService())
+    }
+
+    func makeTeamCatalogCacheRepository(context: NSManagedObjectContext) -> TeamCatalogCacheRepositoryProtocol {
+        TeamCatalogCoreDataCacheRepository(context: context)
+    }
+
+    func makeFetchTeamCatalogUseCase(context: NSManagedObjectContext) -> FetchTeamCatalogUseCaseProtocol {
+        FetchTeamCatalogUseCase(
+            repository: makeTeamCatalogRepository(),
+            cache: makeTeamCatalogCacheRepository(context: context)
         )
     }
 
@@ -329,11 +351,12 @@ public struct AdminDependencyFactory {
     }
 
     @MainActor
-    func makeEditMatchViewModel(match: AdminMatch) -> EditMatchViewModel {
+    func makeEditMatchViewModel(match: AdminMatch, context: NSManagedObjectContext) -> EditMatchViewModel {
         EditMatchViewModel(
             match: match,
             updateUseCase: makeUpdateAdminMatchUseCase(),
-            fetchFieldIdNamesUseCase: makeFetchFieldIdNamesUseCase()
+            fetchFieldIdNamesUseCase: makeFetchFieldIdNamesUseCase(),
+            fetchTeamCatalogUseCase: makeFetchTeamCatalogUseCase(context: context)
         )
     }
 

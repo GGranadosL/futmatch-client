@@ -34,6 +34,18 @@ struct EditMatchView: View {
                     genderSection
                     levelSection
 
+                    if viewModel.supportsTeamSelection {
+                        TeamIdentitySection(
+                            selectedTeamA: $viewModel.selectedTeamA,
+                            selectedTeamB: $viewModel.selectedTeamB,
+                            activeDropdownId: $activeDropdownId,
+                            teamAOptions: viewModel.availableTeams,
+                            teamBOptions: viewModel.teamBOptions,
+                            isLoading: viewModel.isLoadingTeams,
+                            errorMessage: viewModel.teamsErrorMessage
+                        )
+                    }
+
                     if let error = viewModel.errorMessage {
                         Text(error)
                             .font(FMTypography.bodySmall)
@@ -90,6 +102,8 @@ struct EditMatchView: View {
         .fmToast(L10n.EditMatch.successMessage, isPresented: $showSuccessToast, style: .success)
         .fmToast(errorToastMessage, isPresented: $showErrorToast, style: .error)
         .task { await viewModel.loadFields() }
+        .task { await viewModel.loadTeams() }
+        .refreshable { await viewModel.loadTeams(forceRefresh: true) }
     }
 
     // MARK: - Location Section

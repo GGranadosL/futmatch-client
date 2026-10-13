@@ -108,6 +108,17 @@ struct MatchBestPlayer: Hashable {
     let name: String
 }
 
+/// Name + jersey color snapshot of one team, as stored on the match by the backend.
+struct MatchTeamVisual: Hashable {
+    let name: String
+    let colorHex: String?
+}
+
+struct MatchTeamVisuals: Hashable {
+    let teamA: MatchTeamVisual
+    let teamB: MatchTeamVisual
+}
+
 struct MatchItem: Identifiable, Hashable {
     let id: String
     let venueName: String
@@ -139,6 +150,8 @@ struct MatchItem: Identifiable, Hashable {
     let longitude: Double?
     let goalBreakdown: MatchGoalBreakdown?
     let bestPlayer: MatchBestPlayer?
+    /// `nil` for matches created before team identities existed.
+    let teamVisuals: MatchTeamVisuals?
 
     init(
         id: String = UUID().uuidString,
@@ -170,7 +183,8 @@ struct MatchItem: Identifiable, Hashable {
         latitude: Double? = nil,
         longitude: Double? = nil,
         goalBreakdown: MatchGoalBreakdown? = nil,
-        bestPlayer: MatchBestPlayer? = nil
+        bestPlayer: MatchBestPlayer? = nil,
+        teamVisuals: MatchTeamVisuals? = nil
     ) {
         self.id = id
         self.venueName = venueName
@@ -202,7 +216,14 @@ struct MatchItem: Identifiable, Hashable {
         self.longitude = longitude
         self.goalBreakdown = goalBreakdown
         self.bestPlayer = bestPlayer
+        self.teamVisuals = teamVisuals
     }
+
+    /// Snapshot name when available, otherwise the localized "Team A" fallback.
+    var teamAName: String { teamVisuals?.teamA.name.nonEmpty ?? L10n.Matches.teamA }
+    var teamBName: String { teamVisuals?.teamB.name.nonEmpty ?? L10n.Matches.teamB }
+    var teamAColorHex: String? { teamVisuals?.teamA.colorHex }
+    var teamBColorHex: String? { teamVisuals?.teamB.colorHex }
 
     static func == (lhs: MatchItem, rhs: MatchItem) -> Bool { lhs.id == rhs.id }
     func hash(into hasher: inout Hasher) { hasher.combine(id) }
@@ -438,14 +459,16 @@ struct MatchesListView: View {
             spotsLeft: match.spotsLeft,
             spotsLabel: L10n.Matches.spotsLeft(match.spotsLeft),
             teamA: FMMatchTeam(
-                name: L10n.Matches.teamA,
+                name: match.teamAName,
                 avatarURLs: match.teamAPlayers.prefix(3).map { $0.avatarUrl },
-                playerCount: match.teamAPlayers.count
+                playerCount: match.teamAPlayers.count,
+                colorHex: match.teamAColorHex
             ),
             teamB: FMMatchTeam(
-                name: L10n.Matches.teamB,
+                name: match.teamBName,
                 avatarURLs: match.teamBPlayers.prefix(3).map { $0.avatarUrl },
-                playerCount: match.teamBPlayers.count
+                playerCount: match.teamBPlayers.count,
+                colorHex: match.teamBColorHex
             ),
             distance: match.formattedDistance(from: matchesViewModel.userCoordinate),
             fieldImageUrl: match.fieldImageUrl,
@@ -456,4 +479,8 @@ struct MatchesListView: View {
         )
     }
     
+}
+
+private extension String {
+    var nonEmpty: String? { trimmingCharacters(in: .whitespaces).isEmpty ? nil : self }
 }
