@@ -64,7 +64,9 @@ public class OnboardingViewModel: ObservableObject {
     @Published public var successMessage: String?
     @Published public var showVerification: Bool = false
     @Published public var isVerificationComplete: Bool = false
-    @Published public var resendCodeTimeInSeconds: Int = 60
+    /// Code and resend countdowns for the registration email code, from the backend.
+    /// `nil` until the code has actually been requested.
+    @Published public private(set) var codeWindow: MFACodeWindow?
     @Published public var isDraftRestored: Bool = false
     /// Set when the social credential expired mid-onboarding (Apple only — its
     /// identity token is short-lived and cannot be re-minted silently). The
@@ -358,7 +360,7 @@ public class OnboardingViewModel: ObservableObject {
                 let result = try await registerUserUseCase.execute(request: request)
 
                 if result.success {
-                    resendCodeTimeInSeconds = result.resendCodeTimeInSeconds
+                    codeWindow = result.codeWindow
                     showVerification = true
                 }
             }
@@ -419,7 +421,7 @@ public class OnboardingViewModel: ObservableObject {
             let result = try await registerUserUseCase.execute(request: request)
 
             if result.success {
-                resendCodeTimeInSeconds = result.resendCodeTimeInSeconds
+                codeWindow = result.codeWindow
             }
         } catch {
             errorMessage = error.localizedDescription

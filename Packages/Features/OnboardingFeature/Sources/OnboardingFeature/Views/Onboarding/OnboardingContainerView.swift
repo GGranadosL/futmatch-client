@@ -106,8 +106,7 @@ public struct OnboardingContainerView: View {
                 case .verification:
                     VerificationCodeView(
                         viewModel: viewModel,
-                        email: viewModel.email,
-                        countdown: viewModel.resendCodeTimeInSeconds
+                        email: viewModel.email
                     )
                 }
             }

@@ -9,6 +9,8 @@ enum AuthEndpoint: APIEndpoint {
     case signIn(SignInRequest)
     case socialResolve(AuthProvider, SocialResolveRequest)
     case socialRegister(AuthProvider, SocialRegisterRequest)
+    case socialLinkStart(SocialLinkStartRequest)
+    case socialLinkConfirm(AuthProvider, SocialLinkConfirmRequest)
     case mfaSend(MFASendRequest)
     case mfaVerify(MFAVerifyRequest)
     case forgotPassword(email: String)
@@ -31,6 +33,10 @@ enum AuthEndpoint: APIEndpoint {
             return "/auth/\(provider.rawValue.lowercased())/resolve"
         case .socialRegister(let provider, _):
             return "/auth/\(provider.rawValue.lowercased())/register"
+        case .socialLinkStart:
+            return "/auth/social-link/start"
+        case .socialLinkConfirm(let provider, _):
+            return "/auth/social-link/\(provider.rawValue.lowercased())/confirm"
         case .mfaSend:
             return "/auth/mfa/send"
         case .mfaVerify:
@@ -50,7 +56,7 @@ enum AuthEndpoint: APIEndpoint {
     
     var method: HTTPMethod {
         switch self {
-        case .registerStart, .registerComplete, .registerResendCode, .signIn, .socialResolve, .socialRegister, .mfaSend, .mfaVerify, .forgotPassword, .verifyResetMFA, .refreshToken, .signOut:
+        case .registerStart, .registerComplete, .registerResendCode, .signIn, .socialResolve, .socialRegister, .socialLinkStart, .socialLinkConfirm, .mfaSend, .mfaVerify, .forgotPassword, .verifyResetMFA, .refreshToken, .signOut:
             return .post
         case .resetPassword:
             return .put
@@ -90,6 +96,10 @@ enum AuthEndpoint: APIEndpoint {
             return try? JSONEncoder().encode(request)
         case .socialRegister(_, let request):
             return try? JSONEncoder().encode(request)
+        case .socialLinkStart(let request):
+            return try? JSONEncoder().encode(request)
+        case .socialLinkConfirm(_, let request):
+            return try? JSONEncoder().encode(request)
         case .mfaSend(let request):
             return try? JSONEncoder().encode(request)
         case .mfaVerify(let request):
@@ -110,7 +120,7 @@ enum AuthEndpoint: APIEndpoint {
     
     var requiresAuth: Bool {
         switch self {
-        case .refreshToken, .registerStart, .registerComplete, .registerResendCode, .signIn, .socialResolve, .socialRegister, .mfaSend, .mfaVerify, .forgotPassword, .verifyResetMFA, .resetPassword:
+        case .refreshToken, .registerStart, .registerComplete, .registerResendCode, .signIn, .socialResolve, .socialRegister, .socialLinkStart, .socialLinkConfirm, .mfaSend, .mfaVerify, .forgotPassword, .verifyResetMFA, .resetPassword:
             return false
         case .signOut:
             return true

@@ -7,6 +7,10 @@ public struct RegisterStartResponse: Codable {
         public let success: Bool
         public let message: String
         public let resendCodeTimeInSeconds: Int
+        /// Optional because the endpoint did not report it originally. A required
+        /// field here would turn every response from an older backend into an
+        /// opaque decode failure; callers fall back to `MFADefaults.registration`.
+        public let expiresInSeconds: Int?
     }
 }
 
@@ -45,6 +49,8 @@ public struct ResendRegistrationCodeResponse: Codable {
         public let success: Bool
         public let message: String
         public let resendCodeTimeInSeconds: Int
+        /// See `RegisterStartResponse.ResponseData.expiresInSeconds`.
+        public let expiresInSeconds: Int?
     }
 }
 
@@ -181,6 +187,9 @@ public struct VerifyResetMFAResponse: Codable {
     
     public struct ResponseData: Codable {
         public let resetToken: String
+        /// Lifetime of `resetToken` itself, not of a code. Optional for the same
+        /// reason as the registration fields; falls back to `MFADefaults.resetToken`.
+        public let expiresInSeconds: Int?
     }
     
     public init(data: ResponseData) {

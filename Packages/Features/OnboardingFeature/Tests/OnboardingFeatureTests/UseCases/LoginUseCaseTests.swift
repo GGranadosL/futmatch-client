@@ -33,7 +33,7 @@ final class LoginUseCaseTests: XCTestCase {
         let result = try await sut.execute(email: "a@b.com", password: "pw")
 
         XCTAssertTrue(result.requiresMFA)
-        XCTAssertEqual(result.resendCodeTimeInSeconds, 45)
+        XCTAssertEqual(result.codeWindow?.secondsUntilResend(at: Date()), 45)
         XCTAssertEqual(result.challengeToken, "ch-1")
         XCTAssertEqual(auth.mfaSendCallCount, 1)
         XCTAssertEqual(auth.lastMFASendChallengeToken, "ch-1")

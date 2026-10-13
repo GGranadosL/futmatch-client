@@ -406,6 +406,15 @@ struct RootView: View {
                 guard let auth = socialProviders[provider] else { return nil }
                 return factory.makeRegisterSocialUserUseCase(socialAuth: auth)
             },
+            makeSocialLinkViewModel: { request, socialAuth in
+                factory.makeSocialLinkViewModel(
+                    request: request,
+                    socialAuth: socialAuth,
+                    firebaseSignIn: { token in
+                        try await Auth.auth().signIn(withCustomToken: token)
+                    }
+                )
+            },
             saveOnboardingDraftUseCase: factory.makeSaveOnboardingDraftUseCase(),
             getOnboardingDraftUseCase: factory.makeGetOnboardingDraftUseCase(),
             clearOnboardingDraftUseCase: factory.makeClearOnboardingDraftUseCase(),

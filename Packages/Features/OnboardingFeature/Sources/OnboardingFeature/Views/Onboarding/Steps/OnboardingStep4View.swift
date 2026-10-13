@@ -44,8 +44,7 @@ struct OnboardingStep4View: View {
             .navigationDestination(isPresented: $viewModel.showVerification) {
             VerificationCodeView(
                 viewModel: viewModel,
-                email: viewModel.email,
-                countdown: viewModel.resendCodeTimeInSeconds
+                email: viewModel.email
             )
         }
     }

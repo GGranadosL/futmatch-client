@@ -113,157 +113,36 @@ struct ForgotPasswordEmailView: View {
 
 // MARK: - Verification Code View
 
+/// Password-recovery code — a thin wrapper over `MFACodeEntryView`.
+///
+/// Previously this screen hand-rolled its own six-digit boxes over a hidden
+/// `TextField`, duplicating `FMCodeInputField`, and drove them from a counter that
+/// drifted whenever the app was backgrounded.
 struct ForgotPasswordVerificationView: View {
     @ObservedObject var coordinator: ForgotPasswordCoordinatorViewModel
     let email: String
     @State private var code = ""
-    @FocusState private var isTextFieldFocused: Bool
-    @State private var timeRemaining: Int = 0
-    @State private var timer: Timer?
-    
-    private var isCodeValid: Bool {
-        code.count == 6
-    }
-    
-    private var canResendCode: Bool {
-        timeRemaining == 0
-    }
-    
+
     var body: some View {
-        ScrollView {
-            VStack(spacing: 0) {
-                // Header
-                VStack(spacing: 12) {
-                    Image(systemName: "envelope.badge")
-                        .font(.system(size: 60))
-                        .foregroundColor(FMColors.primary)
-                    
-                    Text(L10n.ForgotPassword.verificationTitle)
-                        .font(FMTypography.title)
-                        .foregroundColor(FMColors.primary)
-                    
-                    Text(L10n.ForgotPassword.verificationSubtitle)
-                        .font(FMTypography.caption)
-                        .foregroundColor(FMColors.secondary)
-                        .multilineTextAlignment(.center)
+        MFACodeEntryView(
+            iconSystemName: "envelope.badge",
+            title: L10n.ForgotPassword.verificationTitle,
+            subtitle: L10n.ForgotPassword.verificationSubtitle,
+            email: email,
+            code: $code,
+            isLoading: coordinator.isLoading,
+            verifyButtonTitle: L10n.ForgotPassword.confirmButton,
+            window: coordinator.codeWindow,
+            onVerify: {
+                Task { await coordinator.verifyCode(code, email: email) }
+            },
+            onResend: {
+                Task {
+                    await coordinator.sendForgotPasswordEmail(email)
+                    code = ""
                 }
-                .padding(.top, 40)
-                .padding(.bottom, 40)
-                .padding(.horizontal, 24)
-                
-                // Code Input
-                HStack(spacing: 12) {
-                    ForEach(0..<6, id: \.self) { index in
-                        Rectangle()
-                            .fill(Color.clear)
-                            .frame(width: 44, height: 52)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .stroke(FMColors.primary, lineWidth: 1)
-                            )
-                            .overlay(
-                                Text(getDigit(at: index))
-                                    .font(FMTypography.title2)
-                                    .foregroundColor(FMColors.primary)
-                            )
-                            .onTapGesture {
-                                isTextFieldFocused = true
-                            }
-                    }
-                }
-                .padding(.horizontal, 24)
-                .onTapGesture {
-                    isTextFieldFocused = true
-                }
-                
-                // Hidden TextField for code input
-                TextField("", text: $code)
-                    .keyboardType(.numberPad)
-                    .textContentType(.oneTimeCode)
-                    .focused($isTextFieldFocused)
-                    .opacity(0)
-                    .frame(width: 0, height: 0)
-                    .onChange(of: code) { newValue in
-                        // Only allow numbers
-                        let filtered = newValue.filter { $0.isNumber }
-                        if filtered != newValue {
-                            code = filtered
-                        }
-                        if code.count > 6 {
-                            code = String(code.prefix(6))
-                        }
-                    }
-                
-                Spacer(minLength: 24)
-                
-                // Timer and Resend Section
-                VStack(spacing: 12) {
-                    if canResendCode {
-                        Button(L10n.ForgotPassword.resendCode) {
-                            Task {
-                                await coordinator.sendForgotPasswordEmail(email)
-                                startTimer()
-                            }
-                        }
-                        .font(FMTypography.caption)
-                        .foregroundColor(FMColors.primary)
-                    } else {
-                        Text(String(format: L10n.ForgotPassword.resendTimer, timeRemaining))
-                            .font(FMTypography.caption)
-                            .foregroundColor(FMColors.secondary)
-                    }
-                }
-                .padding(.bottom, 40)
-                
-                // Confirm Button
-                FMPrimaryButton(
-                    title: L10n.ForgotPassword.confirmButton,
-                    isLoading: coordinator.isLoading,
-                    isEnabled: isCodeValid
-                ) {
-                    Task {
-                        await coordinator.verifyCode(code, email: email)
-                    }
-                }
-                .padding(.horizontal, 24)
-                .padding(.bottom, 24)
             }
-        }
-        .onAppear {
-            // Auto-focus the text field when view appears
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                isTextFieldFocused = true
-            }
-            // Start timer
-            startTimer()
-        }
-        .onDisappear {
-            stopTimer()
-        }
-    }
-    
-    private func startTimer() {
-        timeRemaining = coordinator.resendCodeTimeInSeconds
-        timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
-            if timeRemaining > 0 {
-                timeRemaining -= 1
-            } else {
-                stopTimer()
-            }
-        }
-    }
-    
-    private func stopTimer() {
-        timer?.invalidate()
-        timer = nil
-    }
-    
-    private func getDigit(at index: Int) -> String {
-        if index < code.count {
-            let digitIndex = code.index(code.startIndex, offsetBy: index)
-            return String(code[digitIndex])
-        }
-        return ""
+        )
     }
 }
 

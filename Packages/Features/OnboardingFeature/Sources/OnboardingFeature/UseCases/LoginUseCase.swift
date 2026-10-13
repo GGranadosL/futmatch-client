@@ -11,12 +11,16 @@ public protocol LoginUseCaseProtocol {
 // MARK: - Result
 public struct LoginResult {
     public let requiresMFA: Bool
-    public let resendCodeTimeInSeconds: Int
+    /// Both countdowns for the challenge, as reported by the backend. `nil` when no
+    /// MFA is required. Replaces the bare resend interval this used to carry: the
+    /// code's own lifetime was being dropped on the floor, so an expired code stayed
+    /// submittable.
+    public let codeWindow: MFACodeWindow?
     public let challengeToken: String?
 
-    public init(requiresMFA: Bool = false, resendCodeTimeInSeconds: Int = 0, challengeToken: String? = nil) {
+    public init(requiresMFA: Bool = false, codeWindow: MFACodeWindow? = nil, challengeToken: String? = nil) {
         self.requiresMFA = requiresMFA
-        self.resendCodeTimeInSeconds = resendCodeTimeInSeconds
+        self.codeWindow = codeWindow
         self.challengeToken = challengeToken
     }
 }
@@ -30,6 +34,14 @@ public struct MFAResult {
         self.newCodeSent = newCodeSent
         self.expiresInSeconds = expiresInSeconds
         self.resendCodeTimeInSeconds = resendCodeTimeInSeconds
+    }
+
+    /// The same two values as absolute dates, which is what the UI counts down from.
+    public var codeWindow: MFACodeWindow {
+        MFACodeWindow(
+            expiresInSeconds: expiresInSeconds,
+            resendCodeTimeInSeconds: resendCodeTimeInSeconds
+        )
     }
 }
 
@@ -62,7 +74,10 @@ public final class LoginUseCase: LoginUseCaseProtocol {
             let mfaResponse = try await authService.mfaSend(challengeToken: challengeToken)
             return LoginResult(
                 requiresMFA: true,
-                resendCodeTimeInSeconds: mfaResponse.data.resendCodeTimeInSeconds,
+                codeWindow: MFACodeWindow(
+                    expiresInSeconds: mfaResponse.data.expiresInSeconds,
+                    resendCodeTimeInSeconds: mfaResponse.data.resendCodeTimeInSeconds
+                ),
                 challengeToken: challengeToken
             )
         }
