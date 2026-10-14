@@ -25,7 +25,7 @@ final class PaymentMethodsViewModel: ObservableObject {
             STPAPIClient.shared.publishableKey = session.publishableKey
 
             var config = CustomerSheet.Configuration()
-            config.merchantDisplayName = "FutMatch"
+            config.merchantDisplayName = "Interfut"
             config.applePayEnabled = true
 
             let service = self.paymentService

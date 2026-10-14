@@ -65,7 +65,6 @@ enum Config {
     static var apiBaseURL: String { environment.baseURL }
     
     static let appVersion = "1.0.0"
-    static let appName = "FutMatch"
 
     /// Whether Firebase App Check is installed. Always on.
     ///

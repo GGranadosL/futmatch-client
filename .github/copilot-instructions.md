@@ -1,4 +1,4 @@
-# FutMatch iOS - Copilot Instructions
+# Interfut iOS - Copilot Instructions
 
 ## 🏗️ Architecture
 
@@ -38,7 +38,7 @@ Packages/
 │
 ├── Features/
 │   ├── OnboardingFeature/     # Login, SignUp, Verification
-│   ├── HomeFeature/           # Main tabs, Games list
+│   ├── PlayerFeature/         # Main tabs, matches list, profile, payments
 │   └── [NewFeature]/          # Each feature is a Swift Package
 │
 └── Shared/
@@ -278,7 +278,7 @@ enum AuthError: LocalizedError {
 ### 7. Design System
 
 - Use `FMColors` for all colors
-- Use `FMTypography` for all fonts (Inter)
+- Use `FMTypography` for all fonts (Montserrat)
 - Use `FM*` components (FMTextField, FMPrimaryButton, etc.)
 - Primary color: `#3E5F90` (light) / `#6B9BD1` (dark)
 

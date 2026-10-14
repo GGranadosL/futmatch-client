@@ -1,6 +1,6 @@
 # OnboardingFeature
 
-Feature module for user authentication and onboarding in FutMatch.
+Feature module for user authentication and onboarding in Interfut.
 
 ## Usage Example
 

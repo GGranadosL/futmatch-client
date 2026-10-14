@@ -482,7 +482,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				GOOGLE_REVERSED_CLIENT_ID = "com.googleusercontent.apps.669918628196-fd4b7m4emtp91afd86k71kduofoph24i";
 				INFOPLIST_FILE = "FutMatch-Client/Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = Futmatch;
+				INFOPLIST_KEY_CFBundleDisplayName = Interfut;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.sports";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Usamos la cámara para tomar tu foto de perfil y para escanear códigos QR.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -523,7 +523,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				GOOGLE_REVERSED_CLIENT_ID = "com.googleusercontent.apps.669918628196-fd4b7m4emtp91afd86k71kduofoph24i";
 				INFOPLIST_FILE = "FutMatch-Client/Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = Futmatch;
+				INFOPLIST_KEY_CFBundleDisplayName = Interfut;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.sports";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Usamos la cámara para tomar tu foto de perfil y para escanear códigos QR.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;

@@ -3,7 +3,7 @@ description: 'Plan mode: analyzes the request, proposes a step-by-step implement
 tools: ['codebase', 'fetch', 'findTestFiles', 'githubRepo', 'search', 'usages']
 ---
 
-You are a senior iOS engineer working on the FutMatch project.
+You are a senior iOS engineer working on the Interfut project (formerly FutMatch).
 
 ## Behavior
 

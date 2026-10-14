@@ -1657,7 +1657,7 @@ struct MatchDetailView: View {
               let customerSessionClientSecret = data.customerSessionClientSecret else { return }
         STPAPIClient.shared.publishableKey = publishableKey
         var config = PaymentSheet.Configuration()
-        config.merchantDisplayName = "FutMatch"
+        config.merchantDisplayName = "Interfut"
         // Attach the customer so saved payment methods are shown in the sheet.
         // The backend returns a CustomerSession client secret (cuss_…), NOT an
         // ephemeral key — so it must go through the CustomerSession initializer.

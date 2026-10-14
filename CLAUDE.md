@@ -4,7 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Is
 
-FutMatch is a native iOS app (Swift/SwiftUI) for creating, managing, and booking football (soccer) matches and reserving sports venues. It uses a modular SPM (Swift Package Manager) architecture.
+Interfut (formerly FutMatch) is a native iOS app (Swift/SwiftUI) for creating, managing, and booking football (soccer) matches and reserving sports venues. It uses a modular SPM (Swift Package Manager) architecture.
+
+### Naming: the app is Interfut, the code still says FutMatch — on purpose
+
+The app was renamed from FutMatch to **Interfut** and the UI typeface moved from Inter to **Montserrat**. Only what the user can see changed. The bundle identifier (`com.futmatch.client`), the Keychain service, the target/scheme/module names (`FutMatch-Client`, `FutMatch_Client`), the Core Data model name and the `futmatch*.onrender.com` API hosts keep the old name deliberately. Do **not** rename them for consistency: the bundle identifier cannot be edited for a published app (a new one is a different App Store listing, with no migration of users, reviews, Keychain sessions or Core Data), and the others are runtime contracts. The `FM` prefix on the design system (`FMColors`, `FMTextField`, ...) is an abbreviation and stays too.
 
 ## Build & Test Commands
 
@@ -46,10 +50,9 @@ UDID instead: `xcrun simctl list devices available | grep 'iPhone 17'`.
 **Expect pre-existing breakage.** Because nothing runs these suites routinely, the
 test targets drift from the sources — stale mocks, assertions against refactored
 use cases, stub signatures missing parameters the tests already pass. As of
-2026-09-07: `PlayerFeature` passes (50 tests); `AdminFeature` passes (105 tests);
-`OnboardingFeature`'s test target does not compile (`TestSupport.swift` missing a
-`challengeToken` argument). When you hit one of these, fix it — but say so, and keep
-it separate from the change you came to make.
+2026-10-12: `PlayerFeature` passes (109 tests); `AdminFeature` passes (133 tests); `OnboardingFeature` passes (102 tests).
+When a suite drifts again and breaks, fix it — but say so, and keep it separate from
+the change you came to make.
 
 The location-catalog failures listed here previously were assertions hard-coding the
 contents of `LocationCountry` (`["MX"]`), which broke the moment a country was added.
@@ -77,7 +80,8 @@ Packages/
 │   └── FMDesignSystem/       # Shared UI components, theme, fonts
 ├── Features/
 │   ├── OnboardingFeature/    # Auth: login, registration, password reset
-│   └── HomeFeature/          # Main app: matches, profile, payments
+│   ├── PlayerFeature/        # Main app: matches, profile, payments
+│   └── AdminFeature/         # Organizer tools: fields, locations, matches, pricing
 └── Shared/
     └── SharedModels/         # DTOs and API response types shared across features
 ```
@@ -118,7 +122,7 @@ Token storage and retrieval goes through `KeychainManager.shared`.
 
 ## App Entry Point & Launch Flow
 
-1. `FutMatch_ClientApp.swift` — SwiftUI `@main`, sets up `AppState`, `PersistenceController`, and injects `HomeDependencyFactory`/`OnboardingDependencyFactory`.
+1. `FutMatch_ClientApp.swift` — SwiftUI `@main`, sets up `AppState`, `PersistenceController`, and injects `PlayerDependencyFactory`/`AdminDependencyFactory`/`OnboardingDependencyFactory`.
 2. `AppDelegate.swift` — Configures Firebase, FCM, and `IQKeyboardManagerSwift`.
 3. `RootView` reads `AppState.isLoggedIn` to decide between `LoginView` and `HomeContainerView`.
 4. On login: tokens → Keychain → Firebase custom token auth → FCM token sync → `isLoggedIn = true`.
@@ -128,12 +132,12 @@ Token storage and retrieval goes through `KeychainManager.shared`.
 
 - **Firebase** (v12+): Auth (custom token), Firestore (real-time), FCM (push notifications), Analytics.
 - **Stripe** (`stripe-ios-spm` v24+): `PaymentSheet` for in-app match booking payments.
-- **IQKeyboardManagerSwift**: Keyboard avoidance (CocoaPods, not SPM).
+- **IQKeyboardManagerSwift**: Keyboard avoidance (remote SPM package declared in the Xcode project; there is no Podfile).
 - **GoogleService-Info.plist** must be present in the app target for Firebase to initialize.
 
 ## Localization
 
-OnboardingFeature supports English and Spanish via generated `L10n.swift` (using SwiftGen or similar). String keys live in `.strings` files inside the feature package's resources.
+The app supports English and Spanish. String keys live in `Localizable.xcstrings` string catalogs, one per package plus one for the app target, and are read through each module's hand-written `L10n.swift` (or `AppGateL10n` in the app target).
 
 ### ⚠️ CRITICAL: No String Literals for User-Facing Text
 
