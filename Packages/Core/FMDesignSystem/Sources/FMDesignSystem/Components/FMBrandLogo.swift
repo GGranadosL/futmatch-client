@@ -21,7 +21,7 @@ public struct FMBrandLogo: View {
                 .frame(width: iconSize, height: iconSize)
 
             Text("Interfut")
-                .font(.montserratBold(size: fontSize))
+                .font(.interBold(size: fontSize))
                 .foregroundStyle(
                     LinearGradient(
                         colors: [FMColors.primary, FMColors.inversePrimary],

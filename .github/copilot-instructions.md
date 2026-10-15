@@ -278,7 +278,7 @@ enum AuthError: LocalizedError {
 ### 7. Design System
 
 - Use `FMColors` for all colors
-- Use `FMTypography` for all fonts (Montserrat)
+- Use `FMTypography` for all fonts (Inter)
 - Use `FM*` components (FMTextField, FMPrimaryButton, etc.)
 - Primary color: `#3E5F90` (light) / `#6B9BD1` (dark)
 
