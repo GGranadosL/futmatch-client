@@ -6,10 +6,10 @@ public enum FMFonts {
     /// Registers custom fonts from the bundle. Call this once at app launch.
     public static func registerFonts() {
         let fontNames = [
-            "Montserrat-Regular",
-            "Montserrat-Medium",
-            "Montserrat-SemiBold",
-            "Montserrat-Bold"
+            "Inter-Regular",
+            "Inter-Medium",
+            "Inter-SemiBold",
+            "Inter-Bold"
         ]
         
         for fontName in fontNames {
@@ -30,25 +30,25 @@ public enum FMFonts {
     }
 }
 
-// MARK: - Montserrat Font Extension
+// MARK: - Inter Font Extension
 public extension Font {
-    /// Montserrat Regular
-    static func montserrat(size: CGFloat) -> Font {
-        .custom("Montserrat-Regular", size: size)
+    /// Inter Regular
+    static func inter(size: CGFloat) -> Font {
+        .custom("Inter-Regular", size: size)
     }
     
-    /// Montserrat Medium
-    static func montserratMedium(size: CGFloat) -> Font {
-        .custom("Montserrat-Medium", size: size)
+    /// Inter Medium
+    static func interMedium(size: CGFloat) -> Font {
+        .custom("Inter-Medium", size: size)
     }
     
-    /// Montserrat SemiBold
-    static func montserratSemiBold(size: CGFloat) -> Font {
-        .custom("Montserrat-SemiBold", size: size)
+    /// Inter SemiBold
+    static func interSemiBold(size: CGFloat) -> Font {
+        .custom("Inter-SemiBold", size: size)
     }
     
-    /// Montserrat Bold
-    static func montserratBold(size: CGFloat) -> Font {
-        .custom("Montserrat-Bold", size: size)
+    /// Inter Bold
+    static func interBold(size: CGFloat) -> Font {
+        .custom("Inter-Bold", size: size)
     }
 }
