@@ -273,7 +273,8 @@ struct HomeContentView: View {
                 .foregroundColor(FMColors.onBackground)
                 .padding(.horizontal, 24)
 
-            let suggestions = homeViewModel.suggestedMatches
+            let enrolledIds = Set(reservedViewModel.myMatches.filter(\.isUpcoming).map(\.id))
+            let suggestions = homeViewModel.visibleSuggestions(excluding: enrolledIds)
             let isLoading = homeViewModel.isLoading && suggestions.isEmpty
 
             if isLoading {

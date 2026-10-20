@@ -18,8 +18,9 @@ import FirebaseAppCheck
 /// Install this **before** `FirebaseApp.configure()`.
 final class FutMatchAppCheckProviderFactory: NSObject, AppCheckProviderFactory {
     func createProvider(with app: FirebaseApp) -> AppCheckProvider? {
-        #if DEBUG
-        // Debug builds and the simulator cannot use App Attest / DeviceCheck.
+        #if DEBUG || targetEnvironment(simulator)
+        // Debug builds and the simulator (including Release builds run there, e.g. to take
+        // App Store screenshots against production) cannot use App Attest / DeviceCheck.
         return AppCheckDebugProvider(app: app)
         #else
         if #available(iOS 14.0, *), DCAppAttestService.shared.isSupported {

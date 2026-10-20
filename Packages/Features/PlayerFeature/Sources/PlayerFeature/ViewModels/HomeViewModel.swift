@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 import NetworkFramework
 import SharedModels
 
@@ -31,7 +32,8 @@ final class HomeViewModel: ObservableObject {
 
     private let homeService: HomeServiceProtocol
     private let fetchMatchDetailUseCase: FetchMatchDetailUseCaseProtocol
-    private static let cacheKey = "home.cache.homeDataDTO"
+    private var cancellables = Set<AnyCancellable>()
+    static let cacheKey = "home.cache.homeDataDTO"
 
     init(
         homeService: HomeServiceProtocol = HomeService(),
@@ -44,6 +46,16 @@ final class HomeViewModel: ObservableObject {
             apply(cached)
             hasData = true
         }
+        observeMembershipChanges()
+    }
+
+    /// Suggestions minus the matches the user is already enrolled in. `/home` and
+    /// `/match/my-matches` are separate requests, so right after a booking the
+    /// carousel can still list the match that "Your next match" already shows.
+    /// Filtering against the reserved list hides it the moment that list updates,
+    /// without waiting for `/home` to come back.
+    func visibleSuggestions(excluding enrolledIds: Set<String>) -> [MatchItem] {
+        suggestedMatches.filter { !enrolledIds.contains($0.id) }
     }
 
     func fetchLastMatchDetail() async -> MatchItem? {
@@ -81,6 +93,22 @@ final class HomeViewModel: ObservableObject {
             }
         }
         isLoading = false
+    }
+
+    // MARK: - Membership changes
+
+    /// Reloads `/home` after the user joins, pays for, leaves or cancels a match,
+    /// so the suggestions don't stay stale until a manual pull-to-refresh.
+    /// A single booking posts the notification several times (join → RESERVED,
+    /// payment confirmed, Firestore → JOINED); the debounce folds them into one request.
+    private func observeMembershipChanges() {
+        NotificationCenter.default.publisher(for: .matchMembershipDidChange)
+            .debounce(for: .milliseconds(400), scheduler: DispatchQueue.main)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                Task { await self.load() }
+            }
+            .store(in: &cancellables)
     }
 
     // MARK: - Cache (UserDefaults + Codable DTOs)

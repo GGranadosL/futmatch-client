@@ -40,9 +40,9 @@ public struct LegalLinksConfig: LegalLinksProtocol {
     public static let cacheKey = "fm_settings_legal_urls_cache_v1"
 
     private static let defaultPayload = LegalLinksPayload(
-        helpUrl: "https://futmatch.mx/faq",
-        termsUrl: "https://futmatch.mx/terminos",
-        privacyUrl: "https://futmatch.mx/privacidad"
+        helpUrl: "https://interfut.app/faq",
+        termsUrl: "https://interfut.app/terminos",
+        privacyUrl: "https://interfut.app/privacidad"
     )
 
     private let defaults: UserDefaults
