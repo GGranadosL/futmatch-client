@@ -46,6 +46,9 @@ public enum L10n {
         public static var viewDetail: String {
             NSLocalizedString("home.nextGame.viewDetail", bundle: .module, comment: "")
         }
+        public static var directions: String {
+            NSLocalizedString("home.nextGame.directions", bundle: .module, comment: "")
+        }
         public static var empty: String {
             NSLocalizedString("home.nextGame.empty", bundle: .module, comment: "")
         }
@@ -94,6 +97,18 @@ public enum L10n {
         public static var draw: String {
             NSLocalizedString("home.lastMatch.draw", bundle: .module, comment: "")
         }
+        public static var completed: String {
+            NSLocalizedString("home.lastMatch.completed", bundle: .module, comment: "")
+        }
+        public static func todayAt(_ time: String) -> String {
+            String(format: NSLocalizedString("home.lastMatch.todayAt", bundle: .module, comment: ""), time)
+        }
+        public static func yesterdayAt(_ time: String) -> String {
+            String(format: NSLocalizedString("home.lastMatch.yesterdayAt", bundle: .module, comment: ""), time)
+        }
+        public static func daysAgoAt(_ days: Int, _ time: String) -> String {
+            String(format: NSLocalizedString("home.lastMatch.daysAgoAt", bundle: .module, comment: ""), days, time)
+        }
         public static var empty: String {
             NSLocalizedString("home.lastMatch.empty", bundle: .module, comment: "")
         }
@@ -104,6 +119,9 @@ public enum L10n {
     
     // MARK: - Profile
     public enum Profile {
+        public static var playerProfileTitle: String {
+            NSLocalizedString("profile.playerProfileTitle", bundle: .module, comment: "")
+        }
         public static var editProfile: String {
             NSLocalizedString("profile.editProfile", bundle: .module, comment: "")
         }

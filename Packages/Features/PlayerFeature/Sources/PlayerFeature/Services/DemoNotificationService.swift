@@ -12,6 +12,12 @@ final class DemoNotificationService: NotificationServiceProtocol {
 
     /// En demo, el borrado es no-op (no hay estado persistido).
     func deleteNotification(id: String) async throws {}
+
+    func fetchUnreadCount() async throws -> Int {
+        Self.mockItems.filter { !$0.isRead }.count
+    }
+
+    func markAllAsRead() async throws -> Int { 0 }
 }
 
 // MARK: - Mock Data

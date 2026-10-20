@@ -349,7 +349,12 @@ final class MockKeychain: KeychainManaging {
 
 final class MockNotificationService: NotificationServiceProtocol {
     var fetchNotificationsResult: Result<[NotificationItem], Error> = .success([])
+    var unreadCountResult: Result<Int, Error> = .success(0)
+    var markAllReadResult: Result<Int, Error> = .success(0)
+    var deleteResult: Result<Void, Error> = .success(())
     private(set) var fetchNotificationsCallCount = 0
+    private(set) var unreadCountCallCount = 0
+    private(set) var markAllReadCallCount = 0
     private(set) var deletedIds: [String] = []
 
     func fetchNotifications() async throws -> [NotificationItem] {
@@ -359,60 +364,109 @@ final class MockNotificationService: NotificationServiceProtocol {
 
     func deleteNotification(id: String) async throws {
         deletedIds.append(id)
+        try deleteResult.get()
+    }
+
+    func fetchUnreadCount() async throws -> Int {
+        unreadCountCallCount += 1
+        return try unreadCountResult.get()
+    }
+
+    func markAllAsRead() async throws -> Int {
+        markAllReadCallCount += 1
+        return try markAllReadResult.get()
     }
 }
 
-// MARK: - MockFetchNotificationsUseCase
+// MARK: - MockNotificationCacheStore
 
-final class MockFetchNotificationsUseCase: FetchNotificationsUseCaseProtocol {
-    var result: Result<[NotificationItem]?, Error> = .success([])
-    private(set) var executeCallCount = 0
-    private(set) var lastForceRefresh: Bool?
-
-    func execute(forceRefresh: Bool) async throws -> [NotificationItem]? {
-        executeCallCount += 1
-        lastForceRefresh = forceRefresh
-        return try result.get()
-    }
-}
-
-// MARK: - MockSeenNotificationStore
-
-final class MockSeenNotificationStore: SeenNotificationStoreProtocol {
-    private(set) var seenIds: Set<String> = []
-    private(set) var clearCallCount = 0
-
-    init(seenIds: Set<String> = []) {
-        self.seenIds = seenIds
-    }
-
-    func markSeen(_ ids: Set<String>) {
-        guard !ids.isEmpty else { return }
-        seenIds.formUnion(ids)
-    }
-
-    func prune(keeping ids: Set<String>) {
-        seenIds.formIntersection(ids)
-    }
-
-    func clear() {
-        clearCallCount += 1
-        seenIds = []
-    }
-}
-
-// MARK: - MockNotificationFetchTimestampStore
-
-final class MockNotificationFetchTimestampStore: NotificationFetchTimestampStoreProtocol {
+final class MockNotificationCacheStore: NotificationCacheStoreProtocol {
+    var notifications: [NotificationItem] = []
+    var unreadCount = 0
     var lastFetchedAt: Date?
     private(set) var clearCallCount = 0
 
-    func setLastFetchedAt(_ date: Date) {
-        lastFetchedAt = date
+    func replaceNotifications(_ items: [NotificationItem], fetchedAt: Date) {
+        notifications = items
+        lastFetchedAt = fetchedAt
     }
+
+    func setUnreadCount(_ count: Int) { unreadCount = count }
+
+    func markAllRead() {
+        for index in notifications.indices { notifications[index].isRead = true }
+        unreadCount = 0
+    }
+
+    func removeNotification(id: String) { notifications.removeAll { $0.id == id } }
 
     func clear() {
         clearCallCount += 1
+        notifications = []
+        unreadCount = 0
+        lastFetchedAt = nil
+    }
+}
+
+// MARK: - MockNotificationRepository
+
+final class MockNotificationRepository: NotificationRepositoryProtocol {
+    var cachedNotifications: [NotificationItem] = []
+    var cachedUnreadCount = 0
+    var lastFetchedAt: Date?
+
+    var markAllReadResult: Result<Void, Error> = .success(())
+    /// What a successful refresh stores in the cache.
+    var refreshNotificationsResult: Result<[NotificationItem], Error> = .success([])
+    var refreshUnreadCountResult: Result<Int, Error> = .success(0)
+    var deleteResult: Result<Void, Error> = .success(())
+
+    private(set) var markAllReadCallCount = 0
+    private(set) var refreshNotificationsCallCount = 0
+    private(set) var refreshUnreadCountCallCount = 0
+    private(set) var deletedIds: [String] = []
+    private(set) var clearCallCount = 0
+    /// The counter as the use case saw it when it called `markAllAsRead()`.
+    private(set) var unreadCountAtMarkAllRead: Int?
+
+    func refreshNotifications() async throws -> [NotificationItem] {
+        refreshNotificationsCallCount += 1
+        let items = try refreshNotificationsResult.get()
+        cachedNotifications = items
+        lastFetchedAt = Date()
+        return items
+    }
+
+    func refreshUnreadCount() async throws -> Int {
+        refreshUnreadCountCallCount += 1
+        let count = try refreshUnreadCountResult.get()
+        cachedUnreadCount = count
+        return count
+    }
+
+    func markAllAsRead() async throws {
+        markAllReadCallCount += 1
+        unreadCountAtMarkAllRead = cachedUnreadCount
+        try markAllReadResult.get()
+        for index in cachedNotifications.indices { cachedNotifications[index].isRead = true }
+        cachedUnreadCount = 0
+    }
+
+    func deleteNotification(id: String) async throws {
+        deletedIds.append(id)
+        try deleteResult.get()
+        cachedNotifications.removeAll { $0.id == id }
+    }
+
+    func registerIncomingNotification() -> Int {
+        cachedUnreadCount += 1
+        return cachedUnreadCount
+    }
+
+    func clearAll() {
+        clearCallCount += 1
+        cachedNotifications = []
+        cachedUnreadCount = 0
         lastFetchedAt = nil
     }
 }

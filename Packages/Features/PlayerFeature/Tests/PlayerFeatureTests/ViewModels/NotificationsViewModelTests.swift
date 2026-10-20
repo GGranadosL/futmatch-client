@@ -9,25 +9,23 @@ final class NotificationsViewModelTests: XCTestCase {
     // MARK: - Helpers
 
     private func makeSUT(
-        notificationService: MockNotificationService = MockNotificationService(),
-        fetchNotificationsUseCase: MockFetchNotificationsUseCase = MockFetchNotificationsUseCase(),
-        seenStore: MockSeenNotificationStore = MockSeenNotificationStore()
+        repository: MockNotificationRepository = MockNotificationRepository(),
+        service: MockNotificationService = MockNotificationService()
     ) -> NotificationsViewModel {
         NotificationsViewModel(
-            notificationService: notificationService,
-            fetchNotificationsUseCase: fetchNotificationsUseCase,
-            fetchMatchDetailUseCase: MockFetchMatchDetailUseCase(),
-            seenStore: seenStore
+            loadCachedUseCase: LoadCachedNotificationsUseCase(repository: repository),
+            fetchUnreadCountUseCase: FetchUnreadNotificationCountUseCase(repository: repository),
+            openInboxUseCase: OpenNotificationInboxUseCase(repository: repository),
+            refreshInboxUseCase: RefreshNotificationInboxUseCase(repository: repository),
+            deleteNotificationUseCase: DeleteNotificationUseCase(repository: repository),
+            registerIncomingUseCase: RegisterIncomingNotificationUseCase(repository: repository),
+            clearStateUseCase: ClearNotificationStateUseCase(repository: repository),
+            fetchMatchDetailUseCase: MockFetchMatchDetailUseCase()
         )
     }
 
-    /// N distinct unread notifications, `n-0`…`n-<count-1>`.
-    private func unreadItems(_ count: Int) -> [NotificationItem] {
-        (0..<count).map { .stub(id: "n-\($0)", isRead: false) }
-    }
-
     /// Polls until `condition()` is true or `timeout` elapses — used to await
-    /// the Combine `.sink { Task { ... } }` hop triggered by a NotificationCenter post.
+    /// the Combine `.sink` hop triggered by a NotificationCenter post.
     private func waitUntil(
         timeout: TimeInterval = 1.0,
         _ condition: @escaping () -> Bool
@@ -38,193 +36,167 @@ final class NotificationsViewModelTests: XCTestCase {
         }
     }
 
-    // MARK: - load()
+    // MARK: - Badge
 
-    func test_load_firstCall_forcesFetch_evenWithoutExplicitForceRefresh() async {
-        let useCase = MockFetchNotificationsUseCase()
-        useCase.result = .success([.stub()])
-        let sut = makeSUT(fetchNotificationsUseCase: useCase)
+    func test_init_showsTheLastKnownCounterBeforeAnyRequest() {
+        let repo = MockNotificationRepository()
+        repo.cachedUnreadCount = 6
 
-        await sut.load()
+        let sut = makeSUT(repository: repo)
 
-        XCTAssertEqual(useCase.lastForceRefresh, true, "First-ever load must bypass the safety-net throttle since there's nothing displayable yet")
-        if case .loaded = sut.state {} else { XCTFail("Expected .loaded, got \(sut.state)") }
+        XCTAssertEqual(sut.unreadCount, 6)
+        XCTAssertEqual(repo.refreshUnreadCountCallCount, 0)
     }
 
-    func test_load_secondCall_keepsShowingData_whenUseCaseSkips() async {
-        let useCase = MockFetchNotificationsUseCase()
-        useCase.result = .success([.stub(id: "n-1")])
-        let sut = makeSUT(fetchNotificationsUseCase: useCase)
-        await sut.load()
+    func test_loadUnreadCountForSession_requestsTheServerCount() async {
+        let repo = MockNotificationRepository()
+        repo.refreshUnreadCountResult = .success(11)
+        let sut = makeSUT(repository: repo)
 
-        useCase.result = .success(nil) // simulate the safety-net throttle kicking in
-        await sut.load()
-
-        XCTAssertEqual(useCase.lastForceRefresh, false, "Already has data — shouldn't force through the throttle")
-        if case .loaded(let sections) = sut.state {
-            XCTAssertEqual(sections.first?.notifications.first?.id, "n-1", "Stale-but-valid data should remain visible")
-        } else {
-            XCTFail("Expected .loaded to persist, got \(sut.state)")
-        }
-    }
-
-    func test_load_forceRefresh_passesThrough_regardlessOfExistingData() async {
-        let useCase = MockFetchNotificationsUseCase()
-        useCase.result = .success([.stub()])
-        let sut = makeSUT(fetchNotificationsUseCase: useCase)
-        await sut.load()
-
-        await sut.load(forceRefresh: true)
-
-        XCTAssertEqual(useCase.lastForceRefresh, true)
-    }
-
-    // MARK: - loadUnreadCount()
-
-    func test_loadUnreadCount_ignoresNilResult_keepsPreviousCount() async {
-        let useCase = MockFetchNotificationsUseCase()
-        useCase.result = .success([.stub(isRead: false), .stub(id: "n-2", isRead: false)])
-        let sut = makeSUT(fetchNotificationsUseCase: useCase)
-        await sut.loadUnreadCount()
-        let countAfterFirstLoad = sut.unreadCount
-
-        useCase.result = .success(nil) // throttled
-        await sut.loadUnreadCount()
-
-        XCTAssertEqual(sut.unreadCount, countAfterFirstLoad, "A throttled (nil) result must not reset the badge")
-    }
-
-    // MARK: - Badge: seen-ID bookkeeping
-
-    func test_loadUnreadCount_countsEveryNotificationNotYetSeen() async {
-        let useCase = MockFetchNotificationsUseCase()
-        useCase.result = .success(unreadItems(11))
-        let sut = makeSUT(fetchNotificationsUseCase: useCase)
-
-        await sut.loadUnreadCount()
+        await sut.loadUnreadCountForSession()
 
         XCTAssertEqual(sut.unreadCount, 11)
     }
 
-    /// The regression this whole change exists for: opening the screen must clear the
-    /// badge for good even if the `load()` that follows never lands.
-    func test_markAsSeen_persistsImmediately_withoutAFollowUpLoad() async {
-        let useCase = MockFetchNotificationsUseCase()
-        useCase.result = .success(unreadItems(11))
-        let store = MockSeenNotificationStore()
-        let sut = makeSUT(fetchNotificationsUseCase: useCase, seenStore: store)
-        await sut.loadUnreadCount()
+    func test_loadUnreadCountForSession_asksOnlyOncePerSession() async {
+        let repo = MockNotificationRepository()
+        repo.refreshUnreadCountResult = .success(2)
+        let sut = makeSUT(repository: repo)
 
-        sut.markAsSeen() // screen opened; no load() runs at all
+        await sut.loadUnreadCountForSession()
+        await sut.loadUnreadCountForSession()
 
-        XCTAssertEqual(store.seenIds.count, 11, "Seen IDs must be persisted eagerly, not by the load() that follows")
-        await sut.loadUnreadCount(forceRefresh: true)
-        XCTAssertEqual(sut.unreadCount, 0, "The badge must not come back after the user has seen them")
+        XCTAssertEqual(repo.refreshUnreadCountCallCount, 1)
     }
 
-    func test_markAsSeen_badgeStaysCleared_whenFollowUpLoadIsThrottled() async {
-        let useCase = MockFetchNotificationsUseCase()
-        useCase.result = .success(unreadItems(11))
-        let sut = makeSUT(fetchNotificationsUseCase: useCase)
-        await sut.loadUnreadCount()
+    func test_loadUnreadCountForSession_retriesLater_whenTheRequestFailed() async {
+        let repo = MockNotificationRepository()
+        repo.cachedUnreadCount = 3
+        repo.refreshUnreadCountResult = .failure(TestError.boom)
+        let sut = makeSUT(repository: repo)
 
-        sut.markAsSeen()
-        useCase.result = .success(nil) // safety-net throttle swallows the screen's load()
-        await sut.load()
+        await sut.loadUnreadCountForSession()
+        XCTAssertEqual(sut.unreadCount, 3, "A failure must leave the badge as it was")
 
-        useCase.result = .success(unreadItems(11))
-        await sut.loadUnreadCount(forceRefresh: true)
+        repo.refreshUnreadCountResult = .success(4)
+        await sut.loadUnreadCountForSession()
+        XCTAssertEqual(sut.unreadCount, 4)
+    }
+
+    func test_userPush_incrementsBadgeLocally_withoutAnyRequest() async {
+        let repo = MockNotificationRepository()
+        repo.cachedUnreadCount = 2
+        let sut = makeSUT(repository: repo)
+
+        NotificationCenter.default.post(name: .inAppNotificationsPushReceived, object: nil)
+        await waitUntil { sut.unreadCount == 3 }
+
+        XCTAssertEqual(sut.unreadCount, 3)
+        XCTAssertEqual(repo.refreshUnreadCountCallCount, 0)
+        XCTAssertEqual(repo.refreshNotificationsCallCount, 0)
+    }
+
+    // MARK: - open()
+
+    func test_open_clearsBadge_andShowsServerHistory() async {
+        let repo = MockNotificationRepository()
+        repo.cachedUnreadCount = 2
+        repo.refreshNotificationsResult = .success([.stub(id: "a"), .stub(id: "b")])
+        let sut = makeSUT(repository: repo)
+
+        await sut.open()
+
         XCTAssertEqual(sut.unreadCount, 0)
+        guard case .loaded(let sections) = sut.state else { return XCTFail("Expected .loaded, got \(sut.state)") }
+        XCTAssertEqual(sections.flatMap(\.notifications).count, 2)
     }
 
-    func test_markAsSeen_badgeStaysCleared_whenFollowUpLoadIsCancelled() async {
-        let useCase = MockFetchNotificationsUseCase()
-        useCase.result = .success(unreadItems(11))
-        let sut = makeSUT(fetchNotificationsUseCase: useCase)
-        await sut.loadUnreadCount()
+    func test_open_isEmpty_whenServerHasNoNotifications() async {
+        let sut = makeSUT()
 
-        sut.markAsSeen()
-        useCase.result = .failure(CancellationError()) // user tapped back mid-flight
-        await sut.load()
+        await sut.open()
 
-        useCase.result = .success(unreadItems(11))
-        await sut.loadUnreadCount(forceRefresh: true)
-        XCTAssertEqual(sut.unreadCount, 0)
+        guard case .empty = sut.state else { return XCTFail("Expected .empty, got \(sut.state)") }
     }
 
-    func test_loadUnreadCount_countsOnlyTheNewNotification_afterTheRestWereSeen() async {
-        let useCase = MockFetchNotificationsUseCase()
-        useCase.result = .success(unreadItems(11))
-        let sut = makeSUT(fetchNotificationsUseCase: useCase)
-        await sut.loadUnreadCount()
-        sut.markAsSeen()
+    func test_open_showsCachedListInsteadOfFailing_whenTheRefreshErrors() async {
+        let repo = MockNotificationRepository()
+        repo.cachedUnreadCount = 1
+        repo.cachedNotifications = [.stub(id: "cached")]
+        repo.refreshNotificationsResult = .failure(TestError.boom)
+        let sut = makeSUT(repository: repo)
 
-        useCase.result = .success(unreadItems(11) + [.stub(id: "n-new", isRead: false)])
-        await sut.loadUnreadCount(forceRefresh: true)
+        await sut.open()
 
-        XCTAssertEqual(sut.unreadCount, 1)
+        guard case .loaded(let sections) = sut.state else { return XCTFail("Expected .loaded, got \(sut.state)") }
+        XCTAssertEqual(sections.first?.notifications.first?.id, "cached")
     }
 
-    /// The mirror bug of the old count-diff scheme: deleting notifications used to
-    /// drag the baseline out of sync and could suppress the badge forever after.
-    func test_loadUnreadCount_stillReportsNewNotification_afterSomeWereDeleted() async {
-        let useCase = MockFetchNotificationsUseCase()
-        useCase.result = .success(unreadItems(11))
-        let sut = makeSUT(fetchNotificationsUseCase: useCase)
-        await sut.load() // populates state so delete() can prune the sections too
-        sut.markAsSeen()
+    func test_open_fails_whenThereIsNothingCachedAndTheRequestErrors() async {
+        let repo = MockNotificationRepository()
+        repo.refreshNotificationsResult = .failure(TestError.boom)
+        let sut = makeSUT(repository: repo)
 
-        for index in 0..<5 { await sut.delete(id: "n-\(index)") }
+        await sut.open()
 
-        let remaining = (5..<11).map { NotificationItem.stub(id: "n-\($0)", isRead: false) }
-        useCase.result = .success(remaining + [.stub(id: "n-new", isRead: false)])
-        await sut.loadUnreadCount(forceRefresh: true)
-
-        XCTAssertEqual(sut.unreadCount, 1)
+        guard case .failed = sut.state else { return XCTFail("Expected .failed, got \(sut.state)") }
     }
 
-    func test_loadUnreadCount_prunesSeenIdsTheServerNoLongerReturns() async {
-        let useCase = MockFetchNotificationsUseCase()
-        useCase.result = .success(unreadItems(11))
-        let store = MockSeenNotificationStore()
-        let sut = makeSUT(fetchNotificationsUseCase: useCase, seenStore: store)
-        await sut.loadUnreadCount()
-        sut.markAsSeen()
+    // MARK: - refresh()
 
-        useCase.result = .success(unreadItems(3))
-        await sut.loadUnreadCount(forceRefresh: true)
+    func test_refresh_reconcilesBadgeWithServer() async {
+        let repo = MockNotificationRepository()
+        repo.refreshNotificationsResult = .success([.stub()])
+        repo.refreshUnreadCountResult = .success(5)
+        let sut = makeSUT(repository: repo)
+        await sut.open()
 
-        XCTAssertEqual(store.seenIds, ["n-0", "n-1", "n-2"], "Seen IDs must not accumulate past what the feed still returns")
+        await sut.refresh()
+
+        XCTAssertEqual(sut.unreadCount, 5)
     }
 
-    func test_clearOnLogout_wipesSeenIds_soTheNextAccountCountsFromScratch() async {
-        let useCase = MockFetchNotificationsUseCase()
-        useCase.result = .success(unreadItems(11))
-        let store = MockSeenNotificationStore()
-        let sut = makeSUT(fetchNotificationsUseCase: useCase, seenStore: store)
-        await sut.loadUnreadCount()
-        sut.markAsSeen()
+    // MARK: - delete()
+
+    func test_delete_removesTheRowImmediately_andFromTheCacheOnSuccess() async {
+        let repo = MockNotificationRepository()
+        repo.refreshNotificationsResult = .success([.stub(id: "a"), .stub(id: "b")])
+        let sut = makeSUT(repository: repo)
+        await sut.open()
+
+        await sut.delete(id: "a")
+
+        XCTAssertEqual(repo.deletedIds, ["a"])
+        guard case .loaded(let sections) = sut.state else { return XCTFail("Expected .loaded, got \(sut.state)") }
+        XCTAssertEqual(sections.flatMap(\.notifications).map(\.id), ["b"])
+    }
+
+    func test_delete_bringsTheRowBack_whenTheServerRejectsIt() async {
+        let repo = MockNotificationRepository()
+        repo.refreshNotificationsResult = .success([.stub(id: "a")])
+        let sut = makeSUT(repository: repo)
+        await sut.open()
+        repo.deleteResult = .failure(TestError.boom)
+
+        await sut.delete(id: "a")
+
+        guard case .loaded(let sections) = sut.state else { return XCTFail("Expected .loaded, got \(sut.state)") }
+        XCTAssertEqual(sections.flatMap(\.notifications).map(\.id), ["a"])
+    }
+
+    // MARK: - Logout
+
+    func test_clearOnLogout_wipesStateAndCounter_andAllowsANewSessionCount() async {
+        let repo = MockNotificationRepository()
+        repo.refreshUnreadCountResult = .success(8)
+        let sut = makeSUT(repository: repo)
+        await sut.loadUnreadCountForSession()
 
         sut.clearOnLogout()
 
-        XCTAssertTrue(store.seenIds.isEmpty)
+        XCTAssertEqual(repo.clearCallCount, 1)
         XCTAssertEqual(sut.unreadCount, 0)
-        await sut.loadUnreadCount(forceRefresh: true)
-        XCTAssertEqual(sut.unreadCount, 11)
-    }
-
-    // MARK: - Push-driven refresh
-
-    func test_pushNotificationReceived_forcesUnreadCountRefresh() async {
-        let useCase = MockFetchNotificationsUseCase()
-        useCase.result = .success([.stub(isRead: false)])
-        let sut = makeSUT(fetchNotificationsUseCase: useCase)
-
-        NotificationCenter.default.post(name: .inAppNotificationsPushReceived, object: nil)
-        await waitUntil { useCase.executeCallCount > 0 }
-
-        XCTAssertEqual(useCase.executeCallCount, 1)
-        XCTAssertEqual(useCase.lastForceRefresh, true, "A push must bypass the safety-net throttle")
-        _ = sut // keep the view model (and its Combine subscription) alive until assertions run
+        await sut.loadUnreadCountForSession()
+        XCTAssertEqual(repo.refreshUnreadCountCallCount, 2, "The next account's session must ask again")
     }
 }

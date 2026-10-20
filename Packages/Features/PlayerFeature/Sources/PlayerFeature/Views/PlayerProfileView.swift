@@ -28,6 +28,10 @@ struct PlayerProfileView: View {
             content
         }
         .background(FMColors.background)
+        // The bar is transparent over the pitch photo, so the system one stays hidden
+        // and the back button lives in the profile's own bar.
+        .navigationBarHidden(true)
+        .edgeSwipeToGoBack { dismiss() }
         .navigationDestination(isPresented: Binding(
             get: { lastMatchDetail != nil },
             set: { if !$0 { lastMatchDetail = nil } }
@@ -45,8 +49,10 @@ struct PlayerProfileView: View {
     private var content: some View {
         switch viewModel.state {
         case .loading:
+            plainBar
             loadingSkeleton
         case .failed(let message):
+            plainBar
             Spacer()
             VStack(spacing: 12) {
                 Text(message)
@@ -67,19 +73,51 @@ struct PlayerProfileView: View {
     }
 
     private func loadedBody(_ profile: PublicPlayerProfile) -> some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                avatarSection(profile)
-                nameSection(profile)
-                statsSection(profile.stats)
-                performanceSection(profile)
-                if let last = profile.lastMatch {
-                    lastMatchSection(last)
+        ProfileScaffold(
+            identity: ProfileIdentity(
+                name: profile.fullName,
+                avatarURL: profile.profilePicURL,
+                defaultAvatarAssetName: profile.gender?.defaultAvatarAssetName ?? "defaultAvatar"
+            ),
+            barTitle: L10n.Profile.playerProfileTitle,
+            // Room for the back button the collapsed avatar sits next to.
+            leadingInset: 48,
+            onRefresh: { await viewModel.refresh() },
+            leading: { _ in
+                FMBackButton(action: { dismiss() })
+            },
+            trailing: { _ in EmptyView() },
+            meta: {
+                countryAndPosition(profile)
+            },
+            content: {
+                VStack(alignment: .leading, spacing: 24) {
+                    statsSection(profile.stats)
+                    performanceSection(profile)
+                    if let last = profile.lastMatch {
+                        lastMatchSection(last)
+                    } else {
+                        emptyLastMatchSection
+                    }
                 }
             }
-            .padding(.bottom, 40)
+        )
+    }
+
+    /// Back button + title for the states that don't have a collapsing header yet.
+    private var plainBar: some View {
+        ZStack {
+            Text(L10n.Profile.playerProfileTitle)
+                .font(FMTypography.titleMedium)
+                .foregroundColor(FMColors.onBackground)
+
+            HStack {
+                FMBackButton(action: { dismiss() })
+                Spacer()
+            }
         }
-        .refreshable { await viewModel.refresh() }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 6)
     }
 
     // MARK: - Loading Skeleton
@@ -130,45 +168,10 @@ struct PlayerProfileView: View {
         }
     }
 
-    // MARK: - Avatar (with position badge)
+    // MARK: - Country + position
 
-    private func avatarSection(_ profile: PublicPlayerProfile) -> some View {
-        HStack {
-            FMAvatar(
-                url: profile.profilePicURL,
-                defaultImageName: profile.gender?.defaultAvatarAssetName ?? "defaultAvatar",
-                size: 100,
-                showCameraBadge: false
-            )
-            .overlay(
-                Circle().stroke(FMColors.outlineVariant, lineWidth: 2)
-            )
-            .overlay(alignment: .bottom) {
-                Text(profile.playerPosition.displayName)
-                    .font(FMTypography.labelMedium)
-                    .foregroundColor(FMColors.onTertiary)
-                    .lineLimit(1)
-                    .fixedSize(horizontal: true, vertical: false)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 6)
-                    .background(Capsule().fill(FMColors.tertiary))
-                    .offset(y: 12)
-            }
-            Spacer()
-        }
-        .padding(.horizontal, 24)
-        .padding(.top, 8)
-    }
-
-    // MARK: - Name + Country
-
-    private func nameSection(_ profile: PublicPlayerProfile) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(profile.fullName)
-                .font(FMTypography.headlineSmall)
-                .foregroundColor(FMColors.onBackground)
-                .padding(.top, 12)
-
+    private func countryAndPosition(_ profile: PublicPlayerProfile) -> some View {
+        HStack(spacing: 8) {
             HStack(spacing: 4) {
                 Text(countryFlag(profile.country))
                     .font(.system(size: 14))
@@ -176,8 +179,15 @@ struct PlayerProfileView: View {
                     .font(FMTypography.bodyMedium)
                     .foregroundColor(FMColors.onSurfaceVariant)
             }
+
+            Text(profile.playerPosition.displayName)
+                .font(FMTypography.labelMedium)
+                .foregroundColor(FMColors.onTertiary)
+                .lineLimit(1)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 4)
+                .background(Capsule().fill(FMColors.tertiary))
         }
-        .padding(.horizontal, 24)
     }
 
     // MARK: - Stats
@@ -189,15 +199,14 @@ struct PlayerProfileView: View {
                 .foregroundColor(FMColors.onBackground)
                 .padding(.horizontal, 24)
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
-                    FMStatCard(icon: "trophy.fill", value: stats.mvpCount,      label: L10n.Profile.mvp)
-                    FMStatCard(icon: "star.fill",   value: stats.matchesWon,    label: L10n.Profile.won)
-                    FMStatCard(icon: "sportscourt", value: stats.matchesPlayed, label: L10n.Profile.played)
-                    FMStatCard(icon: "soccerball",  value: stats.totalGoals,    label: L10n.Profile.totalGoals)
-                }
-                .padding(.horizontal, 24)
+            // All four stay visible: equal-width cards share the row instead of scrolling.
+            HStack(spacing: 8) {
+                FMStatCard(icon: "trophy.fill", value: stats.mvpCount,      label: L10n.Profile.mvp, width: nil, contentPadding: 10)
+                FMStatCard(icon: "star.fill",   value: stats.matchesWon,    label: L10n.Profile.won, width: nil, contentPadding: 10)
+                FMStatCard(icon: "sportscourt", value: stats.matchesPlayed, label: L10n.Profile.played, width: nil, contentPadding: 10)
+                FMStatCard(icon: "soccerball",  value: stats.totalGoals,    label: L10n.Profile.totalGoals, width: nil, contentPadding: 10)
             }
+            .padding(.horizontal, 24)
         }
     }
 
@@ -269,6 +278,18 @@ struct PlayerProfileView: View {
                 // than looping back to the screen the admin/player just left.
                 lastMatchRow(last)
             }
+        }
+        .padding(.horizontal, 24)
+    }
+
+    /// Someone else's profile: nothing to offer as an action, just say there's no match yet.
+    private var emptyLastMatchSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(L10n.LastMatch.title)
+                .font(FMTypography.titleLarge)
+                .foregroundColor(FMColors.onBackground)
+
+            FMEmptyStateCard(icon: "soccerball", message: L10n.LastMatch.empty)
         }
         .padding(.horizontal, 24)
     }

@@ -1,110 +1,124 @@
 import SwiftUI
 
-/// Card showing the user's next upcoming game
-/// Displays date, time, location, and a field image
-/// Also supports an empty state when no game is scheduled
+/// Compact card showing the user's next upcoming game: date, time, address, venue,
+/// a field thumbnail on the right and two actions (view match, directions).
 public struct FMNextGameCard: View {
     let title: String
     let dateLabel: String
     let time: String
-    let location: String
-    let distance: String?
+    let address: String
+    let fieldName: String
     let detailLabel: String
+    let directionsLabel: String
     var fieldImageUrl: String?
     var fieldImage: Image?
     var onDetailTap: (() -> Void)?
+    var onDirectionsTap: (() -> Void)?
 
     /// - Parameters:
-    ///   - location: venue only. Distance goes in `distance` — joining them into one
-    ///     string made the distance wrap as if it were part of the address.
-    ///   - distance: preformatted, e.g. "3.8 km". Nil or empty hides the line.
+    ///   - address: full venue address; truncated to one line so a long address never grows the card.
+    ///   - fieldName: venue name shown beside the pin.
+    ///   - directionsLabel: accessibility label of the icon-only directions button.
     public init(
         title: String,
         dateLabel: String,
         time: String,
-        location: String,
-        distance: String? = nil,
+        address: String,
+        fieldName: String,
         detailLabel: String,
+        directionsLabel: String,
         fieldImageUrl: String? = nil,
         fieldImage: Image? = nil,
-        onDetailTap: (() -> Void)? = nil
+        onDetailTap: (() -> Void)? = nil,
+        onDirectionsTap: (() -> Void)? = nil
     ) {
         self.title = title
         self.dateLabel = dateLabel
         self.time = time
-        self.location = location
-        self.distance = distance
+        self.address = address
+        self.fieldName = fieldName
         self.detailLabel = detailLabel
+        self.directionsLabel = directionsLabel
         self.fieldImageUrl = fieldImageUrl
         self.fieldImage = fieldImage
         self.onDetailTap = onDetailTap
+        self.onDirectionsTap = onDirectionsTap
     }
-    
+
     public var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Header label
-            Text(title)
-                .font(FMTypography.labelMedium)
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title.uppercased())
+                .font(FMTypography.labelSmall)
                 .foregroundColor(FMColors.onSurfaceVariant)
-                .padding(.bottom, 8)
-            
-            HStack(alignment: .top, spacing: 12) {
-                // Info section
-                VStack(alignment: .leading, spacing: 6) {
-                    // Date as a quiet label over the time as the value. Concatenating the
-                    // two ("Jue, 10 Sep - 7:00 p.m.") overflowed the column and broke with
-                    // the separator dangling at the end of the first line.
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(dateLabel)
-                            .font(FMTypography.labelMedium)
-                            .foregroundColor(FMColors.onSurfaceVariant)
 
-                        Text(time)
-                            .font(FMTypography.titleLarge)
-                            .foregroundColor(FMColors.onSurface)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.8)
-                    }
+            HStack(spacing: 10) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(dateLabel)
+                        .font(FMTypography.bodySmall)
+                        .foregroundColor(FMColors.onSurfaceVariant)
 
-                    // `.firstTextBaseline`, so the pin stays beside the first line of a
-                    // wrapped venue name instead of centring itself mid-sentence.
-                    HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    Text(time)
+                        .font(FMTypography.titleMedium)
+                        .fontWeight(.semibold)
+                        .foregroundColor(FMColors.onSurface)
+                        .lineLimit(1)
+
+                    Text(address)
+                        .font(FMTypography.bodySmall)
+                        .foregroundColor(FMColors.onSurface)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+
+                    HStack(spacing: 4) {
                         Image(systemName: "mappin.and.ellipse")
-                            .font(.system(size: 12))
-                            .foregroundColor(FMColors.primary)
-
-                        Text(location)
-                            .font(FMTypography.bodyMedium)
+                            .font(.system(size: 14))
                             .foregroundColor(FMColors.onSurfaceVariant)
-                            .lineLimit(2)
-                    }
 
-                    if let distance, !distance.isEmpty {
-                        Text(distance)
+                        Text(fieldName)
                             .font(FMTypography.labelSmall)
                             .foregroundColor(FMColors.onSurfaceVariant)
+                            .lineLimit(1)
                     }
-
-                    Button {
-                        onDetailTap?()
-                    } label: {
-                        Text(detailLabel)
-                            .font(FMTypography.labelLarge)
-                            .foregroundColor(FMColors.primary)
-                    }
-                    .padding(.top, 4)
                 }
-                
-                Spacer()
-                
-                // Field image
+                .frame(maxWidth: .infinity, alignment: .leading)
+
                 fieldImageView
             }
+
+            HStack(spacing: 6) {
+                Spacer(minLength: 0)
+
+                Button {
+                    onDetailTap?()
+                } label: {
+                    Text(detailLabel)
+                        .font(FMTypography.labelLarge)
+                        .foregroundColor(FMColors.primary)
+                        .padding(.horizontal, 12)
+                        .frame(height: 36)
+                        .contentShape(Rectangle())
+                }
+
+                Button {
+                    onDirectionsTap?()
+                } label: {
+                    Image(systemName: "paperplane")
+                        .font(.system(size: 15))
+                        .foregroundColor(FMColors.onSurface)
+                        .frame(width: 36, height: 36)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(FMColors.outlineVariant, lineWidth: 1)
+                        )
+                        .contentShape(Rectangle())
+                }
+                .accessibilityLabel(directionsLabel)
+            }
         }
-        .padding(16)
+        .padding(10)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(FMColors.surfaceContainerLowest)
+                .fill(FMColors.surface)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 16)
@@ -126,7 +140,7 @@ public struct FMNextGameCard: View {
             }
         }
         .scaledToFill()
-        .frame(width: 84, height: 84)
+        .frame(width: 72, height: 72)
         .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
@@ -145,12 +159,13 @@ public struct FMNextGameCard: View {
 // MARK: - Previews
 #Preview("With Game") {
     FMNextGameCard(
-        title: "Tu Próximo Partido",
-        dateLabel: "Jue, 10 Sep",
-        time: "7:00 p.m.",
-        location: "Calzada Casa del Obrero Mundial",
-        distance: "3.8 km",
-        detailLabel: "Ver detalle"
+        title: "Tu próximo partido",
+        dateLabel: "Mañana",
+        time: "8:00 a. m.",
+        address: "Calzada Casa del Obrero Mundial, Ciudad de México",
+        fieldName: "La Jaula",
+        detailLabel: "Ver partido",
+        directionsLabel: "Cómo llegar"
     )
     .padding()
 }
