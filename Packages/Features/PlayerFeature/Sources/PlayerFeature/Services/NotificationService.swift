@@ -7,8 +7,8 @@ protocol NotificationServiceProtocol {
     func fetchNotifications() async throws -> [NotificationItem]
     func deleteNotification(id: String) async throws
     func fetchUnreadCount() async throws -> Int
-    /// Marks everything read server-side and returns how many were marked (possibly 0).
-    func markAllAsRead() async throws -> Int
+    /// Marks everything read server-side. Any 2xx is success, including "nothing to mark".
+    func markAllAsRead() async throws
 }
 
 // MARK: - Implementation
@@ -40,10 +40,12 @@ final class NotificationService: NotificationServiceProtocol {
         return response.data.unreadCount
     }
 
-    func markAllAsRead() async throws -> Int {
-        let response: MarkAllReadResponse = try await apiClient.request(
+    func markAllAsRead() async throws {
+        // The body is ignored on purpose: the caller zeroes its counter on any 2xx. A strict
+        // decode of the count turned a harmless body difference into a "failed" mark-as-read
+        // that was swallowed upstream, leaving the badge stuck at its last value.
+        let _: EmptyResponse = try await apiClient.request(
             endpoint: NotificationEndpoint.markAllRead
         )
-        return response.data.markedAsReadCount
     }
 }

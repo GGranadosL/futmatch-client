@@ -34,8 +34,8 @@ struct NotificationRepository: NotificationRepositoryProtocol {
     }
 
     func markAllAsRead() async throws {
-        // A response of 0 is still a success: there was just nothing left to mark.
-        _ = try await service.markAllAsRead()
+        // A 2xx is success even when there was nothing left to mark.
+        try await service.markAllAsRead()
         cache.markAllRead()
     }
 

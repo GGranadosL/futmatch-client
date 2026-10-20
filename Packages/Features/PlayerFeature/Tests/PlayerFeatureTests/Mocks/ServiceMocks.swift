@@ -372,9 +372,9 @@ final class MockNotificationService: NotificationServiceProtocol {
         return try unreadCountResult.get()
     }
 
-    func markAllAsRead() async throws -> Int {
+    func markAllAsRead() async throws {
         markAllReadCallCount += 1
-        return try markAllReadResult.get()
+        _ = try markAllReadResult.get()
     }
 }
 

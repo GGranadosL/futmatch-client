@@ -21,16 +21,6 @@ struct UnreadCountResponse: Decodable {
     let data: Payload
 }
 
-// MARK: - Mark All Read Response
-
-struct MarkAllReadResponse: Decodable {
-    struct Payload: Decodable {
-        /// May be 0 — still a success: there was just nothing left to mark.
-        let markedAsReadCount: Int
-    }
-    let data: Payload
-}
-
 // MARK: - DTO
 
 struct NotificationDTO: Decodable {

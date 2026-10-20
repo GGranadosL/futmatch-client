@@ -17,7 +17,7 @@ final class DemoNotificationService: NotificationServiceProtocol {
         Self.mockItems.filter { !$0.isRead }.count
     }
 
-    func markAllAsRead() async throws -> Int { 0 }
+    func markAllAsRead() async throws {}
 }
 
 // MARK: - Mock Data

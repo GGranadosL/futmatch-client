@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 
 protocol OpenNotificationInboxUseCaseProtocol {
     func execute() async throws -> NotificationInbox
@@ -10,6 +11,8 @@ protocol OpenNotificationInboxUseCaseProtocol {
 /// The counter is read *before* the mark-as-read call, because that call zeroes it
 /// and the previous value is what says whether there is anything new to download.
 struct OpenNotificationInboxUseCase: OpenNotificationInboxUseCaseProtocol {
+    private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "FutMatch", category: "Notifications")
+
     private let repository: NotificationRepositoryProtocol
     private let now: () -> Date
     private let cacheTimeToLive: TimeInterval
@@ -30,7 +33,11 @@ struct OpenNotificationInboxUseCase: OpenNotificationInboxUseCaseProtocol {
         let lastFetchedAt = repository.lastFetchedAt
 
         // If this fails the badge and the cache stay as they were, so the user can retry.
-        try? await repository.markAllAsRead()
+        do {
+            try await repository.markAllAsRead()
+        } catch {
+            Self.logger.error("read-all failed, badge left as is: \(error.localizedDescription, privacy: .public)")
+        }
 
         let needsRefresh = previousUnreadCount >= 1
             || !hadCachedItems
