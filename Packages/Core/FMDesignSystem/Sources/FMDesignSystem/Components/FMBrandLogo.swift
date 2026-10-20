@@ -55,7 +55,7 @@ public struct FMBrandLogo: View {
         HStack(spacing: 0) {
             ForEach(Array(Self.wordmark.enumerated()), id: \.offset) { index, letter in
                 Text(String(letter))
-                    .font(.montserratBold(size: fontSize))
+                    .font(.interBold(size: fontSize))
                     .foregroundColor(index < Self.interLetterCount ? interColor : FMColors.primary)
                     .fixedSize()
                     .opacity(isRevealed ? 1 : 0)

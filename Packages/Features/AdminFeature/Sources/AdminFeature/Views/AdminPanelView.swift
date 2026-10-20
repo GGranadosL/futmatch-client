@@ -144,7 +144,7 @@ public struct AdminPanelView: View {
             }
 
             Text("admin")
-                .font(.montserratBold(size: 10))
+                .font(.interBold(size: 10))
                 .foregroundColor(FMColors.primary)
                 .kerning(1.5)
         }

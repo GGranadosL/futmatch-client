@@ -8,7 +8,7 @@ Interfut (formerly FutMatch) is a native iOS app (Swift/SwiftUI) for creating, m
 
 ### Naming: the app is Interfut, the code still says FutMatch — on purpose
 
-The app was renamed from FutMatch to **Interfut** and the UI typeface moved from Inter to **Montserrat**. Only what the user can see changed. The bundle identifier (`com.futmatch.client`), the Keychain service, the target/scheme/module names (`FutMatch-Client`, `FutMatch_Client`), the Core Data model name and the `futmatch*.onrender.com` API hosts keep the old name deliberately. Do **not** rename them for consistency: the bundle identifier cannot be edited for a published app (a new one is a different App Store listing, with no migration of users, reviews, Keychain sessions or Core Data), and the others are runtime contracts. The `FM` prefix on the design system (`FMColors`, `FMTextField`, ...) is an abbreviation and stays too.
+The app was renamed from FutMatch to **Interfut**; the UI typeface stays **Inter**. Only the brand name and artwork changed. The bundle identifier (`com.futmatch.client`), the Keychain service, the target/scheme/module names (`FutMatch-Client`, `FutMatch_Client`), the Core Data model name and the `futmatch*.onrender.com` API hosts keep the old name deliberately. Do **not** rename them for consistency: the bundle identifier cannot be edited for a published app (a new one is a different App Store listing, with no migration of users, reviews, Keychain sessions or Core Data), and the others are runtime contracts. The `FM` prefix on the design system (`FMColors`, `FMTextField`, ...) is an abbreviation and stays too.
 
 ## Build & Test Commands
 
