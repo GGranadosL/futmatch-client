@@ -14,13 +14,24 @@ The app was renamed from FutMatch to **Interfut** and the UI typeface moved from
 
 ```bash
 # Build (from repo root)
-xcodebuild build -scheme FutMatch-Client -destination 'platform=iOS Simulator,name=iPhone 17' -project FutMatch-Client/FutMatch-Client.xcodeproj
+xcodebuild build -scheme "FutMatch-Client Debug" -destination 'platform=iOS Simulator,name=iPhone 17' -project FutMatch-Client/FutMatch-Client.xcodeproj
 
 # Clean build
-xcodebuild clean build -scheme FutMatch-Client -project FutMatch-Client/FutMatch-Client.xcodeproj
+xcodebuild clean build -scheme "FutMatch-Client Debug" -project FutMatch-Client/FutMatch-Client.xcodeproj
 ```
 
-The main Xcode project is at `FutMatch-Client/FutMatch-Client.xcodeproj`. There is no lint config currently in place.
+The main Xcode project is at `FutMatch-Client/FutMatch-Client.xcodeproj`.
+
+### Schemes: Debug → QA, Production → prod
+
+There are two app schemes. `Config.environment` is chosen by `#if DEBUG`:
+
+| Scheme | Build configuration | Backend |
+|---|---|---|
+| `FutMatch-Client Debug` | Debug | QA (`futmatch-e2tu.onrender.com`) |
+| `FutMatch-Client Production` | Release | Production (`interfut.onrender.com`) |
+
+Any Release build (Production scheme, Archive, TestFlight) hits production. Firebase, App Check and the Google client IDs are shared by both. There is no lint config currently in place.
 
 ### ⚠️ Running Tests — Read This First
 
@@ -29,7 +40,7 @@ The main Xcode project is at `FutMatch-Client/FutMatch-Client.xcodeproj`. There 
 | Command | What actually happens |
 |---|---|
 | `swift test` (any package) | **Always fails.** Every package either imports `UIKit` (unavailable when SwiftPM builds for macOS) or depends on Lottie/Firebase, which require macOS 10.15 while the packages declare 10.13. |
-| `xcodebuild test -scheme FutMatch-Client` | **Prints `** TEST SUCCEEDED **` while executing zero tests.** The app scheme has no test targets wired. Never treat this as a green suite. |
+| `xcodebuild test -scheme "FutMatch-Client Debug"` | **Prints `** TEST SUCCEEDED **` while executing zero tests.** The app scheme has no test targets wired. Never treat this as a green suite. |
 
 Tests live in the SPM packages and run only through each package's own
 auto-generated scheme, against a **booted** simulator:

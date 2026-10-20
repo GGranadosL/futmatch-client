@@ -113,7 +113,7 @@ struct PersistenceController {
 
 ```bash
 cd /Volumes/D/code/futmatch-client
-xcodebuild clean build -scheme FutMatch-Client
+xcodebuild clean build -scheme "FutMatch-Client Debug"
 ```
 
 ### Probar el auto-save
