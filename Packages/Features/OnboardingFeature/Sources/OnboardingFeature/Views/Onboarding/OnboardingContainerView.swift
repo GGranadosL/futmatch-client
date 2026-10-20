@@ -95,7 +95,7 @@ public struct OnboardingContainerView: View {
             .navigationBarBackButtonHidden(true)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    FMBackButton(action: goToPreviousStep)
+                    FMBackButton(action: goToPreviousStep, isInToolbar: true)
                 }
             }
             // `.navigationBarBackButtonHidden(true)` above also disables iOS's native

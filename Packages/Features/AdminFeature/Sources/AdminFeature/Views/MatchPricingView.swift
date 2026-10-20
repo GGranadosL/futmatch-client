@@ -142,7 +142,9 @@ private struct MatchPricingContentView: View {
             FMStickyActionBar(
                 title: L10n.Pricing.confirm,
                 isLoading: isSaving,
-                isEnabled: viewModel.selectedOption.isViable && !viewModel.isLoadingCustom && !isSaving,
+                // Non-viable prices are allowed on purpose (test matches, promotions that only
+                // recover the field rent); the "No viable" badge and warning still show.
+                isEnabled: !viewModel.isLoadingCustom && !isSaving,
                 fadeHeight: 12,
                 action: {
                     onConfirm(viewModel.selectedOption)

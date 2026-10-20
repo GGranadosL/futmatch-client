@@ -20,13 +20,23 @@ import SwiftUI
 public struct FMBackButton: View {
     private let action: () -> Void
     private let isStandalone: Bool
+    private let isInToolbar: Bool
 
     private let circleSize: CGFloat = 40
     private let hitAreaSize: CGFloat = 44
 
-    public init(action: @escaping () -> Void, isStandalone: Bool = false) {
+    /// `isInToolbar: true` when placed in a `ToolbarItem`. On iOS 26+ the toolbar already wraps
+    /// the item in its own glass circle, so drawing ours too renders a circle inside a circle;
+    /// there only the chevron is drawn.
+    public init(action: @escaping () -> Void, isStandalone: Bool = false, isInToolbar: Bool = false) {
         self.action = action
         self.isStandalone = isStandalone
+        self.isInToolbar = isInToolbar
+    }
+
+    private var systemProvidesCircle: Bool {
+        if #available(iOS 26, *) { return isInToolbar }
+        return false
     }
 
     public var body: some View {
@@ -39,6 +49,7 @@ public struct FMBackButton: View {
                     Circle()
                         .fill(FMColors.surfaceContainerLowest)
                         .shadow(color: .black.opacity(0.12), radius: 4, x: 0, y: 1)
+                        .opacity(systemProvidesCircle ? 0 : 1)
                 )
                 // Larger invisible hit area around the circle.
                 .frame(width: hitAreaSize, height: hitAreaSize)
