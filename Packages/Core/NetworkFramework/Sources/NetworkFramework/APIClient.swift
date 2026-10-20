@@ -28,9 +28,6 @@ public class APIClient {
     
     public static let shared: APIClient = {
         #if DEBUG
-        // Use a `.default` config session so Pulse's URLSessionProxy can intercept
-        // requests. Pulse swizzles URLSession at the class level, so both
-        // URLSession.shared and custom sessions are captured automatically.
         let client = APIClient(
             session: URLSession(configuration: .default),
             logger: DebugNetworkLogger()

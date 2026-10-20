@@ -8,11 +8,6 @@ import GoogleSignIn
 import PlayerFeature
 import PersistenceFramework
 import IQKeyboardManagerSwift
-#if DEBUG
-import Pulse
-import PulseUI
-import SwiftUI
-#endif
 
 // MARK: - AppDelegate
 
@@ -29,7 +24,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         // first Firebase request carries an attestation token. Uses App Attest on
         // capable devices, DeviceCheck as fallback, and a debug provider in DEBUG.
         if Config.isAppCheckEnabled {
-            #if DEBUG
+            #if DEBUG || targetEnvironment(simulator)
             // Pin a fixed debug token so it only needs to be registered in Firebase console once.
             // Register this UUID at: Firebase console → App Check → Apps → [app] → Manage debug tokens
             setenv("FIRAAppCheckDebugToken", "D2B4A26E-8370-4485-9C52-7A47AE44FEB2", 1)
@@ -177,28 +172,3 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
         InAppNotificationPushRouter.handleNotificationTap(response.notification.request.content.userInfo)
     }
 }
-
-#if DEBUG
-// MARK: - Shake to show Pulse console
-
-extension UIWindow {
-
-    /// Shows the Pulse network/log console whenever the device is shaken (Debug only).
-    /// Simulator shortcut: Device ▸ Shake, or ⌃⌘Z.
-    open override func motionEnded(_ motion: UIEvent.EventSubtype, with event: UIEvent?) {
-        super.motionEnded(motion, with: event)
-        if motion == .motionShake {
-            let console = UIHostingController(rootView: ConsoleView())
-            topmostViewController?.present(console, animated: true)
-        }
-    }
-
-    private var topmostViewController: UIViewController? {
-        var vc = rootViewController
-        while let presented = vc?.presentedViewController {
-            vc = presented
-        }
-        return vc
-    }
-}
-#endif
