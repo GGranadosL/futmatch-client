@@ -113,7 +113,7 @@ Sources/[FeatureName]/
 
 ```bash
 xcodebuild build \
-  -scheme FutMatch-Client \
+  -scheme "FutMatch-Client Debug" \
   -destination 'platform=iOS Simulator,name=iPhone 17' \
   -project FutMatch-Client/FutMatch-Client.xcodeproj
 ```
@@ -128,7 +128,7 @@ Run all tests:
 
 ```bash
 xcodebuild test \
-  -scheme FutMatch-Client \
+  -scheme "FutMatch-Client Debug" \
   -destination 'platform=iOS Simulator,name=iPhone 17' \
   -project FutMatch-Client/FutMatch-Client.xcodeproj
 ```

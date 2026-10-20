@@ -194,8 +194,13 @@ public struct AdminDependencyFactory {
             geocodingService: NominatimGeocodingService(),
             createLocationUseCase: makeCreateLocationUseCase(context: context),
             fetchCatalogUseCase: makeFetchLocationCatalogUseCase(),
-            currentLocationProvider: CurrentLocationService()
+            currentLocationProvider: makeCurrentLocationService()
         )
+    }
+
+    @MainActor
+    func makeCurrentLocationService() -> CurrentLocationProviding {
+        CurrentLocationService(makeLocationManager: { CoreLocationManager() })
     }
 
     // MARK: - Matches

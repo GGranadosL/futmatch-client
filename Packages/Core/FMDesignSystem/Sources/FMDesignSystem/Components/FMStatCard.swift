@@ -5,19 +5,27 @@ public struct FMStatCard: View {
     let icon: String
     let value: Int
     let label: String
+    /// Fixed card width for carousels; `nil` lets the card share a row equally.
+    let width: CGFloat?
+    let contentPadding: CGFloat
     
-    public init(icon: String, value: Int, label: String) {
+    public init(icon: String, value: Int, label: String, width: CGFloat? = 110, contentPadding: CGFloat = 16) {
         self.icon = icon
         self.value = value
         self.label = label
+        self.width = width
+        self.contentPadding = contentPadding
     }
     
+    /// Cards sharing a row (no fixed width) are narrower, so their icon is smaller too.
+    private var isCompact: Bool { width == nil }
+
     public var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Image(systemName: icon)
-                .font(.system(size: 20))
+                .font(.system(size: isCompact ? 13 : 20))
                 .foregroundColor(FMColors.primary)
-                .padding(6)
+                .padding(isCompact ? 5 : 6)
                 .background(
                     Circle()
                         .fill(FMColors.primaryContainer)
@@ -31,9 +39,12 @@ public struct FMStatCard: View {
             Text(label)
                 .font(FMTypography.bodySmall)
                 .foregroundColor(FMColors.onSurfaceVariant)
+                .lineLimit(2, reservesSpace: width == nil)
+                .minimumScaleFactor(0.85)
         }
-        .padding(16)
-        .frame(width: 110)
+        .padding(contentPadding)
+        .frame(width: width)
+        .frame(maxWidth: width == nil ? .infinity : nil, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 16)
                 .fill(FMColors.surfaceContainerLowest)

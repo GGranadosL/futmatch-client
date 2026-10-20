@@ -150,8 +150,8 @@ struct FutMatchApp: App {
             FMImageCache.shared.clearAll()
             // Clear home cache so the next user doesn't see stale data
             UserDefaults.standard.removeObject(forKey: "home.cache.homeDataDTO")
-            // Reset the notification badge's seen-ID set and the fetch-timestamp
-            // safety net so the next user gets a fresh badge and an unthrottled fetch.
+            // Drop the notification history, unread counter and cache timestamp so the
+            // next user never sees this account's badge.
             PlayerDependencyFactory().clearNotificationState()
             // Drop persisted regional matches versions so the next account
             // re-fetches the full list instead of sending a stale sinceVersion.

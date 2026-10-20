@@ -85,35 +85,51 @@ public struct FMGameCardSkeleton: View {
     }
 }
 
-/// Skeleton that matches the Last Match row card.
+/// Skeleton that matches the Last Match card (two teams around the score, venue row below).
 public struct FMLastMatchSkeleton: View {
     public init() {}
 
     public var body: some View {
-        HStack(spacing: 14) {
-            // Icon circle
-            FMSkeleton(cornerRadius: 22)
-                .frame(width: 44, height: 44)
+        VStack(spacing: 14) {
+            HStack {
+                teamColumn
+                    .frame(maxWidth: .infinity)
 
-            VStack(alignment: .leading, spacing: 6) {
-                FMSkeleton(cornerRadius: 4).frame(width: 100, height: 14)
-                FMSkeleton(cornerRadius: 4).frame(width: 140, height: 12)
+                VStack(spacing: 6) {
+                    FMSkeleton(cornerRadius: 10).frame(width: 58, height: 20)
+                    FMSkeleton(cornerRadius: 4).frame(width: 64, height: 22)
+                    FMSkeleton(cornerRadius: 4).frame(width: 52, height: 11)
+                }
+                .frame(maxWidth: .infinity)
+
+                teamColumn
+                    .frame(maxWidth: .infinity)
             }
 
-            Spacer()
+            Divider()
 
-            // Score
-            FMSkeleton(cornerRadius: 4).frame(width: 52, height: 28)
+            HStack {
+                FMSkeleton(cornerRadius: 4).frame(width: 90, height: 12)
+                Spacer()
+                FMSkeleton(cornerRadius: 4).frame(width: 130, height: 12)
+            }
         }
         .padding(16)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(FMColors.surfaceContainerLowest)
+                .fill(FMColors.surface)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 16)
                 .stroke(FMColors.outlineVariant, lineWidth: 1)
         )
+    }
+
+    private var teamColumn: some View {
+        VStack(spacing: 8) {
+            FMSkeleton(cornerRadius: 8).frame(width: 42, height: 42)
+            FMSkeleton(cornerRadius: 4).frame(width: 64, height: 12)
+        }
     }
 }
 
@@ -122,36 +138,33 @@ public struct FMNextGameCardSkeleton: View {
     public init() {}
 
     public var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Header label
+        VStack(alignment: .leading, spacing: 8) {
             FMSkeleton(cornerRadius: 4)
-                .frame(width: 140, height: 12)
-                .padding(.bottom, 8)
+                .frame(width: 120, height: 11)
 
-            HStack(alignment: .top, spacing: 12) {
-                VStack(alignment: .leading, spacing: 6) {
-                    // Date label over time, mirroring the card's two-line header.
-                    VStack(alignment: .leading, spacing: 2) {
-                        FMSkeleton(cornerRadius: 4).frame(width: 80, height: 12)
-                        FMSkeleton(cornerRadius: 4).frame(width: 120, height: 22)
-                    }
-                    FMSkeleton(cornerRadius: 4).frame(width: 150, height: 14)
-                    FMSkeleton(cornerRadius: 4).frame(width: 60, height: 11)
-                    FMSkeleton(cornerRadius: 4)
-                        .frame(width: 90, height: 14)
-                        .padding(.top, 4)
+            HStack(spacing: 10) {
+                VStack(alignment: .leading, spacing: 4) {
+                    FMSkeleton(cornerRadius: 4).frame(width: 60, height: 12)
+                    FMSkeleton(cornerRadius: 4).frame(width: 90, height: 18)
+                    FMSkeleton(cornerRadius: 4).frame(width: 150, height: 12)
+                    FMSkeleton(cornerRadius: 4).frame(width: 80, height: 11)
                 }
-
-                Spacer()
+                .frame(maxWidth: .infinity, alignment: .leading)
 
                 FMSkeleton(cornerRadius: 12)
-                    .frame(width: 84, height: 84)
+                    .frame(width: 72, height: 72)
+            }
+
+            HStack(spacing: 6) {
+                Spacer(minLength: 0)
+                FMSkeleton(cornerRadius: 4).frame(width: 80, height: 14)
+                FMSkeleton(cornerRadius: 10).frame(width: 36, height: 36)
             }
         }
-        .padding(16)
+        .padding(10)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(FMColors.surfaceContainerLowest)
+                .fill(FMColors.surface)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 16)

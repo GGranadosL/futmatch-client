@@ -20,10 +20,7 @@ struct NotificationsView: View {
                     .foregroundColor(FMColors.onBackground)
             }
         }
-        .task {
-            viewModel.markAsSeen()
-            await viewModel.load()
-        }
+        .task { await viewModel.open() }
         .onChange(of: viewModel.pendingNavigation) { item in
             guard let item else { return }
             navigationPath.append(item)
@@ -87,7 +84,7 @@ struct NotificationsView: View {
         .refreshable {
             // Wrapped in an unstructured Task so .refreshable's cancellation on
             // gesture release doesn't abort the network request mid-flight.
-            await Task { await viewModel.load(forceRefresh: true) }.value
+            await Task { await viewModel.refresh() }.value
         }
     }
 
@@ -139,7 +136,7 @@ struct NotificationsView: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
             Button("Reintentar") {
-                Task { await viewModel.load() }
+                Task { await viewModel.retry() }
             }
             .font(FMTypography.labelLarge)
             .foregroundColor(FMColors.primary)
@@ -204,11 +201,11 @@ private struct NotificationRowView: View {
     private var notificationIcon: some View {
         Image(systemName: item.notificationType.iconName)
             .font(.system(size: 18, weight: .medium))
-            .foregroundColor(FMColors.error)
+            .foregroundColor(item.notificationType.isAlert ? FMColors.error : FMColors.primary)
             .frame(width: 40, height: 40)
             .background(
                 RoundedRectangle(cornerRadius: 10)
-                    .fill(FMColors.errorContainer)
+                    .fill(item.notificationType.isAlert ? FMColors.errorContainer : FMColors.primaryContainer)
             )
     }
 }

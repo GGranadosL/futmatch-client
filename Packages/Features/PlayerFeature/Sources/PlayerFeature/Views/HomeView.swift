@@ -229,12 +229,20 @@ struct HomeContentView: View {
                     title: L10n.NextGame.title,
                     dateLabel: nextGameDateLabel(for: match),
                     time: MatchFormatters.timeLabel(match.startDate),
-                    location: match.pinLocationText,
-                    distance: match.formattedDistance(from: reservedViewModel.userCoordinate),
+                    address: match.location,
+                    fieldName: match.venueName,
                     detailLabel: L10n.NextGame.viewDetail,
+                    directionsLabel: L10n.NextGame.directions,
                     fieldImageUrl: match.fieldImageUrl,
                     onDetailTap: {
                         navigationPath.append(match)
+                    },
+                    onDirectionsTap: {
+                        MatchDirections.open(
+                            venueName: match.venueName,
+                            address: match.location,
+                            coordinate: match.coordinate
+                        )
                     }
                 )
             } else if reservedViewModel.isLoading {
@@ -315,7 +323,7 @@ struct HomeContentView: View {
             if homeViewModel.isLoading && homeViewModel.lastMatch == nil {
                 FMLastMatchSkeleton()
             } else if let last = homeViewModel.lastMatch {
-                Button {
+                LastMatchCard(match: last, isLoading: isLoadingLastMatchDetail) {
                     // Guard against re-entry: the detail is fetched async before we
                     // navigate, so without this a rapid multi-tap would queue several
                     // Tasks and push the detail screen N times. Set the flag
@@ -329,51 +337,7 @@ struct HomeContentView: View {
                             navigationPath.append(detail)
                         }
                     }
-                } label: {
-                    HStack(spacing: 14) {
-                        Image(systemName: outcomeIcon(last.outcome))
-                            .font(.system(size: 24))
-                            .foregroundColor(outcomeColor(last.outcome))
-                            .frame(width: 44, height: 44)
-                            .background(
-                                Circle()
-                                    .fill(outcomeColor(last.outcome).opacity(0.12))
-                            )
-
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(last.outcomeLabel)
-                                .font(FMTypography.titleSmall)
-                                .foregroundColor(FMColors.onSurface)
-                            Text("\(last.relativeDate) - \(last.fieldName)")
-                                .font(FMTypography.bodySmall)
-                                .foregroundColor(FMColors.onSurfaceVariant)
-                                .lineLimit(2)
-                        }
-
-                        Spacer()
-
-                        HStack(spacing: 4) {
-                            Text("\(last.teamAScore) - \(last.teamBScore)")
-                                .font(FMTypography.titleLarge)
-                                .foregroundColor(FMColors.onSurface)
-                            if isLoadingLastMatchDetail {
-                                ProgressView()
-                                    .tint(FMColors.primary)
-                            }
-                        }
-                    }
-                    .padding(16)
-                    .background(
-                        RoundedRectangle(cornerRadius: 16)
-                            .fill(FMColors.surfaceContainerLowest)
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16)
-                            .stroke(FMColors.outlineVariant, lineWidth: 1)
-                    )
                 }
-                .buttonStyle(.plain)
-                .disabled(isLoadingLastMatchDetail)
             } else {
                 FMEmptyStateCard(
                     icon: "soccerball",
@@ -388,24 +352,6 @@ struct HomeContentView: View {
             }
         }
         .padding(.horizontal, 24)
-    }
-
-    // MARK: - Outcome Helpers
-
-    private func outcomeIcon(_ outcome: LastMatchOutcome) -> String {
-        switch outcome {
-        case .win: return "trophy.fill"
-        case .loss: return "xmark.circle.fill"
-        case .draw: return "equal.circle.fill"
-        }
-    }
-
-    private func outcomeColor(_ outcome: LastMatchOutcome) -> Color {
-        switch outcome {
-        case .win: return .green
-        case .loss: return .red
-        case .draw: return .orange
-        }
     }
 }
 

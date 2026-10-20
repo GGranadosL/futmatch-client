@@ -155,12 +155,26 @@ extension AppDelegate: MessagingDelegate {
 
 extension AppDelegate: UNUserNotificationCenterDelegate {
 
-    /// Show banner even when app is in foreground
+    /// Show banner even when app is in foreground. A visible push for a user
+    /// notification also bumps the local unread counter (no request); `matches_updated`
+    /// pushes are technical and never do.
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification
     ) async -> UNNotificationPresentationOptions {
+        let userInfo = notification.request.content.userInfo
+        if !MatchPushRouter.handleRemoteNotification(userInfo) {
+            InAppNotificationPushRouter.handleRemoteNotification(userInfo)
+        }
         return [.banner, .sound, .badge]
+    }
+
+    /// Tapping a notification from the system opens the match it refers to.
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse
+    ) async {
+        InAppNotificationPushRouter.handleNotificationTap(response.notification.request.content.userInfo)
     }
 }
 

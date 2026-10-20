@@ -9,7 +9,7 @@ import Foundation
 
 // MARK: - Environment
 
-/// API environment — change this single line to switch between QA and Production.
+/// API environment. Picked by the build configuration, see `Config.environment`.
 enum AppEnvironment {
     case qa
     case production
@@ -19,7 +19,7 @@ enum AppEnvironment {
         case .qa:
             return "https://futmatch-e2tu.onrender.com"
         case .production:
-            return "https://futmatch-iy5u.onrender.com" // TODO: Replace with production URL
+            return "https://interfut.onrender.com"
         }
     }
 
@@ -58,9 +58,14 @@ enum AppEnvironment {
 
 /// Centralized app configuration constants
 enum Config {
-    /// 👇 Change this to switch environment
+    /// Debug builds (scheme "FutMatch-Client Debug") talk to QA; Release builds
+    /// (scheme "FutMatch-Client Production", Archive) talk to Production.
+    #if DEBUG
     static let environment: AppEnvironment = .qa
-    
+    #else
+    static let environment: AppEnvironment = .production
+    #endif
+
     /// API base URL derived from current environment
     static var apiBaseURL: String { environment.baseURL }
     

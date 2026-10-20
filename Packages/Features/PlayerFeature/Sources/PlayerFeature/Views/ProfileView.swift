@@ -21,9 +21,9 @@ struct ProfileView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            headerBar
-
             if let loadError = userSession.error, user == nil {
+                headerBar
+
                 FMFullScreenError(
                     title: loadError.apiErrorTitle ?? L10n.ErrorOverlay.title,
                     message: loadError.apiErrorMessage ?? L10n.ErrorOverlay.fullScreenMessage,
@@ -36,22 +36,7 @@ struct ProfileView: View {
                     }
                 )
             } else {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 24) {
-                        avatarSection
-                        nameSection
-                        statsSection
-                        performanceSection
-                        lastMatchSection
-                    }
-                    .padding(.bottom, FMTabBar.contentBreathingSpace)
-                }
-                .refreshable {
-                    await Task {
-                        await userSession.fetchProfile()
-                        await homeViewModel.load()
-                    }.value
-                }
+                profileScaffold
             }
         }
         .background(FMColors.background)
@@ -124,8 +109,8 @@ struct ProfileView: View {
         .padding(.bottom, 4)
     }
     
-    // MARK: - Avatar Section
-    
+    // MARK: - Header (collapsing)
+
     private var profilePicURL: URL? {
         if let urlStr = homeViewModel.profileImageUrl, let url = URL(string: urlStr) {
             return url
@@ -133,86 +118,118 @@ struct ProfileView: View {
         return user?.profilePicURL
     }
 
-    private var avatarSection: some View {
-        HStack {
-            Button {
-                showEditProfile = true
-            } label: {
-                FMAvatar(
-                    url: profilePicURL,
-                    defaultImageName: user?.gender?.defaultAvatarAssetName ?? "defaultAvatar",
-                    size: 100,
-                    showCameraBadge: false
-                )
-                .id(homeViewModel.profileImageUrl ?? user?.profilePic)
-                .overlay(
-                    Circle()
-                        .stroke(FMColors.outlineVariant, lineWidth: 2)
-                )
-                .overlay(alignment: .bottom) {
-                    if let position = user?.playerPosition {
-                        Text(position.displayName)
-                            .font(FMTypography.labelMedium)
-                            .foregroundColor(FMColors.onTertiary)
-                            .lineLimit(1)
-                            .fixedSize(horizontal: true, vertical: false)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 6)
-                            .background(Capsule().fill(FMColors.tertiary))
-                            .offset(y: 12)
+    private var profileScaffold: some View {
+        ProfileScaffold(
+            identity: ProfileIdentity(
+                name: user?.fullName ?? "—",
+                avatarURL: profilePicURL,
+                defaultAvatarAssetName: user?.gender?.defaultAvatarAssetName ?? "defaultAvatar"
+            ),
+            trailingReserve: 112,
+            showsBarScrim: true,
+            bottomPadding: FMTabBar.contentBreathingSpace,
+            onAvatarTap: { showEditProfile = true },
+            onRefresh: {
+                await userSession.fetchProfile()
+                await homeViewModel.load()
+            },
+            leading: { context in
+                // The brand leaves once the avatar is about to take its place.
+                FMBrandLogo(isRevealed: context.progress < Self.brandHideProgress, interColor: context.foreground) {
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                        selectedTab = .home
                     }
                 }
+            },
+            trailing: { context in
+                HStack(spacing: 8) {
+                    Button {
+                        showSettings = true
+                    } label: {
+                        Image(systemName: "gearshape")
+                            .font(.system(size: 20, weight: .medium))
+                            .foregroundColor(context.foreground)
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
+                    }
+
+                    Button {
+                        showLogoutAlert = true
+                    } label: {
+                        Image(systemName: "rectangle.portrait.and.arrow.right")
+                            .font(.system(size: 20, weight: .medium))
+                            .foregroundColor(FMColors.error)
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
+                    }
+                }
+            },
+            meta: {
+                VStack(spacing: 16) {
+                    countryAndPosition
+                    editButton
+                }
+            },
+            content: {
+                VStack(alignment: .leading, spacing: 24) {
+                    statsSection
+                    performanceSection
+                    lastMatchSection
+                }
             }
-            Spacer()
-        }
-        .padding(.horizontal, 24)
-        .padding(.top, 8)
-        .padding(.bottom, 12)
+        )
     }
 
-    // MARK: - Name + Edit Section
-    
-    private var nameSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .center) {
-                Text(user?.fullName ?? "—")
-                    .font(FMTypography.headlineSmall)
-                    .foregroundColor(FMColors.onBackground)
-                
-                Spacer()
-                
-                Button {
-                    showEditProfile = true
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "pencil")
-                            .font(.system(size: 14, weight: .medium))
-                        
-                        Text(L10n.Profile.editProfile)
-                            .font(FMTypography.labelLarge)
-                    }
-                    .foregroundColor(FMColors.onTertiary)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .background(
-                        Capsule()
-                            .fill(FMColors.tertiary)
-                    )
-                }
-            }
-            
+    private static let brandHideProgress: CGFloat = 0.38
+
+    private var countryAndPosition: some View {
+        HStack(spacing: 8) {
             HStack(spacing: 4) {
                 Text(user?.countryFlag ?? "🏳️")
                     .font(.system(size: 14))
-                
+
                 Text(user?.countryDisplayName ?? "—")
                     .font(FMTypography.bodyMedium)
                     .foregroundColor(FMColors.onSurfaceVariant)
             }
+
+            if let position = user?.playerPosition {
+                HStack(spacing: 6) {
+                    Image(systemName: "soccerball")
+                        .font(.system(size: 12, weight: .medium))
+                    Text(position.displayName)
+                        .font(FMTypography.labelMedium)
+                        .lineLimit(1)
+                }
+                .foregroundColor(.white)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(Capsule().fill(Color.black.opacity(0.85)))
+                .overlay(Capsule().stroke(Color.white.opacity(0.2), lineWidth: 1))
+            }
         }
-        .padding(.horizontal, 24)
     }
-    
+
+    private var editButton: some View {
+        Button {
+            showEditProfile = true
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "pencil")
+                    .font(.system(size: 14, weight: .medium))
+
+                Text(L10n.Profile.editProfile)
+                    .font(FMTypography.labelLarge)
+            }
+            .foregroundColor(.white)
+            .padding(.horizontal, 24)
+            .padding(.vertical, 12)
+            .background(RoundedRectangle(cornerRadius: 12).fill(Color.black.opacity(0.9)))
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.2), lineWidth: 1))
+            .contentShape(Rectangle())
+        }
+    }
+
     // MARK: - Stats Section
     
     private var statsSection: some View {
@@ -222,15 +239,14 @@ struct ProfileView: View {
                 .foregroundColor(FMColors.onBackground)
                 .padding(.horizontal, 24)
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
-                    FMStatCard(icon: "trophy.fill",       value: user?.stats?.mvpCount ?? 0,      label: L10n.Profile.mvp)
-                    FMStatCard(icon: "star.fill",         value: user?.stats?.matchesWon ?? 0,    label: L10n.Profile.won)
-                    FMStatCard(icon: "sportscourt",       value: user?.stats?.matchesPlayed ?? 0, label: L10n.Profile.played)
-                    FMStatCard(icon: "soccerball",        value: user?.stats?.totalGoals ?? 0,    label: L10n.Profile.totalGoals)
-                }
-                .padding(.horizontal, 24)
+            // All four stay visible: equal-width cards share the row instead of scrolling.
+            HStack(spacing: 8) {
+                FMStatCard(icon: "trophy.fill",       value: user?.stats?.mvpCount ?? 0,      label: L10n.Profile.mvp, width: nil, contentPadding: 10)
+                FMStatCard(icon: "star.fill",         value: user?.stats?.matchesWon ?? 0,    label: L10n.Profile.won, width: nil, contentPadding: 10)
+                FMStatCard(icon: "sportscourt",       value: user?.stats?.matchesPlayed ?? 0, label: L10n.Profile.played, width: nil, contentPadding: 10)
+                FMStatCard(icon: "soccerball",        value: user?.stats?.totalGoals ?? 0,    label: L10n.Profile.totalGoals, width: nil, contentPadding: 10)
             }
+            .padding(.horizontal, 24)
         }
     }
     
@@ -249,14 +265,8 @@ struct ProfileView: View {
                         .foregroundColor(FMColors.onSurfaceVariant)
                     
                     Text(user?.level.displayName ?? "—")
-                        .font(FMTypography.labelLarge)
-                        .foregroundColor(FMColors.onTertiary)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(
-                            Capsule()
-                                .fill(FMColors.tertiary)
-                        )
+                        .font(FMTypography.titleLarge)
+                        .foregroundColor(FMColors.onBackground)
                 }
                 
                 Spacer()
@@ -294,12 +304,8 @@ struct ProfileView: View {
                     .font(FMTypography.titleLarge)
                     .foregroundColor(FMColors.onBackground)
 
-                Button {
-                    // Guard against re-entry: the detail is fetched async before we
-                    // navigate, so without this a rapid multi-tap would queue several
-                    // Tasks and push the detail screen N times. Set the flag
-                    // synchronously (before the Task's first await) so it blocks
-                    // subsequent taps immediately.
+                LastMatchCard(match: last, isLoading: isLoadingLastMatchDetail) {
+                    // Same re-entry guard as Home: the detail is fetched before navigating.
                     guard !isLoadingLastMatchDetail else { return }
                     isLoadingLastMatchDetail = true
                     Task {
@@ -308,67 +314,27 @@ struct ProfileView: View {
                             navigationPath.append(detail)
                         }
                     }
-                } label: {
-                    HStack(spacing: 14) {
-                        Image(systemName: outcomeIcon(last.outcome))
-                            .font(.system(size: 24))
-                            .foregroundColor(outcomeColor(last.outcome))
-                            .frame(width: 44, height: 44)
-                            .background(Circle().fill(outcomeColor(last.outcome).opacity(0.12)))
-
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(last.outcomeLabel)
-                                .font(FMTypography.titleSmall)
-                                .foregroundColor(FMColors.onSurface)
-                            Text("\(last.relativeDate) - \(last.fieldName)")
-                                .font(FMTypography.bodySmall)
-                                .foregroundColor(FMColors.onSurfaceVariant)
-                                .lineLimit(1)
-                                .truncationMode(.tail)
-                        }
-
-                        Spacer()
-
-                        HStack(spacing: 4) {
-                            Text("\(last.teamAScore) - \(last.teamBScore)")
-                                .font(FMTypography.headlineMedium)
-                                .foregroundColor(FMColors.onSurface)
-                            if isLoadingLastMatchDetail {
-                                ProgressView()
-                                    .tint(FMColors.primary)
-                            }
-                        }
-                    }
-                    .padding(16)
-                    .background(
-                        RoundedRectangle(cornerRadius: 16)
-                            .fill(FMColors.surfaceContainerLowest)
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16)
-                            .stroke(FMColors.outlineVariant, lineWidth: 1)
-                    )
                 }
-                .buttonStyle(.plain)
-                .disabled(isLoadingLastMatchDetail)
             }
             .padding(.horizontal, 24)
-        }
-    }
+        } else {
+            VStack(alignment: .leading, spacing: 12) {
+                Text(L10n.LastMatch.title)
+                    .font(FMTypography.titleLarge)
+                    .foregroundColor(FMColors.onBackground)
 
-    private func outcomeIcon(_ outcome: LastMatchOutcome) -> String {
-        switch outcome {
-        case .win: return "trophy.fill"
-        case .loss: return "xmark.circle.fill"
-        case .draw: return "equal.circle.fill"
-        }
-    }
-
-    private func outcomeColor(_ outcome: LastMatchOutcome) -> Color {
-        switch outcome {
-        case .win: return .green
-        case .loss: return .red
-        case .draw: return .orange
+                FMEmptyStateCard(
+                    icon: "soccerball",
+                    message: L10n.LastMatch.empty,
+                    actionLabel: L10n.LastMatch.emptyAction,
+                    onActionTap: {
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                            selectedTab = .matches
+                        }
+                    }
+                )
+            }
+            .padding(.horizontal, 24)
         }
     }
 }

@@ -121,13 +121,21 @@ final class HomeViewModel: ObservableObject {
                     playedAt: $0.playedAt,
                     outcome: $0.outcome.rawValue,
                     teamAScore: $0.teamAScore,
-                    teamBScore: $0.teamBScore
+                    teamBScore: $0.teamBScore,
+                    teamAName: $0.teamA?.name,
+                    teamAColor: $0.teamA?.colorHex,
+                    teamBName: $0.teamB?.name,
+                    teamBColor: $0.teamB?.colorHex
                 )
             }
         )
         if let encoded = try? JSONEncoder().encode(dto) {
             UserDefaults.standard.set(encoded, forKey: cacheKey)
         }
+    }
+
+    private static func teamVisual(name: String?, color: String?) -> MatchTeamVisual? {
+        name.map { MatchTeamVisual(name: $0, colorHex: color) }
     }
 
     private static func loadCache() -> HomeData? {
@@ -161,7 +169,9 @@ final class HomeViewModel: ObservableObject {
                     playedAt: $0.playedAt,
                     outcome: LastMatchOutcome(rawValue: $0.outcome) ?? .draw,
                     teamAScore: $0.teamAScore,
-                    teamBScore: $0.teamBScore
+                    teamBScore: $0.teamBScore,
+                    teamA: Self.teamVisual(name: $0.teamAName, color: $0.teamAColor),
+                    teamB: Self.teamVisual(name: $0.teamBName, color: $0.teamBColor)
                 )
             }
         )
@@ -198,4 +208,9 @@ private struct HomeCacheLastMatch: Codable {
     let outcome: String
     let teamAScore: Int
     let teamBScore: Int
+    // Optional so caches written before team identities still decode.
+    let teamAName: String?
+    let teamAColor: String?
+    let teamBName: String?
+    let teamBColor: String?
 }

@@ -86,8 +86,9 @@ public struct HomeContainerView: View {
         .task {
             async let home: Void = homeViewModel.load()
             async let reserved: Void = reservedViewModel.load()
-            // Single initial badge fetch — subsequent refreshes happen on foreground.
-            async let badge: Void = notificationsViewModel.loadUnreadCount()
+            // The badge is requested once per session; after that pushes bump it locally
+            // and pull-to-refresh on the notifications screen reconciles it.
+            async let badge: Void = notificationsViewModel.loadUnreadCountForSession()
             // Fire-and-forget: pays Stripe's one-time framework binding cost now,
             // in parallel with the network loads above, instead of on first entry
             // into Settings or the payment flow.
@@ -110,17 +111,40 @@ public struct HomeContainerView: View {
         .task(id: effectiveProfileImageUrl) {
             await loadProfileTabImage()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .systemNotificationOpenedMatch)) { note in
+            guard let matchId = note.userInfo?["matchId"] as? String else { return }
+            _ = InAppNotificationPushRouter.consumePendingMatchId()
+            openMatchFromSystemNotification(matchId)
+        }
+        .task {
+            // Launched by tapping a notification: the tap fired before this view existed.
+            if let matchId = InAppNotificationPushRouter.consumePendingMatchId() {
+                openMatchFromSystemNotification(matchId)
+            }
+        }
         .onChange(of: scenePhase) { phase in
             guard phase == .active else { return }
             Task {
-                async let badge: Void = notificationsViewModel.loadUnreadCount()
                 async let home: Void = homeViewModel.load()
                 async let reserved: Void = reservedViewModel.load()
-                _ = await (badge, home, reserved)
+                _ = await (home, reserved)
             }
         }
     }
     
+    /// Opens the match a tapped system notification points to, on the Home tab.
+    private func openMatchFromSystemNotification(_ matchId: String) {
+        Task {
+            guard let match = await notificationsViewModel.match(forId: matchId) else { return }
+            selectedTab = .home
+            if #available(iOS 26.0, *) {
+                homeNavPath.append(match)
+            } else {
+                navigationPath.append(match)
+            }
+        }
+    }
+
     // MARK: - Native TabView (iOS 26+ with Liquid Glass & Loupe)
     
     @available(iOS 26.0, *)

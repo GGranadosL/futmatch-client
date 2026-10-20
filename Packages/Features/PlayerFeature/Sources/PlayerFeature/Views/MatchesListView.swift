@@ -481,6 +481,6 @@ struct MatchesListView: View {
     
 }
 
-private extension String {
+extension String {
     var nonEmpty: String? { trimmingCharacters(in: .whitespaces).isEmpty ? nil : self }
 }

@@ -6,6 +6,8 @@ import NetworkFramework
 enum NotificationEndpoint: APIEndpoint {
     case notifications(limit: Int = 50, offset: Int = 0)
     case deleteNotification(id: String)
+    case unreadCount
+    case markAllRead
 
     var path: String {
         switch self {
@@ -13,6 +15,10 @@ enum NotificationEndpoint: APIEndpoint {
             return "/notification/"
         case .deleteNotification(let id):
             return "/notification/\(id)"
+        case .unreadCount:
+            return "/notification/unread-count"
+        case .markAllRead:
+            return "/notification/read-all"
         }
     }
 
@@ -20,6 +26,8 @@ enum NotificationEndpoint: APIEndpoint {
         switch self {
         case .notifications:      return .get
         case .deleteNotification: return .delete
+        case .unreadCount:        return .get
+        case .markAllRead:        return .patch
         }
     }
 
@@ -30,7 +38,7 @@ enum NotificationEndpoint: APIEndpoint {
                 URLQueryItem(name: "limit",  value: "\(limit)"),
                 URLQueryItem(name: "offset", value: "\(offset)")
             ]
-        case .deleteNotification:
+        case .deleteNotification, .unreadCount, .markAllRead:
             return nil
         }
     }

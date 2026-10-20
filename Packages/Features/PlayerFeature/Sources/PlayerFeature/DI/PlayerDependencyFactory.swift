@@ -8,12 +8,13 @@ public struct PlayerDependencyFactory {
     private static let sharedMatchService      = MatchService(isDemoMode: false)
     private static let sharedDemoMatchService  = MatchService(isDemoMode: true)
     private static let sharedMatchVersionStore = UserDefaultsMatchVersionStore()
-    private static let sharedNotificationFetchTimestampStore = UserDefaultsNotificationFetchTimestampStore()
-    private static let sharedSeenNotificationStore = UserDefaultsSeenNotificationStore()
+    private static let sharedNotificationCacheStore = UserDefaultsNotificationCacheStore()
     /// Shared across all ViewModels so every tab reuses the same resolved fix
     /// instead of each one racing its own CLLocationManager (see
     /// `CurrentLocationService`'s in-flight/caching logic).
-    private static let sharedCurrentLocationService = CurrentLocationService()
+    private static let sharedCurrentLocationService = CurrentLocationService(
+        makeLocationManager: { CoreLocationManager() }
+    )
     private static let sharedPaymentSecurityPreferenceStore = UserDefaultsPaymentSecurityPreferenceStore()
 
     private let isDemoMode: Bool
@@ -215,28 +216,32 @@ public struct PlayerDependencyFactory {
 
     // MARK: - Notifications
 
-    @MainActor
-    func makeNotificationsViewModel() -> NotificationsViewModel {
+    func makeNotificationRepository() -> NotificationRepositoryProtocol {
         let service: NotificationServiceProtocol = isDemoMode
             ? DemoNotificationService()
             : NotificationService()
-        let fetchNotificationsUseCase = FetchNotificationsUseCase(
-            notificationService: service,
-            timestampStore: Self.sharedNotificationFetchTimestampStore
-        )
+        return NotificationRepository(service: service, cache: Self.sharedNotificationCacheStore)
+    }
+
+    @MainActor
+    func makeNotificationsViewModel() -> NotificationsViewModel {
+        let repository = makeNotificationRepository()
         return NotificationsViewModel(
-            notificationService: service,
-            fetchNotificationsUseCase: fetchNotificationsUseCase,
-            fetchMatchDetailUseCase: makeFetchMatchDetailUseCase(),
-            seenStore: Self.sharedSeenNotificationStore
+            loadCachedUseCase: LoadCachedNotificationsUseCase(repository: repository),
+            fetchUnreadCountUseCase: FetchUnreadNotificationCountUseCase(repository: repository),
+            openInboxUseCase: OpenNotificationInboxUseCase(repository: repository),
+            refreshInboxUseCase: RefreshNotificationInboxUseCase(repository: repository),
+            deleteNotificationUseCase: DeleteNotificationUseCase(repository: repository),
+            registerIncomingUseCase: RegisterIncomingNotificationUseCase(repository: repository),
+            clearStateUseCase: ClearNotificationStateUseCase(repository: repository),
+            fetchMatchDetailUseCase: makeFetchMatchDetailUseCase()
         )
     }
 
-    /// Clears the notification badge's seen-ID set and the fetch-timestamp safety
-    /// net. Call on logout so the next account gets a badge computed from scratch
-    /// and isn't throttled by this account's recent activity.
+    /// Clears the notification history, the unread counter and the cache timestamp.
+    /// Call on logout so the next account starts from scratch and never sees this
+    /// account's badge.
     public func clearNotificationState() {
-        Self.sharedSeenNotificationStore.clear()
-        Self.sharedNotificationFetchTimestampStore.clear()
+        ClearNotificationStateUseCase(repository: makeNotificationRepository()).execute()
     }
 }
