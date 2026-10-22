@@ -41,6 +41,7 @@ struct HomeSuggestedMatchDTO: Codable {
             timeRange: MatchFormatters.timeRange(start: start, end: end),
             date: MatchFormatters.dateString(start),
             startDate: start,
+            endDate: end,
             price: MatchFormatters.priceString(priceInCents),
             matchType: "",
             spotsLeft: 0,

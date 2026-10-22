@@ -89,14 +89,24 @@ final class ReservedMatchesViewModel: ObservableObject {
         isLoading = false
     }
 
-    /// The nearest upcoming match the user is enrolled in. Skips completed and
-    /// canceled matches — without the status check a canceled match with a
-    /// future kickoff still surfaced on Home as "your next match" even though
-    /// the Reserved tab correctly filed it under Cancelados.
+    /// The match Home shows as "your next match": the one being played right
+    /// now if there is one, otherwise the nearest upcoming one. Skips completed
+    /// and canceled matches — without the status check a canceled match with a
+    /// future kickoff still surfaced on Home even though the Reserved tab
+    /// correctly filed it under Cancelados.
     var nextMatch: MatchItem? {
-        let now = Date()
-        return myMatches
-            .filter { $0.startDate > now && $0.isUpcoming }
+        Self.nextMatch(in: myMatches, now: Date())
+    }
+
+    nonisolated static func nextMatch(in matches: [MatchItem], now: Date) -> MatchItem? {
+        let candidates = matches.filter(\.isUpcoming)
+        if let ongoing = candidates
+            .filter({ $0.isOngoing(at: now) })
+            .max(by: { $0.startDate < $1.startDate }) {
+            return ongoing
+        }
+        return candidates
+            .filter { $0.startDate > now }
             .min { $0.startDate < $1.startDate }
     }
 

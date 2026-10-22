@@ -2,8 +2,11 @@ import SwiftUI
 
 /// Compact card showing the user's next upcoming game: date, time, address, venue,
 /// a field thumbnail on the right and two actions (view match, directions).
+/// With `liveLabel` set, the match is being played: a pulsing pill sits next to
+/// the title and the card gets an accent border.
 public struct FMNextGameCard: View {
     let title: String
+    let liveLabel: String?
     let dateLabel: String
     let time: String
     let address: String
@@ -15,12 +18,16 @@ public struct FMNextGameCard: View {
     var onDetailTap: (() -> Void)?
     var onDirectionsTap: (() -> Void)?
 
+    @State private var livePulse = false
+
     /// - Parameters:
+    ///   - liveLabel: e.g. "Jugándose ahora"; `nil` for a match that hasn't started.
     ///   - address: full venue address; truncated to one line so a long address never grows the card.
     ///   - fieldName: venue name shown beside the pin.
     ///   - directionsLabel: accessibility label of the icon-only directions button.
     public init(
         title: String,
+        liveLabel: String? = nil,
         dateLabel: String,
         time: String,
         address: String,
@@ -33,6 +40,7 @@ public struct FMNextGameCard: View {
         onDirectionsTap: (() -> Void)? = nil
     ) {
         self.title = title
+        self.liveLabel = liveLabel
         self.dateLabel = dateLabel
         self.time = time
         self.address = address
@@ -47,9 +55,14 @@ public struct FMNextGameCard: View {
 
     public var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(title.uppercased())
-                .font(FMTypography.labelSmall)
-                .foregroundColor(FMColors.onSurfaceVariant)
+            HStack(spacing: 8) {
+                Text(title.uppercased())
+                    .font(FMTypography.labelSmall)
+                    .foregroundColor(FMColors.onSurfaceVariant)
+                if let liveLabel {
+                    livePill(liveLabel)
+                }
+            }
 
             HStack(spacing: 10) {
                 VStack(alignment: .leading, spacing: 2) {
@@ -122,11 +135,29 @@ public struct FMNextGameCard: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 16)
-                .stroke(FMColors.outlineVariant, lineWidth: 1)
+                .stroke(liveLabel != nil ? FMColors.primary.opacity(0.6) : FMColors.outlineVariant, lineWidth: 1)
         )
     }
 
     // MARK: - Private
+
+    private func livePill(_ label: String) -> some View {
+        HStack(spacing: 5) {
+            Circle()
+                .fill(FMColors.primary)
+                .frame(width: 7, height: 7)
+                .opacity(livePulse ? 0.25 : 1)
+                .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: livePulse)
+            Text(label)
+                .font(FMTypography.labelSmall)
+                .fontWeight(.semibold)
+        }
+        .foregroundColor(FMColors.primary)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 3)
+        .background(Capsule().fill(FMColors.primary.opacity(0.16)))
+        .onAppear { livePulse = true }
+    }
 
     @ViewBuilder
     private var fieldImageView: some View {
@@ -164,6 +195,20 @@ public struct FMNextGameCard: View {
         time: "8:00 a. m.",
         address: "Calzada Casa del Obrero Mundial, Ciudad de México",
         fieldName: "La Jaula",
+        detailLabel: "Ver partido",
+        directionsLabel: "Cómo llegar"
+    )
+    .padding()
+}
+
+#Preview("In progress") {
+    FMNextGameCard(
+        title: "Tu próximo partido",
+        liveLabel: "Jugándose ahora",
+        dateLabel: "Hoy",
+        time: "6:00 p. m.",
+        address: "Calzada Casa del Obrero Mundial, Ciudad de México",
+        fieldName: "Park Test",
         detailLabel: "Ver partido",
         directionsLabel: "Cómo llegar"
     )

@@ -187,6 +187,7 @@ struct ReservedView: View {
 
     private func reservedCard(for match: MatchItem) -> some View {
         let isDimmed = !match.isUpcoming
+        let badge = match.availabilityBadge(spotsLeft: match.spotsLeft)
 
         return FMMatchCard(
             venueName: match.venueName,
@@ -194,7 +195,8 @@ struct ReservedView: View {
             price: match.price,
             matchType: match.matchType,
             spotsLeft: match.spotsLeft,
-            spotsLabel: L10n.Matches.spotsLeft(match.spotsLeft),
+            spotsLabel: badge.label,
+            badgeIcon: badge.icon,
             teamA: FMMatchTeam(
                 name: match.teamAName,
                 avatarURLs: match.teamAPlayers.prefix(3).map { $0.avatarUrl },
