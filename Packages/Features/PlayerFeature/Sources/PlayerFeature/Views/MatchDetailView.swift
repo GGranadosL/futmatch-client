@@ -172,6 +172,11 @@ struct MatchDetailView: View {
         isCompletedMatch || isCanceledMatch
     }
 
+    /// Match over, result pending: nothing left to join or leave.
+    private var isAwaitingResult: Bool {
+        match.isAwaitingResult()
+    }
+
     /// Backend `MATCH_JOIN_PAYMENT_WINDOW_HOURS` — paid registration only opens this
     /// many hours before kickoff because Stripe won't hold a reservation any earlier.
     /// Mirrors the server default so the client hides the Join CTA until then.
@@ -604,7 +609,7 @@ struct MatchDetailView: View {
         }
         .ignoresSafeArea(edges: .top)
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            if !isClosedMatch {
+            if !isClosedMatch && !isAwaitingResult {
                 bottomBar
             }
         }
@@ -770,12 +775,13 @@ struct MatchDetailView: View {
                                 .fill(FMColors.error.opacity(0.15))
                         )
                 } else if !isCompletedMatch {
-                    // Spots left badge
+                    // Spots left while joinable; "playing now" / "awaiting result" after kickoff
+                    let badge = match.availabilityBadge(spotsLeft: liveSpotsLeft)
                     HStack(spacing: 4) {
-                        Image(systemName: "person.2.fill")
+                        Image(systemName: badge.icon)
                             .font(.system(size: 12))
 
-                        Text(L10n.MatchDetail.spotsLeft(liveSpotsLeft))
+                        Text(badge.label)
                             .font(FMTypography.labelSmall)
                     }
                     .foregroundColor(FMColors.primary)
@@ -923,7 +929,7 @@ struct MatchDetailView: View {
                 // joined, or while the match is still outside the join window.
                 // Kept outside the ScrollView so it stays fixed in place while the
                 // player/empty slots scroll beside it.
-                if !isCompletedMatch && !isCanceledMatch && !isBeforeJoinWindow {
+                if !isCompletedMatch && !isCanceledMatch && !isAwaitingResult && !isBeforeJoinWindow {
                     joinSlot(for: team)
                 }
 
@@ -1508,7 +1514,7 @@ struct MatchDetailView: View {
     // MARK: - Join Actions
 
     private func triggerJoin(team: JoinTeam) {
-        guard !isClosedMatch else { return }
+        guard !isClosedMatch && !isAwaitingResult else { return }
         let resolved: JoinTeam
         if team == .auto {
             // Balance against the live roster — the REST arrays are frozen at

@@ -26,6 +26,7 @@ public struct FMMatchCard: View {
     let matchType: String
     let spotsLeft: Int
     let spotsLabel: String
+    let badgeIcon: String
     let teamA: FMMatchTeam
     let teamB: FMMatchTeam
     let distance: String
@@ -41,6 +42,7 @@ public struct FMMatchCard: View {
         matchType: String,
         spotsLeft: Int,
         spotsLabel: String,
+        badgeIcon: String = "person.2.fill",
         teamA: FMMatchTeam,
         teamB: FMMatchTeam,
         distance: String,
@@ -55,6 +57,7 @@ public struct FMMatchCard: View {
         self.matchType = matchType
         self.spotsLeft = spotsLeft
         self.spotsLabel = spotsLabel
+        self.badgeIcon = badgeIcon
         self.teamA = teamA
         self.teamB = teamB
         self.distance = distance
@@ -131,18 +134,15 @@ public struct FMMatchCard: View {
     // MARK: - Bottom Section (Teams + Distance)
     
     private var bottomSection: some View {
-        HStack(alignment: .center) {
-            // Team A
-            teamColumn(team: teamA)
-            
-            Spacer()
-            
-            // Team B
-            teamColumn(team: teamB)
-            
-            Spacer()
-            
-            // Distance
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .center, spacing: 16) {
+                teamColumn(team: teamA)
+                teamColumn(team: teamB)
+                Spacer(minLength: 0)
+            }
+
+            // Own full-width row: sharing a row with both teams left the address
+            // a third of the card and cut it after a few characters.
             distanceView
         }
     }
@@ -178,7 +178,7 @@ public struct FMMatchCard: View {
 
     private var availabilityBadge: some View {
         HStack(spacing: 4) {
-            Image(systemName: "person.2.fill")
+            Image(systemName: badgeIcon)
                 .font(.system(size: 10))
             
             Text(spotsLabel)
@@ -208,28 +208,31 @@ public struct FMMatchCard: View {
         }
     }
     
-    /// Shows the pin + location on one line, and — only when both a location
-    /// and a distance are supplied — the distance on a second line beneath it.
+    /// Pin + location on the left (up to two lines), distance on the right.
+    /// Without a location, the distance (or its fallback text) takes the pin slot.
     private var distanceView: some View {
-        VStack(alignment: .trailing, spacing: 2) {
-            HStack(spacing: 4) {
+        let hasLocation = location?.isEmpty == false
+        return HStack(alignment: .firstTextBaseline, spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
                 Image(systemName: "mappin.and.ellipse")
                     .font(.system(size: 12))
-                    .foregroundColor(FMColors.onSurfaceVariant)
 
-                Text(location?.isEmpty == false ? location! : distance)
+                Text(hasLocation ? location! : distance)
                     .font(FMTypography.labelSmall)
-                    .foregroundColor(FMColors.onSurfaceVariant)
-                    .lineLimit(1)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
 
-            if location?.isEmpty == false, !distance.isEmpty {
+            if hasLocation, !distance.isEmpty {
                 Text(distance)
                     .font(FMTypography.labelSmall)
-                    .foregroundColor(FMColors.onSurfaceVariant)
                     .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
             }
         }
+        .foregroundColor(FMColors.onSurfaceVariant)
     }
     
     // MARK: - Badge Colors

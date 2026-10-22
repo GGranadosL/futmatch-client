@@ -219,6 +219,13 @@ public struct FMMatchCardSkeleton: View {
                 }
                 Spacer()
             }
+
+            // Location row: address on the left, distance on the right
+            HStack {
+                FMSkeleton(cornerRadius: 4).frame(width: 180, height: 12)
+                Spacer()
+                FMSkeleton(cornerRadius: 4).frame(width: 44, height: 12)
+            }
         }
         .padding(16)
         .background(

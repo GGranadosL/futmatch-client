@@ -1146,6 +1146,23 @@
         }
       }
     },
+    "home.nextGame.inProgress" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Playing now"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jugándose ahora"
+          }
+        }
+      }
+    },
     "home.nextGame.joinMatch" : {
       "extractionState" : "manual",
       "localizations" : {

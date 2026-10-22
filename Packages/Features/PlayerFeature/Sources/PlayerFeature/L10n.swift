@@ -40,6 +40,9 @@ public enum L10n {
         public static var today: String {
             NSLocalizedString("home.nextGame.today", bundle: .module, comment: "")
         }
+        public static var inProgress: String {
+            NSLocalizedString("home.nextGame.inProgress", bundle: .module, comment: "")
+        }
         public static var tomorrow: String {
             NSLocalizedString("home.nextGame.tomorrow", bundle: .module, comment: "")
         }

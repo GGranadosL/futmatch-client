@@ -126,6 +126,8 @@ struct MatchItem: Identifiable, Hashable {
     let timeRange: String
     let date: String
     let startDate: Date
+    /// Kickoff + duration. `nil` when the source doesn't carry it (Core Data cache).
+    let endDate: Date?
     let price: String
     let matchType: String
     let spotsLeft: Int
@@ -160,6 +162,7 @@ struct MatchItem: Identifiable, Hashable {
         timeRange: String,
         date: String = "",
         startDate: Date = Date(),
+        endDate: Date? = nil,
         price: String,
         matchType: String,
         spotsLeft: Int,
@@ -192,6 +195,7 @@ struct MatchItem: Identifiable, Hashable {
         self.timeRange = timeRange
         self.date = date
         self.startDate = startDate
+        self.endDate = endDate
         self.price = price
         self.matchType = matchType
         self.spotsLeft = spotsLeft
@@ -251,6 +255,49 @@ struct MatchItem: Identifiable, Hashable {
     /// tab deliberately hides. Includes SCHEDULED, IN_PROGRESS, and PENDING_RESULT.
     var isUpcoming: Bool {
         matchStatus != .completed && matchStatus != .canceled
+    }
+
+    /// Pill on match cards and the detail info bar: spots left while the match
+    /// can still be joined, otherwise what's happening with it.
+    func availabilityBadge(spotsLeft: Int, at now: Date = Date()) -> (icon: String, label: String) {
+        if isAwaitingResult(at: now) {
+            return ("info.circle.fill", L10n.MatchStatus.pendingResult)
+        }
+        if isOngoing(at: now) {
+            return ("sportscourt.fill", L10n.NextGame.inProgress)
+        }
+        return ("person.2.fill", L10n.Matches.spotsLeft(spotsLeft))
+    }
+
+    /// Played, result not in yet. Either the backend already says PENDING_RESULT,
+    /// or the end time has passed and its 15-minute status sync hasn't caught up.
+    func isAwaitingResult(at now: Date = Date()) -> Bool {
+        switch matchStatus {
+        case .pendingResult:
+            return true
+        case .scheduled, .inProgress:
+            guard let endDate else { return false }
+            return now >= endDate
+        case .completed, .canceled:
+            return false
+        }
+    }
+
+    /// Being played right now. The backend moves a match to IN_PROGRESS in a job
+    /// that runs every 15 minutes, so a match past kickoff can still arrive as
+    /// SCHEDULED — the start/end window covers that gap. Once the end time has
+    /// passed it is no longer ongoing, even if the status hasn't caught up.
+    func isOngoing(at now: Date = Date()) -> Bool {
+        if let endDate, now >= endDate { return false }
+        switch matchStatus {
+        case .inProgress:
+            return true
+        case .scheduled:
+            guard endDate != nil else { return false }
+            return startDate <= now
+        default:
+            return false
+        }
     }
 
     /// First segment of the full address (e.g. "San Ángel, Ciudad de México" →
@@ -451,13 +498,15 @@ struct MatchesListView: View {
     // MARK: - Match Card
     
     private func matchCard(for match: MatchItem) -> some View {
-        FMMatchCard(
+        let badge = match.availabilityBadge(spotsLeft: match.spotsLeft)
+        return FMMatchCard(
             venueName: match.venueName,
             timeRange: match.timeRange,
             price: match.price,
             matchType: match.matchType,
             spotsLeft: match.spotsLeft,
-            spotsLabel: L10n.Matches.spotsLeft(match.spotsLeft),
+            spotsLabel: badge.label,
+            badgeIcon: badge.icon,
             teamA: FMMatchTeam(
                 name: match.teamAName,
                 avatarURLs: match.teamAPlayers.prefix(3).map { $0.avatarUrl },

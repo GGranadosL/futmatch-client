@@ -227,6 +227,7 @@ struct HomeContentView: View {
             if let match = nextMatch {
                 FMNextGameCard(
                     title: L10n.NextGame.title,
+                    liveLabel: match.isOngoing() ? L10n.NextGame.inProgress : nil,
                     dateLabel: nextGameDateLabel(for: match),
                     time: MatchFormatters.timeLabel(match.startDate),
                     address: match.location,
