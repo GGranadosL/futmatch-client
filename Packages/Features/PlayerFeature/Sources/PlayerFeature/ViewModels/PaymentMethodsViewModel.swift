@@ -9,6 +9,10 @@ final class PaymentMethodsViewModel: ObservableObject {
     @Published private(set) var isLoading = false
     @Published private(set) var error: String?
     @Published private(set) var customerSheet: CustomerSheet?
+    /// True from the moment Stripe's sheet is asked to present until it reports a result.
+    @Published private(set) var isPresenting = false
+    /// A new value asks the view to present `customerSheet`. One value = one presentation.
+    @Published private(set) var presentationRequest: UUID?
 
     private let paymentService: PaymentServiceProtocol
 
@@ -16,8 +20,33 @@ final class PaymentMethodsViewModel: ObservableObject {
         self.paymentService = paymentService
     }
 
+    /// Entry point for the "Payment methods" row. Repeated taps while loading or
+    /// while the sheet is up are ignored. A sheet built earlier is reused: Stripe
+    /// fetches a fresh Customer Session on every `present`, so only the first open waits.
+    func open() async {
+        guard !isLoading, !isPresenting else { return }
+        error = nil
+        if customerSheet == nil {
+            await loadCustomerSheet()
+        }
+        guard customerSheet != nil, error == nil else { return }
+        presentationRequest = UUID()
+    }
+
+    func presentationStarted() {
+        isPresenting = true
+    }
+
+    /// The view could not find a view controller to present from.
+    func presentationFailed() {
+        isPresenting = false
+        error = L10n.Settings.paymentMethodsOpenError
+    }
+
     func loadCustomerSheet() async {
+        guard !isLoading else { return }
         isLoading = true
+        defer { isLoading = false }
         error = nil
         customerSheet = nil
         do {
@@ -49,10 +78,10 @@ final class PaymentMethodsViewModel: ObservableObject {
             guard !error.isCancellation else { return }
             self.error = Self.message(for: error)
         }
-        isLoading = false
     }
 
     func handleCustomerSheetResult(_ result: CustomerSheet.CustomerSheetResult) {
+        isPresenting = false
         switch result {
         case .selected, .canceled:
             error = nil

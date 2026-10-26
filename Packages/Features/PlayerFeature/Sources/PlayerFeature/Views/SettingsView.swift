@@ -27,7 +27,6 @@ struct SettingsView: View {
     @StateObject private var paymentMethodsVM: PaymentMethodsViewModel
     @StateObject private var deleteAccountVM: DeleteAccountViewModel
     @StateObject private var paymentSecurityVM: PaymentSecurityViewModel
-    @State private var presentCustomerSheet = false
     @State private var showPaymentHistory = false
     @State private var safariURL: URL? = nil
     @State private var showLogoutAlert = false
@@ -211,6 +210,12 @@ struct SettingsView: View {
                     }
                 )
             }
+
+            // Blocks the screen while the Stripe session is fetched; Stripe's own
+            // sheet takes over (with its internal loader) once it presents.
+            if paymentMethodsVM.isLoading {
+                FMLoaderAlert(message: L10n.Settings.loadingPaymentMethods, icon: "creditcard")
+            }
         }
         .toolbar {
             ToolbarItem(placement: .principal) {
@@ -222,18 +227,14 @@ struct SettingsView: View {
         .task {
             paymentSecurityVM.load()
         }
-        .onChange(of: paymentMethodsVM.customerSheet != nil) { ready in
-            if ready {
-                presentCustomerSheet = true
-            }
-        }
         .background(
             CustomerSheetPresenter(
+                request: paymentMethodsVM.presentationRequest,
                 customerSheet: paymentMethodsVM.customerSheet,
-                isPresented: $presentCustomerSheet
-            ) { result in
-                paymentMethodsVM.handleCustomerSheetResult(result)
-            }
+                onStarted: { paymentMethodsVM.presentationStarted() },
+                onFailed: { paymentMethodsVM.presentationFailed() },
+                onResult: { paymentMethodsVM.handleCustomerSheetResult($0) }
+            )
         )
         .alert(
             L10n.Settings.paymentMethods,
@@ -243,7 +244,7 @@ struct SettingsView: View {
             )
         ) {
             Button(L10n.Common.retry) {
-                Task { await paymentMethodsVM.loadCustomerSheet() }
+                Task { await paymentMethodsVM.open() }
             }
             Button(L10n.Common.cancel, role: .cancel) {
                 paymentMethodsVM.clearError()
@@ -384,6 +385,8 @@ struct SettingsView: View {
             // Whole row tappable, including the gap before the chevron
             .contentShape(Rectangle())
         }
+        .disabled(row.title == L10n.Settings.paymentMethods
+                  && (paymentMethodsVM.isLoading || paymentMethodsVM.isPresenting))
     }
 }
 
@@ -400,7 +403,7 @@ struct SettingsView: View {
 private extension SettingsView {
     func handleRowTap(_ row: SettingsRow) {
         if row.title == L10n.Settings.paymentMethods {
-            Task { await paymentMethodsVM.loadCustomerSheet() }
+            Task { await paymentMethodsVM.open() }
         } else if row.title == L10n.Settings.paymentHistory {
             showPaymentHistory = true
         } else if row.title == L10n.Settings.help {
@@ -431,13 +434,23 @@ private struct SafariBrowserView: UIViewControllerRepresentable {
 
 // MARK: - CustomerSheet UIKit Bridge
 
+/// Presents Stripe's CustomerSheet once per new `request` value. Every path ends in
+/// exactly one of `onFailed` or (`onStarted` then `onResult`), so the view model's
+/// state can never stay stuck.
 private struct CustomerSheetPresenter: UIViewControllerRepresentable {
+    let request: UUID?
     let customerSheet: CustomerSheet?
-    @Binding var isPresented: Bool
+    let onStarted: () -> Void
+    let onFailed: () -> Void
     let onResult: (CustomerSheet.CustomerSheetResult) -> Void
 
+    /// How many times to wait for a dismissing controller (e.g. the error alert's
+    /// Retry button) to leave the screen before giving up.
+    private static let maxAttempts = 6
+    private static let retryDelay: TimeInterval = 0.25
+
     final class Coordinator {
-        var isPresenting = false
+        var handledRequest: UUID?
     }
 
     func makeCoordinator() -> Coordinator { Coordinator() }
@@ -447,29 +460,51 @@ private struct CustomerSheetPresenter: UIViewControllerRepresentable {
     }
 
     func updateUIViewController(_ uiViewController: UIViewController, context: Context) {
-        guard isPresented, let sheet = customerSheet, !context.coordinator.isPresenting else { return }
-        context.coordinator.isPresenting = true
+        guard let request, request != context.coordinator.handledRequest else { return }
+        context.coordinator.handledRequest = request
 
-        DispatchQueue.main.async {
-            guard let windowScene = UIApplication.shared.connectedScenes
-                .compactMap({ $0 as? UIWindowScene })
-                .first(where: { $0.activationState == .foregroundActive }),
-                let rootVC = windowScene.windows.first(where: { $0.isKeyWindow })?.rootViewController
-            else {
-                context.coordinator.isPresenting = false
-                return
-            }
-
-            guard rootVC.presentedViewController == nil else {
-                context.coordinator.isPresenting = false
-                return
-            }
-
-            sheet.present(from: rootVC) { result in
-                context.coordinator.isPresenting = false
-                self.isPresented = false
-                self.onResult(result)
-            }
+        guard let sheet = customerSheet else {
+            onFailed()
+            return
         }
+        DispatchQueue.main.async {
+            present(sheet, attempt: 1)
+        }
+    }
+
+    private func present(_ sheet: CustomerSheet, attempt: Int) {
+        guard let top = Self.topViewController() else {
+            onFailed()
+            return
+        }
+        // Something on top is still animating away: wait for it rather than fail.
+        guard !top.isBeingDismissed, top.presentedViewController == nil else {
+            if attempt < Self.maxAttempts {
+                DispatchQueue.main.asyncAfter(deadline: .now() + Self.retryDelay) {
+                    present(sheet, attempt: attempt + 1)
+                }
+            } else {
+                onFailed()
+            }
+            return
+        }
+
+        onStarted()
+        sheet.present(from: top) { result in
+            onResult(result)
+        }
+    }
+
+    private static func topViewController() -> UIViewController? {
+        guard let windowScene = UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene })
+            .first(where: { $0.activationState == .foregroundActive }),
+              var top = windowScene.windows.first(where: { $0.isKeyWindow })?.rootViewController
+        else { return nil }
+
+        while let presented = top.presentedViewController, !presented.isBeingDismissed {
+            top = presented
+        }
+        return top
     }
 }

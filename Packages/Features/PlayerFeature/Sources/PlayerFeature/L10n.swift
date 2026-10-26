@@ -470,6 +470,12 @@ public enum L10n {
         public static var paymentMethodsDesc: String {
             NSLocalizedString("settings.paymentMethodsDesc", bundle: .module, comment: "")
         }
+        public static var loadingPaymentMethods: String {
+            NSLocalizedString("settings.loadingPaymentMethods", bundle: .module, comment: "")
+        }
+        public static var paymentMethodsOpenError: String {
+            NSLocalizedString("settings.paymentMethodsOpenError", bundle: .module, comment: "")
+        }
         public static var paymentHistory: String {
             NSLocalizedString("settings.paymentHistory", bundle: .module, comment: "")
         }
