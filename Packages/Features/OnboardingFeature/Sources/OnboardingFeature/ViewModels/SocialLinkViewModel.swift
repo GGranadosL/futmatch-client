@@ -1,4 +1,5 @@
 import Foundation
+import SharedModels
 import NetworkFramework
 import PersistenceFramework
 
@@ -62,6 +63,7 @@ public final class SocialLinkViewModel: ObservableObject {
     /// Same injected closure `LoginViewModel` uses: receives the Firebase custom token.
     private let firebaseSignIn: ((String) async throws -> Void)?
     private let keychainManager: KeychainManaging
+    private let analytics: AnalyticsTracking
 
     public init(
         account: SocialAccount,
@@ -70,7 +72,8 @@ public final class SocialLinkViewModel: ObservableObject {
         confirmSocialLinkUseCase: ConfirmSocialLinkUseCaseProtocol,
         firebaseSignIn: ((String) async throws -> Void)? = nil,
         keychainManager: KeychainManaging = KeychainManager.shared,
-        now: Date = Date()
+        now: Date = Date(),
+        analytics: AnalyticsTracking = AnalyticsRegistry.current
     ) {
         self.account = account
         self.linkAttemptToken = linkAttemptToken
@@ -79,6 +82,7 @@ public final class SocialLinkViewModel: ObservableObject {
         self.confirmSocialLinkUseCase = confirmSocialLinkUseCase
         self.firebaseSignIn = firebaseSignIn
         self.keychainManager = keychainManager
+        self.analytics = analytics
     }
 
     /// Named in the confirmation copy. Nothing else about the existing account is
@@ -107,6 +111,7 @@ public final class SocialLinkViewModel: ObservableObject {
             stage = .mfa
         } catch {
             isLoading = false
+            trackMFAError(.sendCode, error)
             errorMessage = message(forStartFailure: error)
         }
     }
@@ -129,6 +134,7 @@ public final class SocialLinkViewModel: ObservableObject {
             isLoading = false
         } catch {
             isLoading = false
+            trackMFAError(.sendCode, error)
             errorMessage = error.localizedDescription
         }
     }
@@ -155,13 +161,16 @@ public final class SocialLinkViewModel: ObservableObject {
             try await performFirebaseSignIn()
             clearSensitiveState()
             isLoading = false
+            analytics.log(AuthEvents.loginSuccess(account.provider.analyticsMethod))
             succeeded = true
         } catch SocialAuthError.reauthenticationRequired {
             isLoading = false
+            trackMFAError(.googleLinkVerify, SocialAuthError.reauthenticationRequired)
             expire()
         } catch {
             isLoading = false
             code = ""
+            trackMFAError(.googleLinkVerify, error)
             errorMessage = error.localizedDescription
         }
     }
@@ -173,6 +182,10 @@ public final class SocialLinkViewModel: ObservableObject {
     }
 
     // MARK: - Private
+
+    private func trackMFAError(_ stage: AuthEvents.MFAStage, _ error: Error) {
+        analytics.log(AuthEvents.loginMFAError(stage, errorCode: AnalyticsErrorCode.forOnboarding(error)))
+    }
 
     /// One message for every rejection the server issues. It does not say whether the
     /// password was wrong, the attempt token stale or the account nonexistent, and

@@ -1,6 +1,7 @@
 import Foundation
 import PersistenceFramework
 import AdminFeature
+import SharedModels
 
 // MARK: - MatchDetailViewModel
 
@@ -101,6 +102,9 @@ final class MatchDetailViewModel: ObservableObject {
     /// Resolves the signed-in user's id. Injected so the reservation and payment-recovery
     /// branches are testable without touching the real Keychain.
     private let currentUserId: () -> String?
+    private let analytics: AnalyticsTracking
+    /// Where the user came from, reported with `match_join_started`.
+    private let joinSource: AnalyticsJoinSource
 
     init(
         initialMatch: MatchItem,
@@ -114,7 +118,9 @@ final class MatchDetailViewModel: ObservableObject {
         fetchPendingPaymentUseCase: FetchPendingMatchPaymentUseCaseProtocol,
         fetchFieldAttributeCatalogsUseCase: FetchFieldAttributeCatalogsUseCaseProtocol,
         authorizeSensitiveActionUseCase: AuthorizeSensitiveActionUseCaseProtocol,
-        currentUserId: @escaping () -> String? = { KeychainManager.shared.userId }
+        currentUserId: @escaping () -> String? = { KeychainManager.shared.userId },
+        analytics: AnalyticsTracking = NoOpAnalytics(),
+        joinSource: AnalyticsJoinSource = .nearby
     ) {
         self.match = initialMatch
         self.fetchDetailUseCase = fetchDetailUseCase
@@ -128,6 +134,8 @@ final class MatchDetailViewModel: ObservableObject {
         self.fetchFieldAttributeCatalogsUseCase = fetchFieldAttributeCatalogsUseCase
         self.authorizeSensitiveActionUseCase = authorizeSensitiveActionUseCase
         self.currentUserId = currentUserId
+        self.analytics = analytics
+        self.joinSource = joinSource
     }
 
     // MARK: - Field Attribute Catalog
@@ -172,6 +180,8 @@ final class MatchDetailViewModel: ObservableObject {
             try await authorizeSensitiveActionUseCase.execute(reason: L10n.Payment.biometricReason)
             return true
         } catch {
+            // Decline and failure are indistinguishable here; both are a silent stop.
+            analytics.log(PaymentEvents.canceled(matchId: match.id, stage: .localAuthorization))
             return false
         }
     }
@@ -180,6 +190,8 @@ final class MatchDetailViewModel: ObservableObject {
 
     /// Calls POST /match/{id}/join. `team` is "A", "B", or nil for auto-assign.
     func joinMatch(team: String?) async {
+        guard !isJoining else { return }
+        analytics.log(MatchEvents.joinStarted(matchId: match.id, source: joinSource, team: AnalyticsTeam(apiTeam: team)))
         isJoining = true
         joinError = nil
         do {
@@ -188,10 +200,13 @@ final class MatchDetailViewModel: ObservableObject {
                 paymentWasReused = true
                 isCurrentUserJoined = true
                 clearJoinData()
+                analytics.log(MatchEvents.joinSuccess(matchId: match.id, reusedPayment: true))
                 NotificationCenter.default.post(name: .matchMembershipDidChange, object: nil)
             } else {
                 joinData = data
                 pendingPaymentStore.save(data, matchId: match.id)
+                analytics.log(MatchEvents.reservationCreated(matchId: match.id))
+                analytics.log(PaymentEvents.started(matchId: match.id))
                 // The backend is already holding the spot at this point — the
                 // user shows up in `/match/my-matches` as RESERVED even though
                 // payment hasn't been captured yet. Without this the Home
@@ -205,6 +220,7 @@ final class MatchDetailViewModel: ObservableObject {
                 isJoining = false
                 return
             }
+            analytics.log(MatchEvents.joinError(matchId: match.id, errorCode: AnalyticsErrorCode.from(error)))
             joinErrorTitle = error.apiErrorTitle
             joinError = error.apiErrorMessage ?? error.localizedDescription
             currentUserReservedUntil = nil
@@ -228,9 +244,15 @@ final class MatchDetailViewModel: ObservableObject {
             isCurrentUserJoined = true
             paymentDidSucceed = true
             clearJoinData()
+            analytics.log(PaymentEvents.confirmed(matchId: match.id))
+            analytics.log(MatchEvents.joinSuccess(matchId: match.id, reusedPayment: false))
             NotificationCenter.default.post(name: .matchMembershipDidChange, object: nil)
-        case .failure, .timeout:
+        case .timeout:
             paymentConfirmationFailed = true
+            analytics.log(PaymentEvents.pending(matchId: match.id))
+        case .failure:
+            paymentConfirmationFailed = true
+            analytics.log(PaymentEvents.error(matchId: match.id, stage: .confirmation, errorCode: "PAYMENT_CONFIRMATION_FAILED"))
         }
     }
 
@@ -240,6 +262,33 @@ final class MatchDetailViewModel: ObservableObject {
 
     func clearPaymentSuccess() {
         paymentDidSucceed = false
+    }
+
+    // MARK: - Analytics hooks driven by the view
+
+    /// The backend drops an unpaid reservation when its TTL lapses; the client only
+    /// learns about it from the countdown. Reported once per reservation: it only
+    /// fires while a reservation is still held in `joinData`.
+    func trackReservationExpired() {
+        guard joinData != nil else { return }
+        analytics.log(MatchEvents.leaveStarted(matchId: match.id))
+        analytics.log(MatchEvents.leaveSuccess(matchId: match.id, expired: true))
+    }
+
+    func trackPaymentSheetOpened() {
+        analytics.log(PaymentEvents.sheetOpened(matchId: match.id))
+    }
+
+    func trackPaymentSheetCompleted() {
+        analytics.log(PaymentEvents.submitted(matchId: match.id))
+    }
+
+    func trackPaymentSheetCanceled() {
+        analytics.log(PaymentEvents.canceled(matchId: match.id, stage: .paymentSheet))
+    }
+
+    func trackPaymentSheetFailed() {
+        analytics.log(PaymentEvents.error(matchId: match.id, stage: .paymentSheet, errorCode: "PAYMENT_SHEET_FAILED"))
     }
 
     func clearPaymentReused() {
@@ -290,6 +339,7 @@ final class MatchDetailViewModel: ObservableObject {
     }
 
     private func recoverPendingPayment() async {
+        analytics.log(PaymentEvents.started(matchId: match.id))
         isRecoveringPayment = true
         let result = await fetchPendingPaymentUseCase.execute(matchId: match.id)
         isRecoveringPayment = false
@@ -313,9 +363,11 @@ final class MatchDetailViewModel: ObservableObject {
             // `.onChange(of: viewModel.joinData)` in the view will handle PaymentSheet setup.
 
         case .notRecoverable(let message):
+            analytics.log(PaymentEvents.error(matchId: match.id, stage: .recovery, errorCode: "PAYMENT_PENDING_NOT_RECOVERABLE"))
             pendingPaymentIssue = .notRecoverable(message ?? L10n.PendingPayment.notRecoverableDefaultMessage)
 
         case .retryLater(let message):
+            analytics.log(PaymentEvents.error(matchId: match.id, stage: .recovery, errorCode: "PAYMENT_RETRY_LATER"))
             pendingPaymentIssue = .retryLater(message ?? L10n.PendingPayment.retryLaterDefaultMessage)
 
         case .unavailable:
@@ -327,18 +379,22 @@ final class MatchDetailViewModel: ObservableObject {
     // MARK: - Leave Match
 
     func leaveMatch() async {
+        guard !isLeaving else { return }
+        analytics.log(MatchEvents.leaveStarted(matchId: match.id))
         isLeaving = true
         leaveError = nil
         do {
             try await leaveMatchUseCase.execute(matchId: match.id)
             clearJoinData()
             matchLeft = true
+            analytics.log(MatchEvents.leaveSuccess(matchId: match.id, expired: false))
             NotificationCenter.default.post(name: .matchMembershipDidChange, object: nil)
         } catch {
             guard !error.isCancellation else {
                 isLeaving = false
                 return
             }
+            analytics.log(MatchEvents.leaveError(matchId: match.id, errorCode: AnalyticsErrorCode.from(error)))
             leaveError = error.localizedDescription
         }
         isLeaving = false
@@ -396,6 +452,7 @@ final class MatchDetailViewModel: ObservableObject {
                         if let cached = pendingPaymentStore.load(matchId: match.id) {
                             // Local cache hit — no network needed.
                             joinData = cached
+                            analytics.log(PaymentEvents.started(matchId: match.id))
                         } else {
                             // Local miss — spawn a background recovery task. Running this inside
                             // the for-await would stall the snapshot stream.

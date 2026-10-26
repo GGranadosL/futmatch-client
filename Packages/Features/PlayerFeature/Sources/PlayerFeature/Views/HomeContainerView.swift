@@ -187,7 +187,7 @@ public struct HomeContainerView: View {
                     ReservedView(navigationPath: $reservedNavPath)
                         .navigationBarHidden(true)
                         .navigationDestination(for: MatchItem.self) { match in
-                            MatchDetailView(match: match, isDemoMode: isDemoMode)
+                            MatchDetailView(match: match, isDemoMode: isDemoMode, source: .booked)
                         }
                 }
             }
@@ -229,7 +229,7 @@ public struct HomeContainerView: View {
         NavigationStack(path: $navigationPath) {
             tabContent
                 .navigationDestination(for: MatchItem.self) { match in
-                    MatchDetailView(match: match, isDemoMode: isDemoMode)
+                    MatchDetailView(match: match, isDemoMode: isDemoMode, source: selectedTab == .reserved ? .booked : .nearby)
                         .toolbar(.hidden, for: .navigationBar)
                 }
         }

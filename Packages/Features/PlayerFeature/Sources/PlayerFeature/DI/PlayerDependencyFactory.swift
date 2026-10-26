@@ -82,6 +82,11 @@ public struct PlayerDependencyFactory {
         FetchMatchDetailUseCase(matchService: makeMatchService())
     }
 
+    /// The only place that reads the process-wide tracker; view models get it by init.
+    func makeAnalytics() -> AnalyticsTracking {
+        AnalyticsRegistry.current
+    }
+
     func makeJoinMatchUseCase() -> JoinMatchUseCaseProtocol {
         JoinMatchUseCase(matchService: makeMatchService())
     }

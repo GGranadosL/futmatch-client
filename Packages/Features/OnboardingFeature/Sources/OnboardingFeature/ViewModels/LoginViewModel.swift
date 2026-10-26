@@ -1,6 +1,7 @@
 import Foundation
 import NetworkFramework
 import PersistenceFramework
+import SharedModels
 
 /// Login ViewModel
 @MainActor
@@ -43,18 +44,21 @@ public class LoginViewModel: ObservableObject {
     /// Called after tokens are saved. Receives the Firebase custom token.
     /// Throw to abort login (e.g. Firebase sign-in failed).
     private let firebaseSignIn: ((String) async throws -> Void)?
+    private let analytics: AnalyticsTracking
 
     public init(
         loginUseCase: LoginUseCaseProtocol? = nil,
         signInWithSocialUseCase: SignInWithSocialUseCaseProtocol? = nil,
         socialProviders: [AuthProvider: any SocialAuthProviding] = [:],
-        firebaseSignIn: ((String) async throws -> Void)? = nil
+        firebaseSignIn: ((String) async throws -> Void)? = nil,
+        analytics: AnalyticsTracking = AnalyticsRegistry.current
     ) {
         self.loginUseCase = loginUseCase ?? LoginUseCase(authService: AuthService())
         self.signInWithSocialUseCase = signInWithSocialUseCase
             ?? SignInWithSocialUseCase(authService: AuthService())
         self.socialProviders = socialProviders
         self.firebaseSignIn = firebaseSignIn
+        self.analytics = analytics
     }
 
     /// Whether the Google entry point should be offered at all.
@@ -70,7 +74,9 @@ public class LoginViewModel: ObservableObject {
     }
 
     func login() async {
+        guard !isLoading else { return }
         isLoading = true
+        analytics.log(AuthEvents.loginStarted(.email))
         isLoginSuccessful = false
         showError = false
 
@@ -84,6 +90,7 @@ public class LoginViewModel: ObservableObject {
             let result = try await loginUseCase.execute(email: email, password: password)
 
             if result.requiresMFA {
+                analytics.log(AuthEvents.loginMFARequired(.email))
                 isLoading = false
                 mfaChallengeToken = result.challengeToken ?? ""
                 codeWindow = result.codeWindow
@@ -91,10 +98,12 @@ public class LoginViewModel: ObservableObject {
             } else {
                 try await performFirebaseSignIn()
                 isLoading = false
+                analytics.log(AuthEvents.loginSuccess(.email))
                 isLoginSuccessful = true
             }
         } catch {
             isLoading = false
+            analytics.log(AuthEvents.loginError(.email, errorCode: AnalyticsErrorCode.forOnboarding(error)))
             handleError(error, suggestSocial: true)
         }
     }
@@ -115,6 +124,7 @@ public class LoginViewModel: ObservableObject {
 
         loadingProvider = provider
         showError = false
+        analytics.log(AuthEvents.loginStarted(provider.analyticsMethod))
 
         do {
             let account = try await auth.signIn()
@@ -124,6 +134,7 @@ public class LoginViewModel: ObservableObject {
             // Dismissing the provider's sheet is a decision, not a failure — an
             // alert here would scold the user for changing their mind.
             guard (error as? SocialAuthError) != .cancelled, !error.isCancellation else { return }
+            analytics.log(AuthEvents.loginError(provider.analyticsMethod, errorCode: AnalyticsErrorCode.forOnboarding(error)))
             handleError(error)
         }
     }
@@ -145,6 +156,7 @@ public class LoginViewModel: ObservableObject {
             case .authenticated:
                 try await performFirebaseSignIn()
                 loadingProvider = nil
+                analytics.log(AuthEvents.loginSuccess(account.provider.analyticsMethod))
                 isLoginSuccessful = true
             case .signUpRequired:
                 loadingProvider = nil
@@ -159,6 +171,7 @@ public class LoginViewModel: ObservableObject {
         } catch {
             loadingProvider = nil
             guard (error as? SocialAuthError) != .cancelled, !error.isCancellation else { return }
+            analytics.log(AuthEvents.loginError(account.provider.analyticsMethod, errorCode: AnalyticsErrorCode.forOnboarding(error)))
             handleError(error)
         }
     }
@@ -168,6 +181,7 @@ public class LoginViewModel: ObservableObject {
         // The backend rejects an expired code anyway; refusing it here means the
         // user is told why instead of being handed a generic server error.
         if let codeWindow, codeWindow.isCodeExpired() {
+            analytics.log(AuthEvents.loginMFAError(.verifyCode, errorCode: "CODE_EXPIRED_LOCAL"))
             errorTitle = L10n.Login.errorTitle
             errorMessage = L10n.MFA.codeExpired
             showError = true
@@ -185,9 +199,11 @@ public class LoginViewModel: ObservableObject {
             try await performFirebaseSignIn()
             isLoading = false
             showMFAVerification = false
+            analytics.log(AuthEvents.loginSuccess(.email))
             isLoginSuccessful = true
         } catch {
             isLoading = false
+            analytics.log(AuthEvents.loginMFAError(.verifyCode, errorCode: AnalyticsErrorCode.forOnboarding(error)))
             handleError(error)
         }
     }
@@ -205,6 +221,7 @@ public class LoginViewModel: ObservableObject {
             verificationCode = ""
         } catch {
             isLoading = false
+            analytics.log(AuthEvents.loginMFAError(.sendCode, errorCode: AnalyticsErrorCode.forOnboarding(error)))
             handleError(error)
         }
     }

@@ -3747,6 +3747,23 @@
         }
       }
     },
+    "settings.loadingPaymentMethods" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Loading payment methods…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cargando métodos de pago…"
+          }
+        }
+      }
+    },
     "settings.logout" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3828,6 +3845,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Administra métodos de pago y facturación"
+          }
+        }
+      }
+    },
+    "settings.paymentMethodsOpenError" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "We couldn't open your payment methods. Please try again."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No pudimos abrir tus métodos de pago. Inténtalo de nuevo."
           }
         }
       }
