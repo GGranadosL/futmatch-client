@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		C0404E692F73A34800E712F5 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = C0404E682F73A34800E712F5 /* FirebaseCore */; };
 		C0404E6B2F73A34800E712F5 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = C0404E6A2F73A34800E712F5 /* FirebaseMessaging */; };
+		C0404E9A2F73A34800E712F5 /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = C0404E992F73A34800E712F5 /* FirebaseAnalytics */; };
 		C05EB5F72F7B911E00E0C69B /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = C05EB5F62F7B911E00E0C69B /* FirebaseFirestore */; };
 		C05EB5F92F7B971A00E0C69B /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = C05EB5F82F7B971A00E0C69B /* FirebaseAuth */; };
 		C073BD743036BB6B00BB517D /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = C0G00G2E2FE0A00100E712F5 /* GoogleSignIn */; };
@@ -86,6 +87,7 @@
 				C0A59BA12F18832700B28BAD /* OnboardingFeature in Frameworks */,
 				C0404E6B2F73A34800E712F5 /* FirebaseMessaging in Frameworks */,
 				C0404E692F73A34800E712F5 /* FirebaseCore in Frameworks */,
+				C0404E9A2F73A34800E712F5 /* FirebaseAnalytics in Frameworks */,
 				C07A6C3D2F1B7C19002868BD /* PlayerFeature in Frameworks */,
 				C05EB5F92F7B971A00E0C69B /* FirebaseAuth in Frameworks */,
 				D1A0CA01000000000000FACE /* FirebaseAppCheck in Frameworks */,
@@ -164,6 +166,7 @@
 				C07A6C3A2F1B7C19002868BD /* FMDesignSystem */,
 				C07A6C3C2F1B7C19002868BD /* PlayerFeature */,
 				C0404E682F73A34800E712F5 /* FirebaseCore */,
+				C0404E992F73A34800E712F5 /* FirebaseAnalytics */,
 				C0404E6A2F73A34800E712F5 /* FirebaseMessaging */,
 				C05EB5F62F7B911E00E0C69B /* FirebaseFirestore */,
 				C05EB5F82F7B971A00E0C69B /* FirebaseAuth */,
@@ -469,7 +472,7 @@
 				CODE_SIGN_ENTITLEMENTS = "FutMatch-Client/FutMatch-Client.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 20;
+				CURRENT_PROJECT_VERSION = 21;
 				DEVELOPMENT_TEAM = 8NB4P3S66S;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -512,7 +515,7 @@
 				CODE_SIGN_ENTITLEMENTS = "FutMatch-Client/FutMatch-Client.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 20;
+				CURRENT_PROJECT_VERSION = 21;
 				DEVELOPMENT_TEAM = 8NB4P3S66S;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -740,6 +743,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = C0404E672F73A34800E712F5 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseMessaging;
+		};
+		C0404E992F73A34800E712F5 /* FirebaseAnalytics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C0404E672F73A34800E712F5 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAnalytics;
 		};
 		C05EB5F62F7B911E00E0C69B /* FirebaseFirestore */ = {
 			isa = XCSwiftPackageProductDependency;

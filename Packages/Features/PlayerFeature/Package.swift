@@ -39,6 +39,6 @@ let package = Package(
         ),
         .testTarget(
             name: "PlayerFeatureTests",
-            dependencies: ["PlayerFeature", "PersistenceFramework"]),
+            dependencies: ["PlayerFeature", "PersistenceFramework", "SharedModels"]),
     ]
 )

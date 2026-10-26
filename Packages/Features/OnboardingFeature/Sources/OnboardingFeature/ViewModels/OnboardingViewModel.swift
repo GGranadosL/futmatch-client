@@ -109,6 +109,7 @@ public class OnboardingViewModel: ObservableObject {
     private let clearOnboardingDraftUseCase: ClearOnboardingDraftUseCaseProtocol?
     private let fetchCountriesUseCase: FetchCountriesUseCaseProtocol
     private let fetchDialCodesUseCase: FetchDialCodesUseCaseProtocol
+    private let analytics: AnalyticsTracking
 
     // MARK: - Auto-save
     private var saveDraftTask: Task<Void, Never>?
@@ -127,7 +128,8 @@ public class OnboardingViewModel: ObservableObject {
         getOnboardingDraftUseCase: GetOnboardingDraftUseCaseProtocol? = nil,
         clearOnboardingDraftUseCase: ClearOnboardingDraftUseCaseProtocol? = nil,
         fetchCountriesUseCase: FetchCountriesUseCaseProtocol? = nil,
-        fetchDialCodesUseCase: FetchDialCodesUseCaseProtocol? = nil
+        fetchDialCodesUseCase: FetchDialCodesUseCaseProtocol? = nil,
+        analytics: AnalyticsTracking = AnalyticsRegistry.current
     ) {
         let authService = AuthService()
         self.registerUserUseCase = registerUserUseCase ?? RegisterUserUseCase(authService: authService)
@@ -139,6 +141,8 @@ public class OnboardingViewModel: ObservableObject {
         self.clearOnboardingDraftUseCase = clearOnboardingDraftUseCase
         self.fetchCountriesUseCase = fetchCountriesUseCase ?? FetchCountriesUseCase(repository: FallbackCountryRepository())
         self.fetchDialCodesUseCase = fetchDialCodesUseCase ?? FetchDialCodesUseCase(repository: FallbackDialCodeRepository())
+        self.analytics = analytics
+        if let method = Self.analyticsMethod(for: socialAccount) { analytics.log(SignUpEvents.started(method)) }
 
         // The provider's values go in first so a matching draft can still override
         // them with whatever the user actually typed before they walked away.
@@ -263,6 +267,7 @@ public class OnboardingViewModel: ObservableObject {
     // MARK: - Navigation
     public func nextStep() {
         guard currentStep < 4 else { return }
+        trackStepCompleted(currentStep)
         withAnimation {
             currentStep += 1
         }
@@ -349,6 +354,9 @@ public class OnboardingViewModel: ObservableObject {
 
     // MARK: - Actions
     public func submitRegistration() async {
+        guard !isLoading else { return }
+        trackStepCompleted(4)
+        if let method = analyticsMethod { analytics.log(SignUpEvents.submitted(method)) }
         isLoading = true
         errorMessage = nil
 
@@ -365,6 +373,7 @@ public class OnboardingViewModel: ObservableObject {
                 }
             }
         } catch {
+            trackSignUpError(error)
             errorMessage = error.localizedDescription
         }
 
@@ -386,6 +395,7 @@ public class OnboardingViewModel: ObservableObject {
         try await registerSocialUserUseCase.execute(buildSocialRegistrationInput(account: socialAccount))
         expiryTask?.cancel()
         await clearDraftAfterSuccess()
+        if let method = analyticsMethod { analytics.log(SignUpEvents.success(method)) }
         isVerificationComplete = true
     }
 
@@ -403,9 +413,11 @@ public class OnboardingViewModel: ObservableObject {
                 await clearDraftAfterSuccess()
 
                 // Navigate to Home
+                if let method = analyticsMethod { analytics.log(SignUpEvents.success(method)) }
                 isVerificationComplete = true
             }
         } catch {
+            trackSignUpError(error)
             errorMessage = error.localizedDescription
         }
 
@@ -424,10 +436,31 @@ public class OnboardingViewModel: ObservableObject {
                 codeWindow = result.codeWindow
             }
         } catch {
+            trackSignUpError(error)
             errorMessage = error.localizedDescription
         }
 
         isLoading = false
+    }
+
+    // MARK: - Analytics
+
+    private static func analyticsMethod(for account: SocialAccount?) -> AnalyticsAuthMethod? {
+        guard let account else { return .email }
+        return account.provider.analyticsMethod
+    }
+
+    private var analyticsMethod: AnalyticsAuthMethod? { Self.analyticsMethod(for: socialAccount) }
+
+    private func trackStepCompleted(_ step: Int) {
+        guard let method = analyticsMethod,
+              let event = SignUpEvents.stepCompleted(step: step, method: method) else { return }
+        analytics.log(event)
+    }
+
+    private func trackSignUpError(_ error: Error) {
+        guard let method = analyticsMethod else { return }
+        analytics.log(SignUpEvents.error(method, errorCode: AnalyticsErrorCode.forOnboarding(error)))
     }
 
     // MARK: - Private Helpers

@@ -2,6 +2,7 @@ import SwiftUI
 import UIKit
 import MapKit
 import FMDesignSystem
+import SharedModels
 import PersistenceFramework
 @_spi(CustomerSessionBetaAccess) import StripePaymentSheet
 import Lottie
@@ -104,7 +105,7 @@ struct MatchDetailView: View {
     /// Player whose public profile is being shown (drives navigation).
     @State private var selectedPlayerId: String? = nil
 
-    init(match: MatchItem, isDemoMode: Bool = false) {
+    init(match: MatchItem, isDemoMode: Bool = false, source: AnalyticsJoinSource = .nearby) {
         self.isDemoMode = isDemoMode
         let factory = PlayerDependencyFactory(isDemoMode: isDemoMode)
         self._viewModel = StateObject(wrappedValue: MatchDetailViewModel(
@@ -118,7 +119,9 @@ struct MatchDetailView: View {
             pendingPaymentStore: factory.makePendingPaymentStore(),
             fetchPendingPaymentUseCase: factory.makeFetchPendingMatchPaymentUseCase(),
             fetchFieldAttributeCatalogsUseCase: factory.makeFetchFieldAttributeCatalogsUseCase(),
-            authorizeSensitiveActionUseCase: factory.makeAuthorizeSensitiveActionUseCase()
+            authorizeSensitiveActionUseCase: factory.makeAuthorizeSensitiveActionUseCase(),
+            analytics: factory.makeAnalytics(),
+            joinSource: source
         ))
     }
 
@@ -588,6 +591,7 @@ struct MatchDetailView: View {
                     // Walk to the topmost presented controller
                     var top = vc
                     while let presented = top.presentedViewController { top = presented }
+                    viewModel.trackPaymentSheetOpened()
                     sheet.present(from: top, completion: handlePaymentResult)
                 }
             }
@@ -1598,6 +1602,7 @@ struct MatchDetailView: View {
         countdownExpiry = nil
         pendingTeam = nil
         paymentSheet = nil
+        viewModel.trackReservationExpired()
         viewModel.clearJoinData()
         // The reservation is over — take down any payment-recovery dialog immediately
         // instead of waiting for the backend to drop the user from Firestore.
@@ -1680,6 +1685,7 @@ struct MatchDetailView: View {
     private func handlePaymentResult(_ result: PaymentSheetResult) {
         switch result {
         case .completed:
+            viewModel.trackPaymentSheetCompleted()
             // Stripe reported the payment as completed on the client side.
             // Stop the reservation countdown and dismiss the join overlay, then
             // poll the backend to get the authoritative payment status.
@@ -1693,8 +1699,9 @@ struct MatchDetailView: View {
             }
             Task { await viewModel.confirmPaymentViaPolling() }
         case .canceled:
-            break
+            viewModel.trackPaymentSheetCanceled()
         case .failed(let error):
+            viewModel.trackPaymentSheetFailed()
             paymentError = error.localizedDescription
         }
     }

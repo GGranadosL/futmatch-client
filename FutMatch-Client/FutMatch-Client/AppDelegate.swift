@@ -2,6 +2,7 @@ import UIKit
 import UserNotifications
 import OSLog
 import FirebaseCore
+import SharedModels
 import FirebaseAppCheck
 import FirebaseMessaging
 import GoogleSignIn
@@ -32,6 +33,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
             AppCheck.setAppCheckProviderFactory(FutMatchAppCheckProviderFactory())
         }
         FirebaseApp.configure()
+        AnalyticsRegistry.configure(FirebaseAnalyticsTracker())
         if Config.isAppCheckEnabled {
             // Keep a valid token cached in the background so per-request reads hit
             // the cache instead of paying a token exchange (see AppCheckInterceptor).

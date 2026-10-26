@@ -1,5 +1,6 @@
 import XCTest
 import AdminFeature
+import SharedModels
 @testable import PlayerFeature
 
 // MARK: - MatchDetailViewModelTests
@@ -19,13 +20,16 @@ final class MatchDetailViewModelTests: XCTestCase {
         fetchPendingPaymentUseCase: FetchPendingMatchPaymentUseCaseProtocol = MockFetchPendingMatchPaymentUseCase(),
         leaveUseCase: MockLeaveMatchUseCase = MockLeaveMatchUseCase(),
         authorizeSensitiveActionUseCase: MockAuthorizeSensitiveActionUseCase = MockAuthorizeSensitiveActionUseCase(),
+        pollUseCase: PollPaymentStatusUseCaseProtocol = MockPollPaymentStatusUseCase(),
+        analytics: AnalyticsTracking = NoOpAnalytics(),
+        source: AnalyticsJoinSource = .nearby,
         userId: String? = MatchDetailViewModelTests.currentUserId
     ) -> MatchDetailViewModel {
         MatchDetailViewModel(
             initialMatch: match,
             fetchDetailUseCase: MockFetchMatchDetailUseCase(),
             joinMatchUseCase: joinUseCase,
-            pollPaymentStatusUseCase: MockPollPaymentStatusUseCase(),
+            pollPaymentStatusUseCase: pollUseCase,
             subscribePlayersUseCase: subscribeUseCase,
             cancelMatchUseCase: MockCancelMatchUseCase(),
             leaveMatchUseCase: leaveUseCase,
@@ -33,7 +37,9 @@ final class MatchDetailViewModelTests: XCTestCase {
             fetchPendingPaymentUseCase: fetchPendingPaymentUseCase,
             fetchFieldAttributeCatalogsUseCase: MockFetchFieldAttributeCatalogsUseCase(),
             authorizeSensitiveActionUseCase: authorizeSensitiveActionUseCase,
-            currentUserId: { userId }
+            currentUserId: { userId },
+            analytics: analytics,
+            joinSource: source
         )
     }
 
@@ -459,6 +465,105 @@ final class MatchDetailViewModelTests: XCTestCase {
         while !condition(), Date() < deadline {
             await Task.yield()
         }
+    }
+
+    // MARK: - Analytics
+
+    func test_joinMatch_reservation_emitsStartedReservationAndPaymentStarted() async {
+        let join = MockJoinMatchUseCase()
+        join.result = .success(.stub(reusedExistingPayment: false))
+        let spy = SpyAnalytics()
+        let sut = makeSUT(joinUseCase: join, analytics: spy, source: .booked)
+
+        await sut.joinMatch(team: nil)
+
+        XCTAssertEqual(spy.names, ["match_join_started", "match_reservation_created", "payment_started"])
+        XCTAssertEqual(spy.events[0].parameters["source"], .string("booked"))
+        XCTAssertEqual(spy.events[0].parameters["team"], .string("none"), "team is always sent")
+    }
+
+    func test_joinMatch_reusedPayment_emitsJoinSuccessWithReusedFlag() async {
+        let join = MockJoinMatchUseCase()
+        join.result = .success(.stub(clientSecret: nil, customer: nil, customerSessionClientSecret: nil,
+                                     publishableKey: nil, reusedExistingPayment: true, existingPaymentStatus: "SUCCEEDED"))
+        let spy = SpyAnalytics()
+        await makeSUT(joinUseCase: join, analytics: spy).joinMatch(team: "A")
+
+        XCTAssertEqual(spy.names, ["match_join_started", "match_join_success"])
+        XCTAssertEqual(spy.events[0].parameters["team"], .string("a"))
+        XCTAssertEqual(spy.events[1].parameters["reused_payment"], .int(1))
+    }
+
+    func test_joinMatch_failure_emitsJoinError_noReservation() async {
+        let join = MockJoinMatchUseCase()
+        join.result = .failure(TestError.boom)
+        let spy = SpyAnalytics()
+        await makeSUT(joinUseCase: join, analytics: spy).joinMatch(team: "B")
+
+        XCTAssertEqual(spy.names, ["match_join_started", "match_join_error"])
+        XCTAssertEqual(spy.events[1].parameters["error_code"], .string("UNKNOWN"))
+    }
+
+    func test_confirmPayment_success_emitsConfirmedThenJoinSuccess() async {
+        let poll = MockPollPaymentStatusUseCase()
+        poll.result = .success
+        let spy = SpyAnalytics()
+        await makeSUT(pollUseCase: poll, analytics: spy).confirmPaymentViaPolling()
+
+        XCTAssertEqual(spy.names, ["payment_confirmed", "match_join_success"])
+        XCTAssertEqual(spy.events[1].parameters["reused_payment"], .int(0))
+    }
+
+    func test_confirmPayment_timeout_emitsPendingOnce_notError() async {
+        let poll = MockPollPaymentStatusUseCase()
+        poll.result = .timeout
+        let spy = SpyAnalytics()
+        await makeSUT(pollUseCase: poll, analytics: spy).confirmPaymentViaPolling()
+
+        XCTAssertEqual(spy.names, ["payment_pending"])
+    }
+
+    func test_authorizePayment_declined_emitsCanceledLocalAuthorization() async {
+        let authorize = MockAuthorizeSensitiveActionUseCase()
+        authorize.result = .failure(BiometricAuthError.failed)
+        let spy = SpyAnalytics()
+        _ = await makeSUT(authorizeSensitiveActionUseCase: authorize, analytics: spy).authorizePayment()
+
+        XCTAssertEqual(spy.names, ["payment_canceled"])
+        XCTAssertEqual(spy.events[0].parameters["stage"], .string("local_authorization"))
+    }
+
+    func test_leaveMatch_success_emitsStartedThenSuccessNotExpired() async {
+        let spy = SpyAnalytics()
+        await makeSUT(analytics: spy).leaveMatch()
+
+        XCTAssertEqual(spy.names, ["match_leave_started", "match_leave_success"])
+        XCTAssertEqual(spy.events[1].parameters["expired"], .int(0))
+    }
+
+    func test_leaveMatch_failure_emitsLeaveError() async {
+        let leave = MockLeaveMatchUseCase()
+        leave.result = .failure(TestError.boom)
+        let spy = SpyAnalytics()
+        await makeSUT(leaveUseCase: leave, analytics: spy).leaveMatch()
+
+        XCTAssertEqual(spy.names, ["match_leave_started", "match_leave_error"])
+    }
+
+    func test_reservationExpired_emitsExpiredLeaveOnce() async {
+        let join = MockJoinMatchUseCase()
+        join.result = .success(.stub(reusedExistingPayment: false))
+        let spy = SpyAnalytics()
+        let sut = makeSUT(joinUseCase: join, analytics: spy)
+        await sut.joinMatch(team: nil)
+
+        sut.trackReservationExpired()
+        sut.clearJoinData()
+        sut.trackReservationExpired()
+
+        let leaves = spy.events.filter { $0.name.hasPrefix("match_leave") }
+        XCTAssertEqual(leaves.map(\.name), ["match_leave_started", "match_leave_success"])
+        XCTAssertEqual(leaves[1].parameters["expired"], .int(1))
     }
 }
 
