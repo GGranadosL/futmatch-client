@@ -198,7 +198,10 @@ struct MatchDetailView: View {
     /// True while the match is still outside the paid-registration window. In this
     /// state the Join CTA and team join slots are hidden in favor of a countdown.
     private var isBeforeJoinWindow: Bool {
-        !isClosedMatch && joinWindowRemaining > 0
+        // Reading the timer's state makes body depend on it, so the bar swaps to
+        // the Join CTA on the tick where the window opens.
+        _ = joinWindowSeconds
+        return !isClosedMatch && joinWindowRemaining > 0
     }
 
     private var completedGoalsBadgeColor: Color {
@@ -1487,11 +1490,16 @@ struct MatchDetailView: View {
                 VStack(spacing: 0) {
                     Divider()
                     VStack(spacing: 6) {
-                        Text(L10n.MatchDetail.joinOpensCountdown(formattedJoinWindow(joinWindowRemaining)))
-                            .font(FMTypography.labelLarge)
-                            .foregroundColor(FMColors.onSurface)
-                            .multilineTextAlignment(.center)
-                            .monospacedDigit()
+                        // TimelineView redraws every second; a plain Text reading the
+                        // clock would only refresh when some other state changed.
+                        TimelineView(.periodic(from: .now, by: 1)) { context in
+                            let remaining = max(0, Int(joinOpensAt.timeIntervalSince(context.date)))
+                            Text(L10n.MatchDetail.joinOpensCountdown(formattedJoinWindow(remaining)))
+                                .font(FMTypography.labelLarge)
+                                .foregroundColor(FMColors.onSurface)
+                                .multilineTextAlignment(.center)
+                                .monospacedDigit()
+                        }
                         Text(L10n.MatchDetail.joinNotOpenMessage)
                             .font(FMTypography.bodySmall)
                             .foregroundColor(FMColors.onSurfaceVariant)
