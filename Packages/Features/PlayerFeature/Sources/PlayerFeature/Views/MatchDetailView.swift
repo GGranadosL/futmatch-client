@@ -695,11 +695,19 @@ struct MatchDetailView: View {
             .buttonStyle(.plain)
             .confirmationDialog(L10n.MatchDetail.openInMapsTitle, isPresented: $showMapPicker, titleVisibility: .visible) {
                 Button(L10n.MatchDetail.openAppleMaps) {
-                    openInAppleMaps()
+                    MatchDirections.openInAppleMaps(
+                        venueName: match.venueName,
+                        address: match.location,
+                        coordinate: match.coordinate
+                    )
                 }
-                if let coordinate = match.coordinate, isGoogleMapsInstalled {
+                if MatchDirections.isGoogleMapsInstalled {
                     Button(L10n.MatchDetail.openGoogleMaps) {
-                        openInGoogleMaps(coordinate: coordinate)
+                        MatchDirections.openInGoogleMaps(
+                            venueName: match.venueName,
+                            address: match.location,
+                            coordinate: match.coordinate
+                        )
                     }
                 }
             }
@@ -712,26 +720,6 @@ struct MatchDetailView: View {
             }
             .foregroundColor(.white.opacity(0.9))
         }
-    }
-
-    private var isGoogleMapsInstalled: Bool {
-        UIApplication.shared.canOpenURL(URL(string: "comgooglemaps://")!)
-    }
-
-    private func openInAppleMaps() {
-        guard let coordinate = match.coordinate else { return }
-        let placemark = MKPlacemark(coordinate: coordinate)
-        let mapItem = MKMapItem(placemark: placemark)
-        mapItem.name = match.venueName
-        mapItem.openInMaps(launchOptions: [
-            MKLaunchOptionsMapCenterKey: NSValue(mkCoordinate: coordinate)
-        ])
-    }
-
-    private func openInGoogleMaps(coordinate: CLLocationCoordinate2D) {
-        let urlString = "comgooglemaps://?q=\(coordinate.latitude),\(coordinate.longitude)&center=\(coordinate.latitude),\(coordinate.longitude)&zoom=16"
-        guard let url = URL(string: urlString) else { return }
-        UIApplication.shared.open(url)
     }
 
     // MARK: - Info Bar (Date, Price, Duration, Spots)
