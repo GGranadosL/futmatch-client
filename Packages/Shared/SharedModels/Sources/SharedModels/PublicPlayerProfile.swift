@@ -2,6 +2,17 @@ import Foundation
 
 // MARK: - PlayerLastMatch
 
+/// Name and color a team played under in a past match.
+public struct PlayerLastMatchTeam: Equatable {
+    public let name: String
+    public let colorHex: String?
+
+    public init(name: String, colorHex: String?) {
+        self.name = name
+        self.colorHex = colorHex
+    }
+}
+
 public struct PlayerLastMatch: Equatable {
     public let matchId: String
     public let fieldId: String
@@ -10,6 +21,9 @@ public struct PlayerLastMatch: Equatable {
     public let outcome: String
     public let teamAScore: Int
     public let teamBScore: Int
+    /// `nil` for matches created before team identities existed.
+    public let teamA: PlayerLastMatchTeam?
+    public let teamB: PlayerLastMatchTeam?
 
     public init(
         matchId: String,
@@ -18,7 +32,9 @@ public struct PlayerLastMatch: Equatable {
         playedAt: Date,
         outcome: String,
         teamAScore: Int,
-        teamBScore: Int
+        teamBScore: Int,
+        teamA: PlayerLastMatchTeam? = nil,
+        teamB: PlayerLastMatchTeam? = nil
     ) {
         self.matchId = matchId
         self.fieldId = fieldId
@@ -27,6 +43,8 @@ public struct PlayerLastMatch: Equatable {
         self.outcome = outcome
         self.teamAScore = teamAScore
         self.teamBScore = teamBScore
+        self.teamA = teamA
+        self.teamB = teamB
     }
 }
 
