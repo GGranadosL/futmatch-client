@@ -101,6 +101,7 @@ struct MatchDetailView: View {
     private var match: MatchItem { viewModel.match }
     private let currentUserId: String? = KeychainManager.shared.userId
     private let isDemoMode: Bool
+    private let applePayConfiguration: ApplePayConfiguration
 
     /// Player whose public profile is being shown (drives navigation).
     @State private var selectedPlayerId: String? = nil
@@ -108,6 +109,7 @@ struct MatchDetailView: View {
     init(match: MatchItem, isDemoMode: Bool = false, source: AnalyticsJoinSource = .nearby) {
         self.isDemoMode = isDemoMode
         let factory = PlayerDependencyFactory(isDemoMode: isDemoMode)
+        self.applePayConfiguration = factory.makeApplePayConfiguration()
         self._viewModel = StateObject(wrappedValue: MatchDetailViewModel(
             initialMatch: match,
             fetchDetailUseCase: factory.makeFetchMatchDetailUseCase(),
@@ -1677,6 +1679,11 @@ struct MatchDetailView: View {
         STPAPIClient.shared.publishableKey = publishableKey
         var config = PaymentSheet.Configuration()
         config.merchantDisplayName = "Interfut"
+        // Shows the Apple Pay button inside Stripe's sheet when the device supports it.
+        config.applePay = .init(
+            merchantId: applePayConfiguration.merchantId,
+            merchantCountryCode: applePayConfiguration.merchantCountryCode
+        )
         // Attach the customer so saved payment methods are shown in the sheet.
         // The backend returns a CustomerSession client secret (cuss_…), NOT an
         // ephemeral key — so it must go through the CustomerSession initializer.
