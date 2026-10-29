@@ -87,6 +87,10 @@ public struct PlayerDependencyFactory {
         AnalyticsRegistry.current
     }
 
+    func makeApplePayConfiguration() -> ApplePayConfiguration {
+        .interfut
+    }
+
     func makeJoinMatchUseCase() -> JoinMatchUseCaseProtocol {
         JoinMatchUseCase(matchService: makeMatchService())
     }

@@ -101,6 +101,7 @@ struct MatchDetailView: View {
     private var match: MatchItem { viewModel.match }
     private let currentUserId: String? = KeychainManager.shared.userId
     private let isDemoMode: Bool
+    private let applePayConfiguration: ApplePayConfiguration
 
     /// Player whose public profile is being shown (drives navigation).
     @State private var selectedPlayerId: String? = nil
@@ -108,6 +109,7 @@ struct MatchDetailView: View {
     init(match: MatchItem, isDemoMode: Bool = false, source: AnalyticsJoinSource = .nearby) {
         self.isDemoMode = isDemoMode
         let factory = PlayerDependencyFactory(isDemoMode: isDemoMode)
+        self.applePayConfiguration = factory.makeApplePayConfiguration()
         self._viewModel = StateObject(wrappedValue: MatchDetailViewModel(
             initialMatch: match,
             fetchDetailUseCase: factory.makeFetchMatchDetailUseCase(),
@@ -198,7 +200,10 @@ struct MatchDetailView: View {
     /// True while the match is still outside the paid-registration window. In this
     /// state the Join CTA and team join slots are hidden in favor of a countdown.
     private var isBeforeJoinWindow: Bool {
-        !isClosedMatch && joinWindowRemaining > 0
+        // Reading the timer's state makes body depend on it, so the bar swaps to
+        // the Join CTA on the tick where the window opens.
+        _ = joinWindowSeconds
+        return !isClosedMatch && joinWindowRemaining > 0
     }
 
     private var completedGoalsBadgeColor: Color {
@@ -690,11 +695,19 @@ struct MatchDetailView: View {
             .buttonStyle(.plain)
             .confirmationDialog(L10n.MatchDetail.openInMapsTitle, isPresented: $showMapPicker, titleVisibility: .visible) {
                 Button(L10n.MatchDetail.openAppleMaps) {
-                    openInAppleMaps()
+                    MatchDirections.openInAppleMaps(
+                        venueName: match.venueName,
+                        address: match.location,
+                        coordinate: match.coordinate
+                    )
                 }
-                if let coordinate = match.coordinate, isGoogleMapsInstalled {
+                if MatchDirections.isGoogleMapsInstalled {
                     Button(L10n.MatchDetail.openGoogleMaps) {
-                        openInGoogleMaps(coordinate: coordinate)
+                        MatchDirections.openInGoogleMaps(
+                            venueName: match.venueName,
+                            address: match.location,
+                            coordinate: match.coordinate
+                        )
                     }
                 }
             }
@@ -707,26 +720,6 @@ struct MatchDetailView: View {
             }
             .foregroundColor(.white.opacity(0.9))
         }
-    }
-
-    private var isGoogleMapsInstalled: Bool {
-        UIApplication.shared.canOpenURL(URL(string: "comgooglemaps://")!)
-    }
-
-    private func openInAppleMaps() {
-        guard let coordinate = match.coordinate else { return }
-        let placemark = MKPlacemark(coordinate: coordinate)
-        let mapItem = MKMapItem(placemark: placemark)
-        mapItem.name = match.venueName
-        mapItem.openInMaps(launchOptions: [
-            MKLaunchOptionsMapCenterKey: NSValue(mkCoordinate: coordinate)
-        ])
-    }
-
-    private func openInGoogleMaps(coordinate: CLLocationCoordinate2D) {
-        let urlString = "comgooglemaps://?q=\(coordinate.latitude),\(coordinate.longitude)&center=\(coordinate.latitude),\(coordinate.longitude)&zoom=16"
-        guard let url = URL(string: urlString) else { return }
-        UIApplication.shared.open(url)
     }
 
     // MARK: - Info Bar (Date, Price, Duration, Spots)
@@ -1487,11 +1480,16 @@ struct MatchDetailView: View {
                 VStack(spacing: 0) {
                     Divider()
                     VStack(spacing: 6) {
-                        Text(L10n.MatchDetail.joinOpensCountdown(formattedJoinWindow(joinWindowRemaining)))
-                            .font(FMTypography.labelLarge)
-                            .foregroundColor(FMColors.onSurface)
-                            .multilineTextAlignment(.center)
-                            .monospacedDigit()
+                        // TimelineView redraws every second; a plain Text reading the
+                        // clock would only refresh when some other state changed.
+                        TimelineView(.periodic(from: .now, by: 1)) { context in
+                            let remaining = max(0, Int(joinOpensAt.timeIntervalSince(context.date)))
+                            Text(L10n.MatchDetail.joinOpensCountdown(formattedJoinWindow(remaining)))
+                                .font(FMTypography.labelLarge)
+                                .foregroundColor(FMColors.onSurface)
+                                .multilineTextAlignment(.center)
+                                .monospacedDigit()
+                        }
                         Text(L10n.MatchDetail.joinNotOpenMessage)
                             .font(FMTypography.bodySmall)
                             .foregroundColor(FMColors.onSurfaceVariant)
@@ -1669,6 +1667,11 @@ struct MatchDetailView: View {
         STPAPIClient.shared.publishableKey = publishableKey
         var config = PaymentSheet.Configuration()
         config.merchantDisplayName = "Interfut"
+        // Shows the Apple Pay button inside Stripe's sheet when the device supports it.
+        config.applePay = .init(
+            merchantId: applePayConfiguration.merchantId,
+            merchantCountryCode: applePayConfiguration.merchantCountryCode
+        )
         // Attach the customer so saved payment methods are shown in the sheet.
         // The backend returns a CustomerSession client secret (cuss_…), NOT an
         // ephemeral key — so it must go through the CustomerSession initializer.

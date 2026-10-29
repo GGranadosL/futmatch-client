@@ -1,4 +1,5 @@
 import Foundation
+import SharedModels
 
 // MARK: - Last Match Outcome
 
@@ -39,6 +40,26 @@ struct LastMatch {
         self.teamBScore = teamBScore
         self.teamA = teamA
         self.teamB = teamB
+    }
+
+    /// Another player's last match, from their public profile. Same card as Home.
+    init(publicProfile last: PlayerLastMatch) {
+        let outcome: LastMatchOutcome
+        switch last.outcome.uppercased() {
+        case "WIN": outcome = .win
+        case "LOSS", "LOSE": outcome = .loss
+        default: outcome = .draw
+        }
+        self.init(
+            matchId: last.matchId,
+            fieldName: last.fieldName,
+            playedAt: last.playedAt,
+            outcome: outcome,
+            teamAScore: last.teamAScore,
+            teamBScore: last.teamBScore,
+            teamA: last.teamA.map { MatchTeamVisual(name: $0.name, colorHex: $0.colorHex) },
+            teamB: last.teamB.map { MatchTeamVisual(name: $0.name, colorHex: $0.colorHex) }
+        )
     }
 
     var outcomeLabel: String {
