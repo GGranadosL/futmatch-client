@@ -216,6 +216,8 @@ struct MatchDetailItemDTO: Decodable {
     let goalBreakdown: GoalBreakdownDTO?
     let bestPlayer: BestPlayerDTO?
     let teamVisuals: MatchTeamVisualsDTO?
+    /// Absent on guest responses and on backends older than the organizer field.
+    let organizer: MatchOrganizerDTO?
 
     func toMatchItem() -> MatchItem {
         let (start, end) = MatchFormatters.dates(startMs: startTime, endMs: endTime)
@@ -257,8 +259,26 @@ struct MatchDetailItemDTO: Decodable {
             bestPlayer: bestPlayer.map { MatchBestPlayer(userId: $0.userId, name: $0.name) },
             teamVisuals: teamVisuals?.toDomain(),
             teamAOccupiedCount: teams.teamA.playerCount,
-            teamBOccupiedCount: teams.teamB.playerCount
+            teamBOccupiedCount: teams.teamB.playerCount,
+            organizer: organizer?.toDomain()
         )
+    }
+}
+
+// MARK: - Organizer
+
+struct MatchOrganizerDTO: Decodable {
+    let userId: String
+    let name: String
+    let lastName: String
+    let avatarUrl: String?
+
+    func toDomain() -> MatchOrganizer {
+        let fullName = [name, lastName]
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+        return MatchOrganizer(userId: userId, fullName: fullName, avatarUrl: avatarUrl)
     }
 }
 

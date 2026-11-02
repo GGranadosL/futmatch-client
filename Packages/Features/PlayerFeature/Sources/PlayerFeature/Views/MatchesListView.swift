@@ -108,6 +108,13 @@ struct MatchBestPlayer: Hashable {
     let name: String
 }
 
+/// The person running the match, shown in the detail hero. Never sent to guests.
+struct MatchOrganizer: Hashable {
+    let userId: String
+    let fullName: String
+    let avatarUrl: String?
+}
+
 /// Name + jersey color snapshot of one team, as stored on the match by the backend.
 struct MatchTeamVisual: Hashable {
     let name: String
@@ -159,6 +166,8 @@ struct MatchItem: Identifiable, Hashable {
     /// `nil` when the source has no separate count — use the roster size.
     let teamAOccupiedCount: Int?
     let teamBOccupiedCount: Int?
+    /// `nil` for guests, list/Home sources, and backends that don't send it yet.
+    let organizer: MatchOrganizer?
 
     init(
         id: String = UUID().uuidString,
@@ -194,7 +203,8 @@ struct MatchItem: Identifiable, Hashable {
         bestPlayer: MatchBestPlayer? = nil,
         teamVisuals: MatchTeamVisuals? = nil,
         teamAOccupiedCount: Int? = nil,
-        teamBOccupiedCount: Int? = nil
+        teamBOccupiedCount: Int? = nil,
+        organizer: MatchOrganizer? = nil
     ) {
         self.id = id
         self.venueName = venueName
@@ -230,6 +240,7 @@ struct MatchItem: Identifiable, Hashable {
         self.teamVisuals = teamVisuals
         self.teamAOccupiedCount = teamAOccupiedCount
         self.teamBOccupiedCount = teamBOccupiedCount
+        self.organizer = organizer
     }
 
     /// Players in each team: the backend count when present, else the roster size.

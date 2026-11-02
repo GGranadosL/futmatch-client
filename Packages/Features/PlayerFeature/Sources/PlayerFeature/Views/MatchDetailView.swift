@@ -695,6 +695,8 @@ struct MatchDetailView: View {
                     .bold()
                 
                 locationRow
+
+                organizerRow
             }
             .padding(20)
         }
@@ -748,6 +750,31 @@ struct MatchDetailView: View {
                     .font(FMTypography.bodySmall)
             }
             .foregroundColor(.white.opacity(0.9))
+        }
+    }
+
+    // MARK: - Organizer Row
+
+    /// Who runs the match, under the address. Signed-in users only (the backend
+    /// never sends it to guests); tapping it opens the organizer's profile.
+    @ViewBuilder
+    private var organizerRow: some View {
+        if isAuthenticated, let organizer = match.organizer, !organizer.fullName.isEmpty {
+            Button {
+                selectedPlayerId = organizer.userId
+            } label: {
+                HStack(spacing: 6) {
+                    playerAvatar(url: organizer.avatarUrl, image: nil, size: 20)
+                    Text(L10n.MatchDetail.organizedBy(organizer.fullName))
+                        .font(FMTypography.bodySmall)
+                        .lineLimit(1)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 10, weight: .semibold))
+                }
+                .foregroundColor(.white.opacity(0.9))
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
         }
     }
 
