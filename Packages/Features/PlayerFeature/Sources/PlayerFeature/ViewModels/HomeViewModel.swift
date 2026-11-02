@@ -37,7 +37,7 @@ final class HomeViewModel: ObservableObject {
 
     init(
         homeService: HomeServiceProtocol = HomeService(),
-        fetchMatchDetailUseCase: FetchMatchDetailUseCaseProtocol = FetchMatchDetailUseCase(matchService: MatchService())
+        fetchMatchDetailUseCase: FetchMatchDetailUseCaseProtocol = PlayerDependencyFactory().makeFetchMatchDetailUseCase()
     ) {
         self.homeService = homeService
         self.fetchMatchDetailUseCase = fetchMatchDetailUseCase

@@ -38,10 +38,14 @@ protocol MatchServiceProtocol {
 final class MatchService: MatchServiceProtocol {
     private let apiClient: APIClient
     let isDemoMode: Bool
+    /// Read on every call, so the same instance switches between the guest and the
+    /// authenticated feed as the user signs in or out.
+    private let isAuthenticated: () -> Bool
 
-    init(apiClient: APIClient = .shared, isDemoMode: Bool = false) {
+    init(apiClient: APIClient = .shared, isDemoMode: Bool = false, isAuthenticated: @escaping () -> Bool) {
         self.apiClient = apiClient
         self.isDemoMode = isDemoMode
+        self.isAuthenticated = isAuthenticated
     }
 
     // MARK: - Reads
@@ -66,15 +70,13 @@ final class MatchService: MatchServiceProtocol {
                 matches: items.map { $0.toMatchItem() }
             )
         }
-        let response: MatchesV2Response = try await apiClient.request(
-            endpoint: MatchEndpoint.matchesV2(
-                sinceVersion: sinceVersion,
-                countryCode: countryCode,
-                stateCode: stateCode,
-                lat: lat,
-                lon: lon
-            )
-        )
+        // Guests get the public feed with player data stripped. Its versions never
+        // equal an authenticated one (different visibility signature), so a
+        // sinceVersion carried across sign-in simply yields a full list.
+        let endpoint: MatchEndpoint = isAuthenticated()
+            ? .matchesV2(sinceVersion: sinceVersion, countryCode: countryCode, stateCode: stateCode, lat: lat, lon: lon)
+            : .guestMatchesV2(sinceVersion: sinceVersion, countryCode: countryCode, stateCode: stateCode, lat: lat, lon: lon)
+        let response: MatchesV2Response = try await apiClient.request(endpoint: endpoint)
         let data = response.data
         return MatchesV2Result(
             region: data.region,
@@ -116,9 +118,14 @@ final class MatchService: MatchServiceProtocol {
     }
 
     func fetchMatchDetail(id: String) async throws -> MatchItem {
-        let endpoint: MatchEndpoint = isDemoMode
-            ? .demoMatchDetail(id: id)
-            : .matchDetail(id: id)
+        let endpoint: MatchEndpoint
+        if isDemoMode {
+            endpoint = .demoMatchDetail(id: id)
+        } else if isAuthenticated() {
+            endpoint = .matchDetail(id: id)
+        } else {
+            endpoint = .guestMatchDetail(id: id)
+        }
         let response: MatchDetailResponse = try await apiClient.request(endpoint: endpoint)
         return response.data.toMatchItem()
     }

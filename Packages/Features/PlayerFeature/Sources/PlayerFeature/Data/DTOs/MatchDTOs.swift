@@ -79,7 +79,9 @@ struct MatchListItemV2DTO: Decodable {
             winnerTeam: winnerTeam,
             latitude: location?.latitude,
             longitude: location?.longitude,
-            teamVisuals: teamVisuals?.toDomain()
+            teamVisuals: teamVisuals?.toDomain(),
+            teamAOccupiedCount: teams.teamA.playerCount,
+            teamBOccupiedCount: teams.teamB.playerCount
         )
     }
 }
@@ -169,7 +171,9 @@ struct MatchListItemDTO: Decodable {
             winnerTeam: winnerTeam,
             latitude: location?.latitude,
             longitude: location?.longitude,
-            teamVisuals: teamVisuals?.toDomain()
+            teamVisuals: teamVisuals?.toDomain(),
+            teamAOccupiedCount: teams.teamA.playerCount,
+            teamBOccupiedCount: teams.teamB.playerCount
         )
     }
 }
@@ -251,7 +255,9 @@ struct MatchDetailItemDTO: Decodable {
             longitude: location?.longitude,
             goalBreakdown: goalBreakdown?.toMatchGoalBreakdown(),
             bestPlayer: bestPlayer.map { MatchBestPlayer(userId: $0.userId, name: $0.name) },
-            teamVisuals: teamVisuals?.toDomain()
+            teamVisuals: teamVisuals?.toDomain(),
+            teamAOccupiedCount: teams.teamA.playerCount,
+            teamBOccupiedCount: teams.teamB.playerCount
         )
     }
 }

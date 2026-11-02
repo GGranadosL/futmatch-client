@@ -21,6 +21,9 @@ enum MatchEndpoint: APIEndpoint {
     case demoMatches(lat: Double?, lon: Double?)
     case demoMyMatches(lat: Double?, lon: Double?)
     case demoMatchDetail(id: String)
+    // Guest (no session): read-only, no auth token, player data stripped by the backend.
+    case guestMatchesV2(sinceVersion: Int64?, countryCode: String?, stateCode: String?, lat: Double?, lon: Double?)
+    case guestMatchDetail(id: String)
 
     var path: String {
         switch self {
@@ -44,13 +47,18 @@ enum MatchEndpoint: APIEndpoint {
             return "/match/my-matches/demo"
         case .demoMatchDetail(let id):
             return "/match/demo/\(id)"
+        case .guestMatchesV2:
+            return "/guest/match/matches/v2"
+        case .guestMatchDetail(let id):
+            return "/guest/match/\(id)"
         }
     }
 
     var method: HTTPMethod {
         switch self {
         case .matchesV2, .matches, .matchDetail, .myMatches,
-             .demoMatches, .demoMyMatches, .demoMatchDetail:
+             .demoMatches, .demoMyMatches, .demoMatchDetail,
+             .guestMatchesV2, .guestMatchDetail:
             return .get
         case .joinMatch, .leaveMatch:
             return .post
@@ -70,7 +78,8 @@ enum MatchEndpoint: APIEndpoint {
 
     var queryItems: [URLQueryItem]? {
         switch self {
-        case let .matchesV2(sinceVersion, countryCode, stateCode, lat, lon):
+        case let .matchesV2(sinceVersion, countryCode, stateCode, lat, lon),
+             let .guestMatchesV2(sinceVersion, countryCode, stateCode, lat, lon):
             var items: [URLQueryItem] = []
             if let sinceVersion { items.append(URLQueryItem(name: "sinceVersion", value: "\(sinceVersion)")) }
             if let countryCode { items.append(URLQueryItem(name: "countryCode", value: countryCode)) }
@@ -86,7 +95,7 @@ enum MatchEndpoint: APIEndpoint {
             if let lat { items.append(URLQueryItem(name: "lat", value: "\(lat)")) }
             if let lon { items.append(URLQueryItem(name: "lon", value: "\(lon)")) }
             return items.isEmpty ? nil : items
-        case .matchDetail, .joinMatch, .cancelMatch, .leaveMatch, .demoMatchDetail:
+        case .matchDetail, .joinMatch, .cancelMatch, .leaveMatch, .demoMatchDetail, .guestMatchDetail:
             return nil
         }
     }

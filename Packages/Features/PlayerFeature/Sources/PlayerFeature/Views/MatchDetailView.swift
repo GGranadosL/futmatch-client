@@ -99,7 +99,11 @@ struct MatchDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel: MatchDetailViewModel
     private var match: MatchItem { viewModel.match }
-    private let currentUserId: String? = KeychainManager.shared.userId
+    /// Read on demand: a guest who signs in from this screen becomes the current user.
+    private var currentUserId: String? { isAuthenticated ? KeychainManager.shared.userId : nil }
+    /// `false` while browsing as a guest: the roster is hidden and joining asks to sign in.
+    @Environment(\.isAuthenticated) private var isAuthenticated
+    @Environment(\.requestSignIn) private var requestSignIn
     private let isDemoMode: Bool
     private let applePayConfiguration: ApplePayConfiguration
 
@@ -468,8 +472,14 @@ struct MatchDetailView: View {
                 PlayerProfileView(userId: id, isDemoMode: isDemoMode, originMatchId: match.id)
             }
         }
-        .task { await viewModel.loadDetail() }
-        .task { await viewModel.subscribeToPlayers() }
+        // Keyed by the session so signing in from this screen reloads the full
+        // detail and starts the live roster without leaving the match.
+        .task(id: isAuthenticated) { await viewModel.loadDetail() }
+        .task(id: isAuthenticated) {
+            // The live roster (Firestore) carries player identities — guests never get it.
+            guard isAuthenticated else { return }
+            await viewModel.subscribeToPlayers()
+        }
         .task { await viewModel.loadFieldAttributeCatalog() }
         .modifier(MatchDetailModifiers(view: self))
     }
@@ -607,7 +617,11 @@ struct MatchDetailView: View {
             VStack(alignment: .leading, spacing: 0) {
                 heroSection
                 infoBar
-                lineupSection
+                if isAuthenticated {
+                    lineupSection
+                } else {
+                    guestLineupSection
+                }
                 goalsSummarySection
                 if !isClosedMatch {
                     fieldDetailsSection
@@ -883,6 +897,80 @@ struct MatchDetailView: View {
         }
         .padding(.horizontal, 20)
         .padding(.top, 24)
+    }
+
+    // MARK: - Guest Lineup
+
+    /// Lineup for guests: occupancy per team only. Who is playing stays private
+    /// until the viewer signs in (the backend never sends guests player data).
+    private var guestLineupSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text(lineupTitle)
+                .font(FMTypography.titleLarge)
+                .foregroundColor(FMColors.onBackground)
+
+            VStack(spacing: 0) {
+                guestTeamRow(
+                    name: match.teamAName,
+                    colorHex: match.teamAColorHex,
+                    count: match.teamAPlayerCount,
+                    maxPlayers: max(match.teamAMax, match.teamAPlayerCount)
+                )
+                Divider().padding(.horizontal, 16)
+                guestTeamRow(
+                    name: match.teamBName,
+                    colorHex: match.teamBColorHex,
+                    count: match.teamBPlayerCount,
+                    maxPlayers: max(match.teamBMax, match.teamBPlayerCount)
+                )
+                Divider().padding(.horizontal, 16)
+
+                Button { requestSignIn() } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: "lock.fill")
+                            .font(.system(size: 16))
+                            .foregroundColor(FMColors.primary)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(L10n.Guest.lineupTitle)
+                                .font(FMTypography.labelLarge)
+                                .foregroundColor(FMColors.onSurface)
+                            Text(L10n.Guest.lineupMessage)
+                                .font(FMTypography.bodySmall)
+                                .foregroundColor(FMColors.onSurfaceVariant)
+                                .multilineTextAlignment(.leading)
+                        }
+                        Spacer(minLength: 8)
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(FMColors.onSurfaceVariant)
+                    }
+                    .padding(16)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(FMColors.surfaceContainerLowest)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(FMColors.outlineVariant, lineWidth: 1)
+            )
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 24)
+    }
+
+    private func guestTeamRow(name: String, colorHex: String?, count: Int, maxPlayers: Int) -> some View {
+        HStack {
+            FMTeamIdentityLabel(name: name, colorHex: colorHex, font: FMTypography.labelLarge)
+            Spacer()
+            Text(L10n.MatchDetail.playerCount(count, maxPlayers))
+                .font(FMTypography.bodySmall)
+                .foregroundColor(FMColors.onSurfaceVariant)
+        }
+        .padding(16)
     }
 
     private var lineupTitle: String {
@@ -1517,6 +1605,11 @@ struct MatchDetailView: View {
 
     private func triggerJoin(team: JoinTeam) {
         guard !isClosedMatch && !isAwaitingResult else { return }
+        // Joining is account based: a guest is asked to sign in and stays here.
+        guard isAuthenticated else {
+            requestSignIn()
+            return
+        }
         let resolved: JoinTeam
         if team == .auto {
             // Balance against the live roster — the REST arrays are frozen at
@@ -1642,6 +1735,10 @@ struct MatchDetailView: View {
     /// toast, no overlay, `paymentSheet`/`hasJoined`/`showJoinOverlay` untouched —
     /// identical in spirit to the existing `.canceled` branch in `handlePaymentResult`.
     private func requestPaymentPresentation() {
+        guard isAuthenticated else {
+            requestSignIn()
+            return
+        }
         Task {
             guard await viewModel.authorizePayment() else { return }
             shouldPresentPayment = true

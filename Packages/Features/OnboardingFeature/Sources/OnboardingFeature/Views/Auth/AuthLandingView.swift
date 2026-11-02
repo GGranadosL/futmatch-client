@@ -37,6 +37,9 @@ public struct AuthLandingView: View {
     private let clearOnboardingDraftUseCase: (any ClearOnboardingDraftUseCaseProtocol)?
     /// Callback when login or registration is successful
     public var onLoginSuccess: (() -> Void)?
+    /// When set, the screen is presented as a dismissible sheet over the app
+    /// (guest mode) and shows a close button that calls it.
+    private let onClose: (() -> Void)?
 
     public init(
         fetchCountriesUseCase: (any FetchCountriesUseCaseProtocol)? = nil,
@@ -49,6 +52,7 @@ public struct AuthLandingView: View {
         getOnboardingDraftUseCase: (any GetOnboardingDraftUseCaseProtocol)? = nil,
         clearOnboardingDraftUseCase: (any ClearOnboardingDraftUseCaseProtocol)? = nil,
         onLoginSuccess: (() -> Void)? = nil,
+        onClose: (() -> Void)? = nil,
         firebaseSignIn: ((String) async throws -> Void)? = nil
     ) {
         self.fetchCountriesUseCase = fetchCountriesUseCase
@@ -60,6 +64,7 @@ public struct AuthLandingView: View {
         self.getOnboardingDraftUseCase = getOnboardingDraftUseCase
         self.clearOnboardingDraftUseCase = clearOnboardingDraftUseCase
         self.onLoginSuccess = onLoginSuccess
+        self.onClose = onClose
         _viewModel = StateObject(wrappedValue: LoginViewModel(
             signInWithSocialUseCase: signInWithSocialUseCase,
             socialProviders: socialProviders,
@@ -89,6 +94,20 @@ public struct AuthLandingView: View {
                 // link anything — so the flow mounts here rather than opening the
                 // sign-up cover as `SIGN_UP_REQUIRED` does.
                 socialLinkFlow
+            }
+            .overlay(alignment: .topLeading) {
+                if let onClose {
+                    Button(action: onClose) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundColor(FMColors.onBackground)
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .accessibilityLabel(L10n.Common.close)
+                    .padding(.leading, 12)
+                    .padding(.top, 8)
+                }
             }
             .background(FMColors.background)
             // Freezes the screen the instant a login succeeds — social sign-in sets

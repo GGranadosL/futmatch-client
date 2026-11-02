@@ -29,17 +29,22 @@ public struct HomeContainerView: View {
     /// Callback fired after the account was successfully deleted, once the local session must be torn down.
     public var onAccountDeleted: (() -> Void)?
     private let isDemoMode: Bool
+    /// `false` while browsing as a guest: only the Matches tab is open; Home,
+    /// Reserved and Profile invite the user to sign in.
+    private let isAuthenticated: Bool
 
     public init(
         onLogout: (() -> Void)? = nil,
         onAccountDeleted: (() -> Void)? = nil,
         isDemoMode: Bool = false,
+        isAuthenticated: Bool = true,
         countryRepository: any CountryRepositoryProtocol = FallbackCountryRepository(),
         managedObjectContext: NSManagedObjectContext? = nil
     ) {
         self.onLogout = onLogout
         self.onAccountDeleted = onAccountDeleted
         self.isDemoMode = isDemoMode
+        self.isAuthenticated = isAuthenticated
         let factory = PlayerDependencyFactory(isDemoMode: isDemoMode, countryRepository: countryRepository)
         let cacheRepo: MatchCoreDataCacheRepository?
         let reservedCacheRepo: MatchCoreDataCacheRepository?
@@ -83,7 +88,11 @@ public struct HomeContainerView: View {
         .environmentObject(reservedViewModel)
         .environmentObject(homeViewModel)
         .environmentObject(notificationsViewModel)
-        .task {
+        .environment(\.isAuthenticated, isAuthenticated)
+        // Keyed by the session: signing in from the guest sheet keeps this view (and
+        // whatever screen the user was on) and runs the account loads right away.
+        .task(id: isAuthenticated) {
+            guard isAuthenticated else { return }
             async let home: Void = homeViewModel.load()
             async let reserved: Void = reservedViewModel.load()
             // The badge is requested once per session; after that pushes bump it locally
@@ -94,6 +103,11 @@ public struct HomeContainerView: View {
             // into Settings or the payment flow.
             Task.detached(priority: .utility) { PaymentSDKWarmup.prewarm() }
             _ = await (home, reserved, badge)
+        }
+        .onChange(of: isAuthenticated) { signedIn in
+            // The guest feed has no players; swap it for the full one.
+            guard signedIn else { return }
+            Task { await matchesViewModel.reload() }
         }
         // Prerasterize the default avatar placeholder at the same size as the real
         // photo so the tab icon never jumps in size when the download completes.
@@ -123,7 +137,7 @@ public struct HomeContainerView: View {
             }
         }
         .onChange(of: scenePhase) { phase in
-            guard phase == .active else { return }
+            guard phase == .active, isAuthenticated else { return }
             Task {
                 async let home: Void = homeViewModel.load()
                 async let reserved: Void = reservedViewModel.load()
@@ -152,7 +166,7 @@ public struct HomeContainerView: View {
         TabView(selection: $selectedTab) {
             Tab(L10n.Tab.home, systemImage: "house", value: .home) {
                 NavigationStack(path: $homeNavPath) {
-                    HomeContentView(selectedTab: $selectedTab, navigationPath: $homeNavPath, isDemoMode: isDemoMode)
+                    homeTabRoot(navigationPath: $homeNavPath)
                         .navigationBarHidden(true)
                         .navigationDestination(for: MatchItem.self) { match in
                             MatchDetailView(match: match, isDemoMode: isDemoMode)
@@ -184,7 +198,7 @@ public struct HomeContainerView: View {
 
             Tab(L10n.Tab.reserved, systemImage: "calendar", value: .reserved) {
                 NavigationStack(path: $reservedNavPath) {
-                    ReservedView(navigationPath: $reservedNavPath)
+                    reservedTabRoot(navigationPath: $reservedNavPath)
                         .navigationBarHidden(true)
                         .navigationDestination(for: MatchItem.self) { match in
                             MatchDetailView(match: match, isDemoMode: isDemoMode, source: .booked)
@@ -194,7 +208,7 @@ public struct HomeContainerView: View {
 
             Tab(value: HomeTab.profile, role: nil) {
                 NavigationStack(path: $profileNavPath) {
-                    ProfileView(onLogout: onLogout, onAccountDeleted: onAccountDeleted, selectedTab: $selectedTab, navigationPath: $profileNavPath)
+                    profileTabRoot(navigationPath: $profileNavPath)
                         .navigationDestination(for: MatchItem.self) { match in
                             MatchDetailView(match: match, isDemoMode: isDemoMode)
                         }
@@ -242,13 +256,13 @@ public struct HomeContainerView: View {
         Group {
             switch selectedTab {
             case .home:
-                HomeContentView(selectedTab: $selectedTab, navigationPath: $navigationPath, isDemoMode: isDemoMode)
+                homeTabRoot(navigationPath: $navigationPath)
             case .matches:
                 MatchesListView(navigationPath: $navigationPath)
             case .reserved:
-                ReservedView(navigationPath: $navigationPath)
+                reservedTabRoot(navigationPath: $navigationPath)
             case .profile:
-                ProfileView(onLogout: onLogout, onAccountDeleted: onAccountDeleted, selectedTab: $selectedTab, navigationPath: $navigationPath)
+                profileTabRoot(navigationPath: $navigationPath)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -289,6 +303,39 @@ public struct HomeContainerView: View {
         }
 
         .animation(.easeInOut(duration: 0.25), value: isShowingDetail)
+    }
+
+    // MARK: - Tab Roots (guest-aware)
+
+    @ViewBuilder
+    private func homeTabRoot(navigationPath: Binding<NavigationPath>) -> some View {
+        if isAuthenticated {
+            HomeContentView(selectedTab: $selectedTab, navigationPath: navigationPath, isDemoMode: isDemoMode)
+        } else {
+            GuestSignInPromptView(
+                context: .home,
+                secondaryTitle: L10n.Guest.browseMatches,
+                onSecondary: { selectedTab = .matches }
+            )
+        }
+    }
+
+    @ViewBuilder
+    private func reservedTabRoot(navigationPath: Binding<NavigationPath>) -> some View {
+        if isAuthenticated {
+            ReservedView(navigationPath: navigationPath)
+        } else {
+            GuestSignInPromptView(context: .reserved)
+        }
+    }
+
+    @ViewBuilder
+    private func profileTabRoot(navigationPath: Binding<NavigationPath>) -> some View {
+        if isAuthenticated {
+            ProfileView(onLogout: onLogout, onAccountDeleted: onAccountDeleted, selectedTab: $selectedTab, navigationPath: navigationPath)
+        } else {
+            GuestSignInPromptView(context: .profile)
+        }
     }
 
     // MARK: - Profile Tab Icon

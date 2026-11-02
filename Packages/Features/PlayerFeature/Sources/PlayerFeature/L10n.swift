@@ -807,4 +807,38 @@ public enum L10n {
             NSLocalizedString("matchDetail.pendingPayment.retryLaterDefaultMessage", bundle: .module, comment: "")
         }
     }
+
+    // MARK: - Guest (browsing without an account)
+    public enum Guest {
+        public static var signIn: String {
+            NSLocalizedString("guest.signIn", bundle: .module, comment: "")
+        }
+        public static var browseMatches: String {
+            NSLocalizedString("guest.browseMatches", bundle: .module, comment: "")
+        }
+        public static var homeTitle: String {
+            NSLocalizedString("guest.home.title", bundle: .module, comment: "")
+        }
+        public static var homeMessage: String {
+            NSLocalizedString("guest.home.message", bundle: .module, comment: "")
+        }
+        public static var reservedTitle: String {
+            NSLocalizedString("guest.reserved.title", bundle: .module, comment: "")
+        }
+        public static var reservedMessage: String {
+            NSLocalizedString("guest.reserved.message", bundle: .module, comment: "")
+        }
+        public static var profileTitle: String {
+            NSLocalizedString("guest.profile.title", bundle: .module, comment: "")
+        }
+        public static var profileMessage: String {
+            NSLocalizedString("guest.profile.message", bundle: .module, comment: "")
+        }
+        public static var lineupTitle: String {
+            NSLocalizedString("guest.lineup.title", bundle: .module, comment: "")
+        }
+        public static var lineupMessage: String {
+            NSLocalizedString("guest.lineup.message", bundle: .module, comment: "")
+        }
+    }
 }
