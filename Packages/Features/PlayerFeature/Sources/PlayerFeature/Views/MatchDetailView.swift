@@ -645,21 +645,28 @@ struct MatchDetailView: View {
             // Field image — FMRemoteImage seeds from the shared cache
             // synchronously, so it never flashes back to the default when
             // loadDetail() refreshes `match` with the same URL.
-            FMRemoteImage(urlString: match.fieldImageUrl) {
-                Image("defaultField", bundle: .main)
-                    .resizable()
+            // The photo is an overlay of a fixed-size frame: a scaled-to-fill image
+            // laid out directly reports its full width, and a photo wider than
+            // the screen made the whole detail pan sideways.
+            Color.clear
+                .frame(maxWidth: .infinity)
+                .frame(height: 260)
+                .overlay(
+                    FMRemoteImage(urlString: match.fieldImageUrl) {
+                        Image("defaultField", bundle: .main)
+                            .resizable()
+                            .scaledToFill()
+                    }
                     .scaledToFill()
-            }
-            .scaledToFill()
-            .frame(maxWidth: .infinity, minHeight: 260, maxHeight: 260)
-            .clipped()
-            .overlay(
-                LinearGradient(
-                    colors: [.clear, .black.opacity(0.7)],
-                    startPoint: .center,
-                    endPoint: .bottom
                 )
-            )
+                .clipped()
+                .overlay(
+                    LinearGradient(
+                        colors: [.clear, .black.opacity(0.7)],
+                        startPoint: .center,
+                        endPoint: .bottom
+                    )
+                )
             
             // Venue name + badge
             VStack(alignment: .leading, spacing: 8) {
@@ -938,7 +945,9 @@ struct MatchDetailView: View {
                                 .font(FMTypography.bodySmall)
                                 .foregroundColor(FMColors.onSurfaceVariant)
                                 .multilineTextAlignment(.leading)
+                                .fixedSize(horizontal: false, vertical: true)
                         }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                         Spacer(minLength: 8)
                         Image(systemName: "chevron.right")
                             .font(.system(size: 13, weight: .semibold))

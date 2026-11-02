@@ -331,6 +331,8 @@ struct RootView: View {
         .environment(\.requestSignIn, RequestSignInAction { appState.requestSignIn() })
         .sheet(isPresented: $appState.isShowingSignIn) {
             makeLoginView()
+                // Grabber at the top so it reads as a sheet that can be swiped down.
+                .presentationDragIndicator(.visible)
         }
         // Keyed by the session: runs at launch with a stored session and
         // again the moment a guest signs in from the sheet.
