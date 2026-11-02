@@ -10,6 +10,9 @@ final class ReservedMatchesViewModel: ObservableObject {
 
     @Published private(set) var myMatches: [MatchItem] = []
     @Published private(set) var isLoading = false
+    /// True once a fetch has answered (even with an empty list) or cache had matches.
+    /// Lets Home keep its empty state during a refresh instead of flashing a skeleton.
+    @Published private(set) var hasLoaded = false
     @Published private(set) var error: String?
     /// API-provided title for the full-screen error (nil → generic copy).
     @Published private(set) var errorTitle: String?
@@ -39,6 +42,7 @@ final class ReservedMatchesViewModel: ObservableObject {
         // Pre-load cache synchronously so the first render already has data
         if let cached = cacheRepo?.loadMatches(), !cached.isEmpty {
             myMatches = cached
+            hasLoaded = true
         }
         observeMembershipChanges()
     }
@@ -69,6 +73,7 @@ final class ReservedMatchesViewModel: ObservableObject {
         do {
             let fresh = try await fetchMyMatchesUseCase.execute(lat: userCoordinate?.latitude, lon: userCoordinate?.longitude)
             myMatches = fresh
+            hasLoaded = true
             try? cacheRepo?.saveMatches(fresh)
         } catch {
             guard !error.isCancellation else {

@@ -1,12 +1,16 @@
 import Foundation
 import SharedModels
+import PersistenceFramework
 import AdminFeature
 
 // MARK: - PlayerDependencyFactory
 
 public struct PlayerDependencyFactory {
-    private static let sharedMatchService      = MatchService(isDemoMode: false)
-    private static let sharedDemoMatchService  = MatchService(isDemoMode: true)
+    private static let sharedMatchService      = MatchService(isDemoMode: false, isAuthenticated: isAuthenticated)
+    private static let sharedDemoMatchService  = MatchService(isDemoMode: true, isAuthenticated: isAuthenticated)
+    /// Session check shared by everything that behaves differently for guests.
+    /// A stored access token is the same signal `AppState` uses at launch.
+    static let isAuthenticated: () -> Bool = { KeychainManager.shared.isLoggedIn }
     private static let sharedMatchVersionStore = UserDefaultsMatchVersionStore()
     private static let sharedNotificationCacheStore = UserDefaultsNotificationCacheStore()
     /// Shared across all ViewModels so every tab reuses the same resolved fix
@@ -85,6 +89,10 @@ public struct PlayerDependencyFactory {
     /// The only place that reads the process-wide tracker; view models get it by init.
     func makeAnalytics() -> AnalyticsTracking {
         AnalyticsRegistry.current
+    }
+
+    func makeApplePayConfiguration() -> ApplePayConfiguration {
+        .interfut
     }
 
     func makeJoinMatchUseCase() -> JoinMatchUseCaseProtocol {

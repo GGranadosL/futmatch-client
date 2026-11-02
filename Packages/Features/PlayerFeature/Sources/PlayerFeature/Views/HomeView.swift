@@ -18,6 +18,8 @@ struct HomeContentView: View {
     @State private var showAdmin = false
     @State private var showOrganizer = false
     @State private var isLoadingLastMatchDetail = false
+    /// Next match whose directions button was tapped; drives the Apple/Google Maps picker.
+    @State private var directionsMatch: MatchItem?
 
     /// `ADMIN` and `ORGANIZER` users see the admin-panel button next to the bell,
     /// unless `admin_feature_enabled` Remote Config flag is set to false.
@@ -239,14 +241,43 @@ struct HomeContentView: View {
                         navigationPath.append(match)
                     },
                     onDirectionsTap: {
-                        MatchDirections.open(
-                            venueName: match.venueName,
-                            address: match.location,
-                            coordinate: match.coordinate
-                        )
+                        // Only one maps app to choose from: skip the picker.
+                        if MatchDirections.isGoogleMapsInstalled {
+                            directionsMatch = match
+                        } else {
+                            MatchDirections.openInAppleMaps(
+                                venueName: match.venueName,
+                                address: match.location,
+                                coordinate: match.coordinate
+                            )
+                        }
                     }
                 )
-            } else if reservedViewModel.isLoading {
+                .confirmationDialog(
+                    L10n.MatchDetail.openInMapsTitle,
+                    isPresented: Binding(
+                        get: { directionsMatch != nil },
+                        set: { if !$0 { directionsMatch = nil } }
+                    ),
+                    titleVisibility: .visible,
+                    presenting: directionsMatch
+                ) { target in
+                    Button(L10n.MatchDetail.openAppleMaps) {
+                        MatchDirections.openInAppleMaps(
+                            venueName: target.venueName,
+                            address: target.location,
+                            coordinate: target.coordinate
+                        )
+                    }
+                    Button(L10n.MatchDetail.openGoogleMaps) {
+                        MatchDirections.openInGoogleMaps(
+                            venueName: target.venueName,
+                            address: target.location,
+                            coordinate: target.coordinate
+                        )
+                    }
+                }
+            } else if reservedViewModel.isLoading && !reservedViewModel.hasLoaded {
                 FMNextGameCardSkeleton()
                     .disabled(true)
             } else {
@@ -276,10 +307,11 @@ struct HomeContentView: View {
 
             let enrolledIds = Set(reservedViewModel.myMatches.filter(\.isUpcoming).map(\.id))
             let suggestions = homeViewModel.visibleSuggestions(excluding: enrolledIds)
-            let isLoading = homeViewModel.isLoading && suggestions.isEmpty
+            // Skeleton only before the first answer (no cache, no finished load).
+            // Once we know the list is empty, a refresh keeps the empty state.
+            let isLoading = homeViewModel.isLoading && !homeViewModel.hasData && suggestions.isEmpty
 
             if isLoading {
-                // Skeleton while loading for the first time
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {
                         ForEach(0..<3, id: \.self) { _ in FMGameCardSkeleton() }

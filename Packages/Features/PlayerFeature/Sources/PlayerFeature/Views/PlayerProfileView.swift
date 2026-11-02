@@ -163,6 +163,13 @@ struct PlayerProfileView: View {
                     FMSkeleton(cornerRadius: 16).frame(maxWidth: .infinity).frame(height: 110)
                 }
                 .padding(.horizontal, 24)
+
+                // Último partido
+                VStack(alignment: .leading, spacing: 12) {
+                    FMSkeleton(cornerRadius: 6).frame(width: 140, height: 24)
+                    FMLastMatchSkeleton()
+                }
+                .padding(.horizontal, 24)
             }
             .padding(.bottom, 40)
         }
@@ -252,31 +259,27 @@ struct PlayerProfileView: View {
     // MARK: - Last Match
 
     private func lastMatchSection(_ last: PlayerLastMatch) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        // Same match we navigated here from: tapping does nothing rather than
+        // looping back to the screen the admin/player just left.
+        let isOrigin = last.matchId == originMatchId
+        return VStack(alignment: .leading, spacing: 12) {
             Text(L10n.LastMatch.title)
                 .font(FMTypography.titleLarge)
                 .foregroundColor(FMColors.onBackground)
 
-            if last.matchId != originMatchId {
-                Button {
-                    // Guard against re-entry: the detail is fetched async before
-                    // navigating, so without this a rapid multi-tap would queue
-                    // several Tasks and push the detail screen N times.
-                    guard !isLoadingLastMatchDetail else { return }
-                    isLoadingLastMatchDetail = true
-                    Task {
-                        defer { isLoadingLastMatchDetail = false }
-                        lastMatchDetail = await viewModel.fetchMatchDetail(matchId: last.matchId)
-                    }
-                } label: {
-                    lastMatchRow(last)
+            LastMatchCard(
+                match: LastMatch(publicProfile: last),
+                isLoading: isLoadingLastMatchDetail && !isOrigin
+            ) {
+                // Guard against re-entry: the detail is fetched async before
+                // navigating, so without this a rapid multi-tap would queue
+                // several Tasks and push the detail screen N times.
+                guard !isOrigin, !isLoadingLastMatchDetail else { return }
+                isLoadingLastMatchDetail = true
+                Task {
+                    defer { isLoadingLastMatchDetail = false }
+                    lastMatchDetail = await viewModel.fetchMatchDetail(matchId: last.matchId)
                 }
-                .buttonStyle(.plain)
-                .disabled(isLoadingLastMatchDetail)
-            } else {
-                // Same match we navigated here from — leave it static rather
-                // than looping back to the screen the admin/player just left.
-                lastMatchRow(last)
             }
         }
         .padding(.horizontal, 24)
@@ -294,80 +297,7 @@ struct PlayerProfileView: View {
         .padding(.horizontal, 24)
     }
 
-    private func lastMatchRow(_ last: PlayerLastMatch) -> some View {
-        HStack(spacing: 14) {
-            Image(systemName: outcomeIcon(last.outcome))
-                .font(.system(size: 24))
-                .foregroundColor(outcomeColor(last.outcome))
-                .frame(width: 44, height: 44)
-                .background(Circle().fill(outcomeColor(last.outcome).opacity(0.12)))
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(outcomeLabel(last.outcome))
-                    .font(FMTypography.titleSmall)
-                    .foregroundColor(FMColors.onSurface)
-                Text("\(relativeDate(last.playedAt)) - \(last.fieldName)")
-                    .font(FMTypography.bodySmall)
-                    .foregroundColor(FMColors.onSurfaceVariant)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-            }
-
-            Spacer()
-
-            HStack(spacing: 4) {
-                Text("\(last.teamAScore) - \(last.teamBScore)")
-                    .font(FMTypography.headlineMedium)
-                    .foregroundColor(FMColors.onSurface)
-                if isLoadingLastMatchDetail && last.matchId != originMatchId {
-                    ProgressView()
-                        .tint(FMColors.primary)
-                }
-            }
-        }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(FMColors.surfaceContainerLowest)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(FMColors.outlineVariant, lineWidth: 1)
-        )
-    }
-
     // MARK: - Helpers
-
-    private func outcomeIcon(_ outcome: String) -> String {
-        switch outcome.uppercased() {
-        case "WIN":  return "trophy.fill"
-        case "LOSS", "LOSE": return "xmark.circle.fill"
-        default:     return "equal.circle.fill"
-        }
-    }
-
-    private func outcomeColor(_ outcome: String) -> Color {
-        switch outcome.uppercased() {
-        case "WIN":  return .green
-        case "LOSS", "LOSE": return .red
-        default:     return .orange
-        }
-    }
-
-    private func outcomeLabel(_ outcome: String) -> String {
-        switch outcome.uppercased() {
-        case "WIN":  return L10n.LastMatch.win
-        case "LOSS", "LOSE": return L10n.LastMatch.loss
-        default:     return L10n.LastMatch.draw
-        }
-    }
-
-    private func relativeDate(_ date: Date) -> String {
-        let fmt = RelativeDateTimeFormatter()
-        fmt.locale = Locale(identifier: "es_MX")
-        fmt.unitsStyle = .full
-        return fmt.localizedString(for: date, relativeTo: Date())
-    }
 
     private func countryFlag(_ country: String) -> String {
         let iso = country.uppercased()

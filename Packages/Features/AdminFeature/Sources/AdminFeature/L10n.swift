@@ -417,6 +417,9 @@ enum L10n {
         static var title: String {
             NSLocalizedString("fields.title", bundle: .module, comment: "")
         }
+        static var emptyList: String {
+            NSLocalizedString("fields.emptyList", bundle: .module, comment: "")
+        }
     }
 
     enum EditField {

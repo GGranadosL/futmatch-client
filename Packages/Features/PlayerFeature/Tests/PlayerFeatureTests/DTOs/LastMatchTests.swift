@@ -1,5 +1,6 @@
 import XCTest
 @testable import PlayerFeature
+import SharedModels
 
 final class LastMatchTests: XCTestCase {
 
@@ -86,5 +87,26 @@ final class LastMatchTests: XCTestCase {
     func test_dto_readsTopLevelTeams() throws {
         let dto = try decode(##"{\##(base),"teamA":{"name":"Les Bleus","color":"#0066FF"},"teamB":{"name":"Red Devils","color":"#EF1B23"}}"##)
         XCTAssertEqual(dto.toDomain().teamA?.name, "Les Bleus")
+    }
+
+    // MARK: - Public profile mapping
+
+    private func publicLast(outcome: String, teamA: PlayerLastMatchTeam? = nil) -> PlayerLastMatch {
+        PlayerLastMatch(matchId: "m", fieldId: "f", fieldName: "La Jaula", playedAt: date(19),
+                        outcome: outcome, teamAScore: 9, teamBScore: 13, teamA: teamA)
+    }
+
+    func test_publicProfile_mapsOutcomeIgnoringCase() {
+        XCTAssertEqual(LastMatch(publicProfile: publicLast(outcome: "win")).outcome, .win)
+        XCTAssertEqual(LastMatch(publicProfile: publicLast(outcome: "LOSE")).outcome, .loss)
+        XCTAssertEqual(LastMatch(publicProfile: publicLast(outcome: "LOSS")).outcome, .loss)
+        XCTAssertEqual(LastMatch(publicProfile: publicLast(outcome: "DRAW")).outcome, .draw)
+    }
+
+    func test_publicProfile_keepsTeamIdentity() {
+        let match = LastMatch(publicProfile: publicLast(outcome: "WIN", teamA: PlayerLastMatchTeam(name: "Les Bleus", colorHex: "#0066FF")))
+        XCTAssertEqual(match.teamAName, "Les Bleus")
+        XCTAssertEqual(match.teamA?.colorHex, "#0066FF")
+        XCTAssertEqual(match.teamBName, L10n.Matches.teamB)
     }
 }

@@ -200,13 +200,13 @@ struct ReservedView: View {
             teamA: FMMatchTeam(
                 name: match.teamAName,
                 avatarURLs: match.teamAPlayers.prefix(3).map { $0.avatarUrl },
-                playerCount: match.teamAPlayers.count,
+                playerCount: match.teamAPlayerCount,
                 colorHex: match.teamAColorHex
             ),
             teamB: FMMatchTeam(
                 name: match.teamBName,
                 avatarURLs: match.teamBPlayers.prefix(3).map { $0.avatarUrl },
-                playerCount: match.teamBPlayers.count,
+                playerCount: match.teamBPlayerCount,
                 colorHex: match.teamBColorHex
             ),
             distance: match.formattedDistance(from: viewModel.userCoordinate),

@@ -23,6 +23,12 @@ class AppState: ObservableObject {
     @Published var logoutError: String?         
     /// `true` mientras el usuario explora la app con datos de demo (sin sesión real persistida).
     @Published var isDemoMode: Bool = false
+    /// Sign-in sheet presented over the app while browsing as a guest.
+    @Published var isShowingSignIn: Bool = false
+    /// Changes on every logout so the tab container is rebuilt from scratch and no
+    /// account data stays in memory for the guest (or the next user). Signing in
+    /// does not change it, so the screen the guest was on survives the sign-in.
+    @Published private(set) var sessionResetID = UUID()
 
     private let logoutUseCase: LogoutUseCaseProtocol
     private var cancellables = Set<AnyCancellable>()
@@ -51,6 +57,18 @@ class AppState: ObservableObject {
     func exitDemoMode() {
         isDemoMode = false
         isLoggedIn = false
+        sessionResetID = UUID()
+    }
+
+    /// Opens the sign-in sheet (guest tapped Sign in, Join, Reserved, Profile...).
+    func requestSignIn() {
+        isShowingSignIn = true
+    }
+
+    /// Called once login or registration succeeds inside the sheet.
+    func completeSignIn() {
+        isLoggedIn = true
+        isShowingSignIn = false
     }
 
     // MARK: - Session Expiry
@@ -88,6 +106,7 @@ class AppState: ObservableObject {
         onDidLogout?()
         isDemoMode = false
         isLoggedIn = false
+        sessionResetID = UUID()
     }
 
     func logout() {
@@ -109,6 +128,7 @@ class AppState: ObservableObject {
         onDidLogout?()
         isDemoMode = false
         isLoggedIn = false
+        sessionResetID = UUID()
 
         do {
             try await logoutUseCase.execute()
@@ -283,48 +303,56 @@ struct RootView: View {
     var onAuthenticatedStart: (() -> Void)?
     
     var body: some View {
-        Group {
-            if appState.isLoggedIn {
-                HomeContainerView(
-                    onLogout: {
-                        if appState.isDemoMode {
-                            appState.exitDemoMode()
-                        } else {
-                            userSession.clear()
-                            appState.logout()
-                        }
-                    },
-                    onAccountDeleted: {
-                        // The account is already deleted server-side (tokens revoked) —
-                        // wipe local session the same way a forced logout does, without
-                        // calling /auth/signOut again.
-                        userSession.clear()
-                        appState.forceLogout()
-                    },
-                    isDemoMode: appState.isDemoMode,
-                    countryRepository: countryRepository,
-                    managedObjectContext: persistenceContainer.viewContext
-                )
-                .task {
-                    // Profile is fetched in every mode — the bearer token is valid
-                    // in demo and we need `profilePicURL`, name, level, etc. for the UI.
-                    await userSession.fetchProfile()
-                    // Request notification permission now that the user is logged in.
-                    // The APNs token was already requested silently at launch.
-                    onRequestNotificationPermission?()
-                    // Firebase Auth and FCM are skipped in demo mode.
-                    guard !appState.isDemoMode else { return }
-                    // Re-authenticate with Firebase on app relaunch if the user already
-                    // had a session (Firebase Auth state is not persisted across cold starts
-                    // when using custom tokens — only on-login sign-in covers new logins).
-                    await reAuthFirebaseIfNeeded()
-                    await syncFCMTokenIfNeeded()
-                    // Subscribe to the regional matches topic for auto-refresh pushes.
-                    onAuthenticatedStart?()
+        // Always the app: without a session it runs in guest mode (only Matches is
+        // open, App Store guideline 5.1.1(v)) and account features open the sign-in
+        // sheet below.
+        HomeContainerView(
+            onLogout: {
+                if appState.isDemoMode {
+                    appState.exitDemoMode()
+                } else {
+                    userSession.clear()
+                    appState.logout()
                 }
-            } else {
-                makeLoginView()
-            }
+            },
+            onAccountDeleted: {
+                // The account is already deleted server-side (tokens revoked) —
+                // wipe local session the same way a forced logout does, without
+                // calling /auth/signOut again.
+                userSession.clear()
+                appState.forceLogout()
+            },
+            isDemoMode: appState.isDemoMode,
+            isAuthenticated: appState.isLoggedIn,
+            countryRepository: countryRepository,
+            managedObjectContext: persistenceContainer.viewContext
+        )
+        .id(appState.sessionResetID)
+        .environment(\.requestSignIn, RequestSignInAction { appState.requestSignIn() })
+        .sheet(isPresented: $appState.isShowingSignIn) {
+            makeLoginView()
+                // Grabber at the top so it reads as a sheet that can be swiped down.
+                .presentationDragIndicator(.visible)
+        }
+        // Keyed by the session: runs at launch with a stored session and
+        // again the moment a guest signs in from the sheet.
+        .task(id: appState.isLoggedIn) {
+            guard appState.isLoggedIn else { return }
+            // Profile is fetched in every mode — the bearer token is valid
+            // in demo and we need `profilePicURL`, name, level, etc. for the UI.
+            await userSession.fetchProfile()
+            // Request notification permission now that the user is logged in.
+            // The APNs token was already requested silently at launch.
+            onRequestNotificationPermission?()
+            // Firebase Auth and FCM are skipped in demo mode.
+            guard !appState.isDemoMode else { return }
+            // Re-authenticate with Firebase on app relaunch if the user already
+            // had a session (Firebase Auth state is not persisted across cold starts
+            // when using custom tokens — only on-login sign-in covers new logins).
+            await reAuthFirebaseIfNeeded()
+            await syncFCMTokenIfNeeded()
+            // Subscribe to the regional matches topic for auto-refresh pushes.
+            onAuthenticatedStart?()
         }
     }
     
@@ -418,7 +446,8 @@ struct RootView: View {
             saveOnboardingDraftUseCase: factory.makeSaveOnboardingDraftUseCase(),
             getOnboardingDraftUseCase: factory.makeGetOnboardingDraftUseCase(),
             clearOnboardingDraftUseCase: factory.makeClearOnboardingDraftUseCase(),
-            onLoginSuccess: { appState.isLoggedIn = true },
+            onLoginSuccess: { appState.completeSignIn() },
+            onClose: { appState.isShowingSignIn = false },
             firebaseSignIn: { token in
                 try await Auth.auth().signIn(withCustomToken: token)
             }

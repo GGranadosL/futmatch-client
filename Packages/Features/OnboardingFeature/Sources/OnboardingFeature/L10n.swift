@@ -430,6 +430,9 @@ public enum L10n {
         public static var `continue`: String {
             NSLocalizedString("common.continue", bundle: .module, comment: "")
         }
+        public static var close: String {
+            NSLocalizedString("common.close", bundle: .module, comment: "")
+        }
     }
     
     // MARK: - MFA

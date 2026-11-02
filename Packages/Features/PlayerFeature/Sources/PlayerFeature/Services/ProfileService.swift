@@ -70,6 +70,33 @@ private struct PublicLastMatchDTO: Decodable {
     let outcome: String
     let teamAScore: Int
     let teamBScore: Int
+    let teamA: HomeTeamVisualDTO?
+    let teamB: HomeTeamVisualDTO?
+
+    private enum CodingKeys: String, CodingKey {
+        case matchId, fieldId, fieldName, playedAt, outcome, teamAScore, teamBScore, teamA, teamB, teamVisuals
+    }
+
+    private struct TeamVisualsContainer: Decodable {
+        let teamA: HomeTeamVisualDTO?
+        let teamB: HomeTeamVisualDTO?
+    }
+
+    /// Same tolerance as `HomeLastMatchDTO`: teams may come top-level or inside
+    /// `teamVisuals`, and older matches carry neither.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        matchId = try c.decode(String.self, forKey: .matchId)
+        fieldId = try c.decode(String.self, forKey: .fieldId)
+        fieldName = try c.decode(String.self, forKey: .fieldName)
+        playedAt = try c.decode(Int64.self, forKey: .playedAt)
+        outcome = try c.decode(String.self, forKey: .outcome)
+        teamAScore = try c.decode(Int.self, forKey: .teamAScore)
+        teamBScore = try c.decode(Int.self, forKey: .teamBScore)
+        let nested = try c.decodeIfPresent(TeamVisualsContainer.self, forKey: .teamVisuals)
+        teamA = try c.decodeIfPresent(HomeTeamVisualDTO.self, forKey: .teamA) ?? nested?.teamA
+        teamB = try c.decodeIfPresent(HomeTeamVisualDTO.self, forKey: .teamB) ?? nested?.teamB
+    }
 
     func toDomain() -> PlayerLastMatch {
         PlayerLastMatch(
@@ -79,7 +106,9 @@ private struct PublicLastMatchDTO: Decodable {
             playedAt: Date(timeIntervalSince1970: TimeInterval(playedAt) / 1000),
             outcome: outcome,
             teamAScore: teamAScore,
-            teamBScore: teamBScore
+            teamBScore: teamBScore,
+            teamA: teamA.map { PlayerLastMatchTeam(name: $0.name, colorHex: $0.color) },
+            teamB: teamB.map { PlayerLastMatchTeam(name: $0.name, colorHex: $0.color) }
         )
     }
 }

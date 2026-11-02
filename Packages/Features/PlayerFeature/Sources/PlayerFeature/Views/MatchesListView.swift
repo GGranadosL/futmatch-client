@@ -154,6 +154,11 @@ struct MatchItem: Identifiable, Hashable {
     let bestPlayer: MatchBestPlayer?
     /// `nil` for matches created before team identities existed.
     let teamVisuals: MatchTeamVisuals?
+    /// Occupied slots per team as reported by the backend. Guest responses carry
+    /// these counts with an empty roster (player data is never sent to guests).
+    /// `nil` when the source has no separate count — use the roster size.
+    let teamAOccupiedCount: Int?
+    let teamBOccupiedCount: Int?
 
     init(
         id: String = UUID().uuidString,
@@ -187,7 +192,9 @@ struct MatchItem: Identifiable, Hashable {
         longitude: Double? = nil,
         goalBreakdown: MatchGoalBreakdown? = nil,
         bestPlayer: MatchBestPlayer? = nil,
-        teamVisuals: MatchTeamVisuals? = nil
+        teamVisuals: MatchTeamVisuals? = nil,
+        teamAOccupiedCount: Int? = nil,
+        teamBOccupiedCount: Int? = nil
     ) {
         self.id = id
         self.venueName = venueName
@@ -221,7 +228,13 @@ struct MatchItem: Identifiable, Hashable {
         self.goalBreakdown = goalBreakdown
         self.bestPlayer = bestPlayer
         self.teamVisuals = teamVisuals
+        self.teamAOccupiedCount = teamAOccupiedCount
+        self.teamBOccupiedCount = teamBOccupiedCount
     }
+
+    /// Players in each team: the backend count when present, else the roster size.
+    var teamAPlayerCount: Int { max(teamAOccupiedCount ?? 0, teamAPlayers.count) }
+    var teamBPlayerCount: Int { max(teamBOccupiedCount ?? 0, teamBPlayers.count) }
 
     /// Snapshot name when available, otherwise the localized "Team A" fallback.
     var teamAName: String { teamVisuals?.teamA.name.nonEmpty ?? L10n.Matches.teamA }
@@ -510,13 +523,13 @@ struct MatchesListView: View {
             teamA: FMMatchTeam(
                 name: match.teamAName,
                 avatarURLs: match.teamAPlayers.prefix(3).map { $0.avatarUrl },
-                playerCount: match.teamAPlayers.count,
+                playerCount: match.teamAPlayerCount,
                 colorHex: match.teamAColorHex
             ),
             teamB: FMMatchTeam(
                 name: match.teamBName,
                 avatarURLs: match.teamBPlayers.prefix(3).map { $0.avatarUrl },
-                playerCount: match.teamBPlayers.count,
+                playerCount: match.teamBPlayerCount,
                 colorHex: match.teamBColorHex
             ),
             distance: match.formattedDistance(from: matchesViewModel.userCoordinate),

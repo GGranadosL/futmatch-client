@@ -99,8 +99,13 @@ struct MatchDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel: MatchDetailViewModel
     private var match: MatchItem { viewModel.match }
-    private let currentUserId: String? = KeychainManager.shared.userId
+    /// Read on demand: a guest who signs in from this screen becomes the current user.
+    private var currentUserId: String? { isAuthenticated ? KeychainManager.shared.userId : nil }
+    /// `false` while browsing as a guest: the roster is hidden and joining asks to sign in.
+    @Environment(\.isAuthenticated) private var isAuthenticated
+    @Environment(\.requestSignIn) private var requestSignIn
     private let isDemoMode: Bool
+    private let applePayConfiguration: ApplePayConfiguration
 
     /// Player whose public profile is being shown (drives navigation).
     @State private var selectedPlayerId: String? = nil
@@ -108,6 +113,7 @@ struct MatchDetailView: View {
     init(match: MatchItem, isDemoMode: Bool = false, source: AnalyticsJoinSource = .nearby) {
         self.isDemoMode = isDemoMode
         let factory = PlayerDependencyFactory(isDemoMode: isDemoMode)
+        self.applePayConfiguration = factory.makeApplePayConfiguration()
         self._viewModel = StateObject(wrappedValue: MatchDetailViewModel(
             initialMatch: match,
             fetchDetailUseCase: factory.makeFetchMatchDetailUseCase(),
@@ -198,7 +204,10 @@ struct MatchDetailView: View {
     /// True while the match is still outside the paid-registration window. In this
     /// state the Join CTA and team join slots are hidden in favor of a countdown.
     private var isBeforeJoinWindow: Bool {
-        !isClosedMatch && joinWindowRemaining > 0
+        // Reading the timer's state makes body depend on it, so the bar swaps to
+        // the Join CTA on the tick where the window opens.
+        _ = joinWindowSeconds
+        return !isClosedMatch && joinWindowRemaining > 0
     }
 
     private var completedGoalsBadgeColor: Color {
@@ -463,8 +472,14 @@ struct MatchDetailView: View {
                 PlayerProfileView(userId: id, isDemoMode: isDemoMode, originMatchId: match.id)
             }
         }
-        .task { await viewModel.loadDetail() }
-        .task { await viewModel.subscribeToPlayers() }
+        // Keyed by the session so signing in from this screen reloads the full
+        // detail and starts the live roster without leaving the match.
+        .task(id: isAuthenticated) { await viewModel.loadDetail() }
+        .task(id: isAuthenticated) {
+            // The live roster (Firestore) carries player identities — guests never get it.
+            guard isAuthenticated else { return }
+            await viewModel.subscribeToPlayers()
+        }
         .task { await viewModel.loadFieldAttributeCatalog() }
         .modifier(MatchDetailModifiers(view: self))
     }
@@ -598,18 +613,30 @@ struct MatchDetailView: View {
     }
 
     private var content: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                heroSection
-                infoBar
-                lineupSection
-                goalsSummarySection
-                if !isClosedMatch {
-                    fieldDetailsSection
-                    rulesSection
-                        .padding(.bottom, 16)
+        GeometryReader { proxy in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    heroSection
+                    infoBar
+                    if isAuthenticated {
+                        lineupSection
+                    } else {
+                        guestLineupSection
+                    }
+                    goalsSummarySection
+                    if !isClosedMatch {
+                        fieldDetailsSection
+                        rulesSection
+                            .padding(.bottom, 16)
+                    }
                 }
+                // Pin the content to the scroll view's width: if any section ever
+                // reports a wider ideal size, the content still can't outgrow the
+                // screen and turn the vertical list into a sideways-panning one.
+                .frame(width: proxy.size.width)
             }
+            .horizontalBounceOnlyWhenNeeded()
+            .ignoresSafeArea(edges: .top)
         }
         .ignoresSafeArea(edges: .top)
         .safeAreaInset(edge: .bottom, spacing: 0) {
@@ -626,21 +653,28 @@ struct MatchDetailView: View {
             // Field image — FMRemoteImage seeds from the shared cache
             // synchronously, so it never flashes back to the default when
             // loadDetail() refreshes `match` with the same URL.
-            FMRemoteImage(urlString: match.fieldImageUrl) {
-                Image("defaultField", bundle: .main)
-                    .resizable()
+            // The photo is an overlay of a fixed-size frame: a scaled-to-fill image
+            // laid out directly reports its full width, and a photo wider than
+            // the screen made the whole detail pan sideways.
+            Color.clear
+                .frame(maxWidth: .infinity)
+                .frame(height: 260)
+                .overlay(
+                    FMRemoteImage(urlString: match.fieldImageUrl) {
+                        Image("defaultField", bundle: .main)
+                            .resizable()
+                            .scaledToFill()
+                    }
                     .scaledToFill()
-            }
-            .scaledToFill()
-            .frame(maxWidth: .infinity, minHeight: 260, maxHeight: 260)
-            .clipped()
-            .overlay(
-                LinearGradient(
-                    colors: [.clear, .black.opacity(0.7)],
-                    startPoint: .center,
-                    endPoint: .bottom
                 )
-            )
+                .clipped()
+                .overlay(
+                    LinearGradient(
+                        colors: [.clear, .black.opacity(0.7)],
+                        startPoint: .center,
+                        endPoint: .bottom
+                    )
+                )
             
             // Venue name + badge
             VStack(alignment: .leading, spacing: 8) {
@@ -690,11 +724,19 @@ struct MatchDetailView: View {
             .buttonStyle(.plain)
             .confirmationDialog(L10n.MatchDetail.openInMapsTitle, isPresented: $showMapPicker, titleVisibility: .visible) {
                 Button(L10n.MatchDetail.openAppleMaps) {
-                    openInAppleMaps()
+                    MatchDirections.openInAppleMaps(
+                        venueName: match.venueName,
+                        address: match.location,
+                        coordinate: match.coordinate
+                    )
                 }
-                if let coordinate = match.coordinate, isGoogleMapsInstalled {
+                if MatchDirections.isGoogleMapsInstalled {
                     Button(L10n.MatchDetail.openGoogleMaps) {
-                        openInGoogleMaps(coordinate: coordinate)
+                        MatchDirections.openInGoogleMaps(
+                            venueName: match.venueName,
+                            address: match.location,
+                            coordinate: match.coordinate
+                        )
                     }
                 }
             }
@@ -707,26 +749,6 @@ struct MatchDetailView: View {
             }
             .foregroundColor(.white.opacity(0.9))
         }
-    }
-
-    private var isGoogleMapsInstalled: Bool {
-        UIApplication.shared.canOpenURL(URL(string: "comgooglemaps://")!)
-    }
-
-    private func openInAppleMaps() {
-        guard let coordinate = match.coordinate else { return }
-        let placemark = MKPlacemark(coordinate: coordinate)
-        let mapItem = MKMapItem(placemark: placemark)
-        mapItem.name = match.venueName
-        mapItem.openInMaps(launchOptions: [
-            MKLaunchOptionsMapCenterKey: NSValue(mkCoordinate: coordinate)
-        ])
-    }
-
-    private func openInGoogleMaps(coordinate: CLLocationCoordinate2D) {
-        let urlString = "comgooglemaps://?q=\(coordinate.latitude),\(coordinate.longitude)&center=\(coordinate.latitude),\(coordinate.longitude)&zoom=16"
-        guard let url = URL(string: urlString) else { return }
-        UIApplication.shared.open(url)
     }
 
     // MARK: - Info Bar (Date, Price, Duration, Spots)
@@ -890,6 +912,83 @@ struct MatchDetailView: View {
         }
         .padding(.horizontal, 20)
         .padding(.top, 24)
+    }
+
+    // MARK: - Guest Lineup
+
+    /// Lineup for guests: occupancy per team only. Who is playing stays private
+    /// until the viewer signs in (the backend never sends guests player data).
+    private var guestLineupSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text(lineupTitle)
+                .font(FMTypography.titleLarge)
+                .foregroundColor(FMColors.onBackground)
+
+            VStack(spacing: 0) {
+                guestTeamRow(
+                    name: match.teamAName,
+                    colorHex: match.teamAColorHex,
+                    count: match.teamAPlayerCount,
+                    maxPlayers: max(match.teamAMax, match.teamAPlayerCount)
+                )
+                Divider().padding(.horizontal, 16)
+                guestTeamRow(
+                    name: match.teamBName,
+                    colorHex: match.teamBColorHex,
+                    count: match.teamBPlayerCount,
+                    maxPlayers: max(match.teamBMax, match.teamBPlayerCount)
+                )
+                Divider().padding(.horizontal, 16)
+
+                Button { requestSignIn() } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: "lock.fill")
+                            .font(.system(size: 16))
+                            .foregroundColor(FMColors.primary)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(L10n.Guest.lineupTitle)
+                                .font(FMTypography.labelLarge)
+                                .foregroundColor(FMColors.onSurface)
+                            Text(L10n.Guest.lineupMessage)
+                                .font(FMTypography.bodySmall)
+                                .foregroundColor(FMColors.onSurfaceVariant)
+                                .multilineTextAlignment(.leading)
+                        }
+                        // One flexible element only: a Spacer next to it plus a
+                        // fixedSize text made this row ask for a fraction of a point
+                        // more than the screen, which let the detail pan sideways.
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(FMColors.onSurfaceVariant)
+                    }
+                    .padding(16)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(FMColors.surfaceContainerLowest)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(FMColors.outlineVariant, lineWidth: 1)
+            )
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 24)
+    }
+
+    private func guestTeamRow(name: String, colorHex: String?, count: Int, maxPlayers: Int) -> some View {
+        HStack {
+            FMTeamIdentityLabel(name: name, colorHex: colorHex, font: FMTypography.labelLarge)
+            Spacer()
+            Text(L10n.MatchDetail.playerCount(count, maxPlayers))
+                .font(FMTypography.bodySmall)
+                .foregroundColor(FMColors.onSurfaceVariant)
+        }
+        .padding(16)
     }
 
     private var lineupTitle: String {
@@ -1487,11 +1586,16 @@ struct MatchDetailView: View {
                 VStack(spacing: 0) {
                     Divider()
                     VStack(spacing: 6) {
-                        Text(L10n.MatchDetail.joinOpensCountdown(formattedJoinWindow(joinWindowRemaining)))
-                            .font(FMTypography.labelLarge)
-                            .foregroundColor(FMColors.onSurface)
-                            .multilineTextAlignment(.center)
-                            .monospacedDigit()
+                        // TimelineView redraws every second; a plain Text reading the
+                        // clock would only refresh when some other state changed.
+                        TimelineView(.periodic(from: .now, by: 1)) { context in
+                            let remaining = max(0, Int(joinOpensAt.timeIntervalSince(context.date)))
+                            Text(L10n.MatchDetail.joinOpensCountdown(formattedJoinWindow(remaining)))
+                                .font(FMTypography.labelLarge)
+                                .foregroundColor(FMColors.onSurface)
+                                .multilineTextAlignment(.center)
+                                .monospacedDigit()
+                        }
                         Text(L10n.MatchDetail.joinNotOpenMessage)
                             .font(FMTypography.bodySmall)
                             .foregroundColor(FMColors.onSurfaceVariant)
@@ -1519,6 +1623,11 @@ struct MatchDetailView: View {
 
     private func triggerJoin(team: JoinTeam) {
         guard !isClosedMatch && !isAwaitingResult else { return }
+        // Joining is account based: a guest is asked to sign in and stays here.
+        guard isAuthenticated else {
+            requestSignIn()
+            return
+        }
         let resolved: JoinTeam
         if team == .auto {
             // Balance against the live roster — the REST arrays are frozen at
@@ -1644,6 +1753,10 @@ struct MatchDetailView: View {
     /// toast, no overlay, `paymentSheet`/`hasJoined`/`showJoinOverlay` untouched —
     /// identical in spirit to the existing `.canceled` branch in `handlePaymentResult`.
     private func requestPaymentPresentation() {
+        guard isAuthenticated else {
+            requestSignIn()
+            return
+        }
         Task {
             guard await viewModel.authorizePayment() else { return }
             shouldPresentPayment = true
@@ -1669,6 +1782,11 @@ struct MatchDetailView: View {
         STPAPIClient.shared.publishableKey = publishableKey
         var config = PaymentSheet.Configuration()
         config.merchantDisplayName = "Interfut"
+        // Shows the Apple Pay button inside Stripe's sheet when the device supports it.
+        config.applePay = .init(
+            merchantId: applePayConfiguration.merchantId,
+            merchantCountryCode: applePayConfiguration.merchantCountryCode
+        )
         // Attach the customer so saved payment methods are shown in the sheet.
         // The backend returns a CustomerSession client secret (cuss_…), NOT an
         // ephemeral key — so it must go through the CustomerSession initializer.
@@ -1849,5 +1967,17 @@ private struct JoinConfirmationOverlay: View {
                 ]
             )
         )
+    }
+}
+
+private extension View {
+    /// No sideways rubber-banding when the content fits (iOS 16.4+).
+    @ViewBuilder
+    func horizontalBounceOnlyWhenNeeded() -> some View {
+        if #available(iOS 16.4, *) {
+            scrollBounceBehavior(.basedOnSize, axes: .horizontal)
+        } else {
+            self
+        }
     }
 }
