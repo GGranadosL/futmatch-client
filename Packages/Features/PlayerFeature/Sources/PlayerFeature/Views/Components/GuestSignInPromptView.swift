@@ -18,6 +18,9 @@ struct GuestSignInPromptView: View {
             }
         }
 
+        /// Same scene with the background extended, for wide layouts.
+        var wideImageName: String { imageName + "Wide" }
+
         var title: String {
             switch self {
             case .home: return L10n.Guest.homeTitle
@@ -42,19 +45,26 @@ struct GuestSignInPromptView: View {
 
     @Environment(\.requestSignIn) private var requestSignIn
 
-    /// Illustration canvas is 390×440 (see docs/illustrations); its bottom edge
-    /// fades into the screen background, so it sits flush against the copy.
-    private static let illustrationAspect: CGFloat = 390.0 / 440.0
-    /// Caps the hero on wide screens (iPad) so the copy stays above the fold.
-    private static let maxIllustrationHeight: CGFloat = 480
+    /// Phone art is 390×440 and wide art 1180×440 (docs/illustrations): same scene,
+    /// the wide one extends the background to the sides. Both fade into the
+    /// screen background at the bottom, so the hero sits flush against the copy.
+    private static let illustrationSize = CGSize(width: 390, height: 440)
+    /// From this width (iPad, Split View halves, phone landscape) the wide art is used.
+    private static let wideLayoutMinWidth: CGFloat = 600
 
     var body: some View {
         GeometryReader { proxy in
-            let heroHeight = min(proxy.size.width / Self.illustrationAspect, Self.maxIllustrationHeight)
+            let isWide = proxy.size.width >= Self.wideLayoutMinWidth
+            // Phone: the full scene at the screen width. Wide: the scene's own
+            // height, but never more than ~half the screen so the copy stays visible
+            // (phone landscape); cropping then trims the sky, never the fade.
+            let heroHeight = isWide
+                ? min(Self.illustrationSize.height, proxy.size.height * 0.55)
+                : proxy.size.width * Self.illustrationSize.height / Self.illustrationSize.width
             ScrollView {
                 VStack(spacing: 0) {
                     // Full-bleed hero that runs under the status bar.
-                    Image(context.imageName, bundle: .main)
+                    Image(isWide ? context.wideImageName : context.imageName, bundle: .main)
                         .resizable()
                         .scaledToFill()
                         .frame(width: proxy.size.width, height: heroHeight, alignment: .bottom)

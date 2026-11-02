@@ -5,7 +5,9 @@ Flat grayscale scenes with one brand-blue accent. Written as plain SVG
 so Xcode's asset catalog can keep them as vectors.
 
 Usage: python3 docs/illustrations/guest_illustrations.py <out_dir>
-Writes guestHome{,-dark}.svg, guestReserved{,-dark}.svg, guestProfile{,-dark}.svg.
+Writes guestHome{,-dark}.svg, guestReserved{,-dark}.svg, guestProfile{,-dark}.svg
+(390 wide, phones) and the same names with a "Wide" suffix (1180 wide, iPad and
+landscape: same scene centered, background extended to the sides).
 Copy each pair into FutMatch-Client/FutMatch-Client/Assets.xcassets/<name>.imageset/
 (the -dark file is the dark-appearance variant). The bottom of every scene fades
 into FMColors.background, so keep `bg` in both palettes in sync with it.
@@ -13,7 +15,19 @@ into FMColors.background, so keep `bg` in both palettes in sync with it.
 import os
 import sys
 
-W, H = 390, 440
+W, H = 390, 440          # scene size; every scene is drawn in these units
+WIDE_W = 1180            # wide canvas for iPad / landscape (scene stays centered)
+CW = W                   # current canvas width, set per render in main()
+
+
+def dx():
+    """Horizontal offset that centers the 390-wide scene on the canvas."""
+    return (CW - W) / 2
+
+
+def wide_x(x):
+    """Stretch a scene x coordinate across the full canvas (backgrounds only)."""
+    return x * CW / W
 
 LIGHT = dict(
     sky_top="#D7DAE2", sky_mid="#E9EBF0", bg="#F9F9FF",
@@ -32,7 +46,7 @@ DARK = dict(
 
 
 def svg(body, p, defs=""):
-    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}">
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="{CW}" height="{H}" viewBox="0 0 {CW} {H}">
 <defs>
   <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
     <stop offset="0" stop-color="{p['sky_top']}"/>
@@ -57,11 +71,21 @@ def svg(body, p, defs=""):
   </linearGradient>
 {defs}
 </defs>
-<rect width="{W}" height="{H}" fill="url(#sky)"/>
+<rect width="{CW}" height="{H}" fill="url(#sky)"/>
 {body}
-<rect x="0" y="{H-70}" width="{W}" height="70" fill="url(#fade)"/>
+<rect x="0" y="{H-70}" width="{CW}" height="70" fill="url(#fade)"/>
 </svg>
 """
+
+
+def compose(bg, fg, p):
+    """Full-width background, then the scene's objects centered on the canvas."""
+    return svg("".join(bg) + f'<g transform="translate({dx():.1f} 0)">' + "".join(fg) + "</g>", p)
+
+
+def stars(p, pts, r, op):
+    """Background stars spread across the whole canvas width."""
+    return dots(p, [(wide_x(x), y) for x, y in pts], r, op)
 
 
 def sparkle(x, y, r, color, op=1.0):
@@ -104,17 +128,23 @@ def swoosh(cx, cy, r, p):
 # Home: evening pitch, floodlights, goal and the ball
 # --------------------------------------------------------------------------
 def home(p):
-    b = []
+    bg, b = [], []
+    c, w = CW / 2, CW
     # stars
-    b.append(dots(p, [(40, 60), (88, 34), (150, 70), (232, 40), (300, 78), (352, 30), (196, 22), (120, 112)], 1.5, 0.7))
-    b.append(sparkle(70, 96, 9, p["star"], 0.9))
-    b.append(sparkle(318, 118, 7, p["star"], 0.8))
+    bg.append(stars(p, [(40, 60), (88, 34), (150, 70), (232, 40), (300, 78), (352, 30), (196, 22), (120, 112)], 1.5, 0.7))
     # stadium stands silhouette
-    b.append(f'<path d="M0 236 L0 150 Q195 118 390 150 L390 236 Z" fill="{p["far"]}"/>')
-    b.append(f'<path d="M0 236 L0 184 Q195 158 390 184 L390 236 Z" fill="{p["mid"]}" opacity="0.8"/>')
+    bg.append(f'<path d="M0 236 L0 150 Q{c} 118 {w} 150 L{w} 236 Z" fill="{p["far"]}"/>')
+    bg.append(f'<path d="M0 236 L0 184 Q{c} 158 {w} 184 L{w} 236 Z" fill="{p["mid"]}" opacity="0.8"/>')
     # stand rows (seats)
     for i, (y, k) in enumerate([(160, 0.0), (170, 0.0), (194, 1), (204, 1), (214, 1)]):
-        b.append(f'<path d="M0 {y+18-i*0} Q195 {y-12} 390 {y+18}" fill="none" stroke="{p["near"] if k else p["mid"]}" stroke-width="1.6" opacity="0.6"/>')
+        bg.append(f'<path d="M0 {y+18} Q{c} {y-12} {w} {y+18}" fill="none" stroke="{p["near"] if k else p["mid"]}" stroke-width="1.6" opacity="0.6"/>')
+    # pitch
+    bg.append(f'<rect x="0" y="236" width="{w}" height="{H-236}" fill="{p["ground"]}"/>')
+    for i in range(6):
+        bg.append(f'<rect x="0" y="{236 + i * 34}" width="{w}" height="17" fill="{p["ground2"]}" opacity="0.8"/>')
+    bg.append(f'<path d="M0 252 L{w} 252" stroke="{p["lite"]}" stroke-width="2.5" opacity="0.9"/>')
+    b.append(sparkle(70, 96, 9, p["star"], 0.9))
+    b.append(sparkle(318, 118, 7, p["star"], 0.8))
     # roof canopy over the main stand
     b.append(f'<path d="M96 132 Q195 112 294 132 L282 142 Q195 124 108 142 Z" fill="{p["near"]}"/>')
     for x in (120, 170, 220, 270):
@@ -127,13 +157,7 @@ def home(p):
         for r in range(2):
             for c in range(4):
                 b.append(f'<circle cx="{x-13+c*8.7:.1f}" cy="{54+r*10}" r="3" fill="{p["glow"]}"/>')
-    # pitch
-    b.append(f'<path d="M0 236 L390 236 L390 {H} L0 {H} Z" fill="{p["ground"]}"/>')
-    for i in range(6):
-        y0 = 236 + i * 34
-        b.append(f'<rect x="0" y="{y0}" width="{W}" height="17" fill="{p["ground2"]}" opacity="0.8"/>')
-    # touchline + penalty arc
-    b.append(f'<path d="M0 252 L390 252" stroke="{p["lite"]}" stroke-width="2.5" opacity="0.9"/>')
+    # penalty box + arc
     b.append(f'<path d="M95 252 L95 300 L295 300 L295 252" fill="none" stroke="{p["lite"]}" stroke-width="2.5" opacity="0.9"/>')
     b.append(f'<path d="M160 300 Q195 330 230 300" fill="none" stroke="{p["lite"]}" stroke-width="2.5" opacity="0.9"/>')
     # goal: back net + frame
@@ -156,7 +180,7 @@ def home(p):
     # grass tufts
     for x in [62, 84, 300, 330]:
         b.append(f'<path d="M{x} 360 l4 -12 l3 12 l4 -9 l2 9 Z" fill="{p["mid"]}" opacity="0.7"/>')
-    return svg("".join(b), p)
+    return compose(bg, b, p)
 
 
 # --------------------------------------------------------------------------
@@ -182,15 +206,17 @@ def boot(x, y, s, p, color, sole, stud, lace, flip=False):
 
 
 def reserved(p):
-    b = []
-    b.append(dots(p, [(46, 50), (120, 30), (270, 44), (340, 70), (200, 64)], 1.5, 0.6))
-    b.append(sparkle(312, 104, 8, p["star"], 0.85))
-    # distant stadium bowl + hills
-    b.append(f'<path d="M0 220 Q90 150 195 150 Q300 150 390 220 Z" fill="{p["far"]}"/>')
-    b.append(f'<path d="M40 220 Q120 168 195 168 Q270 168 350 220 Z" fill="{p["mid"]}" opacity="0.55"/>')
+    bg, b = [], []
+    w = CW
+    bg.append(stars(p, [(46, 50), (120, 30), (270, 44), (340, 70), (200, 64)], 1.5, 0.6))
+    # distant stadium bowl + hills, stretched across the canvas
+    X = wide_x
+    bg.append(f'<path d="M0 220 Q{X(90)} 150 {X(195)} 150 Q{X(300)} 150 {w} 220 Z" fill="{p["far"]}"/>')
+    bg.append(f'<path d="M{X(40)} 220 Q{X(120)} 168 {X(195)} 168 Q{X(270)} 168 {X(350)} 220 Z" fill="{p["mid"]}" opacity="0.55"/>')
     # floor
-    b.append(f'<rect x="0" y="216" width="{W}" height="{H-216}" fill="{p["ground"]}"/>')
-    b.append(f'<path d="M0 216 L390 216" stroke="{p["lite"]}" stroke-width="2" opacity="0.6"/>')
+    bg.append(f'<rect x="0" y="216" width="{w}" height="{H-216}" fill="{p["ground"]}"/>')
+    bg.append(f'<path d="M0 216 L{w} 216" stroke="{p["lite"]}" stroke-width="2" opacity="0.6"/>')
+    b.append(sparkle(312, 104, 8, p["star"], 0.85))
     # ticket leaning at the back (accent)
     b.append(f'<g transform="rotate(-8 290 200)">'
              f'<rect x="236" y="138" width="108" height="66" rx="8" fill="url(#accentV)"/>'
@@ -218,31 +244,33 @@ def reserved(p):
     # small ball on the left
     b.append(f'<ellipse cx="78" cy="392" rx="30" ry="6" fill="{p["shadow"]}" opacity="{p["shadow_op"]}"/>')
     b.append(soccer_ball(78, 362, 30, p, fill=p["mid"], line=p["lite"]))
-    return svg("".join(b), p)
+    return compose(bg, b, p)
 
 
 # --------------------------------------------------------------------------
 # Profile: locker room, jersey hanging, bench and lamp
 # --------------------------------------------------------------------------
 def profile(p):
-    b = []
-    # back wall panels (lockers)
-    b.append(f'<rect x="0" y="0" width="{W}" height="300" fill="{p["far"]}" opacity="0.65"/>')
-    for i in range(5):
-        x = 6 + i * 78
-        b.append(f'<rect x="{x}" y="70" width="72" height="230" rx="4" fill="{p["mid"]}" opacity="0.75"/>')
-        b.append(f'<rect x="{x+8}" y="82" width="56" height="6" rx="3" fill="{p["far"]}"/>')
-        b.append(f'<rect x="{x+8}" y="94" width="56" height="6" rx="3" fill="{p["far"]}"/>')
-        b.append(f'<rect x="{x+58}" y="170" width="5" height="22" rx="2.5" fill="{p["deep"]}"/>')
+    bg, b = [], []
+    # back wall with a row of lockers filling the canvas, aligned to the scene grid
+    bg.append(f'<rect x="0" y="0" width="{CW}" height="300" fill="{p["far"]}" opacity="0.65"/>')
+    first = -int((dx() + 77) // 78)
+    last = int((CW - dx()) // 78) + 1
+    for i in range(first, last):
+        x = dx() + 6 + i * 78
+        bg.append(f'<rect x="{x}" y="70" width="72" height="230" rx="4" fill="{p["mid"]}" opacity="0.75"/>')
+        bg.append(f'<rect x="{x+8}" y="82" width="56" height="6" rx="3" fill="{p["far"]}"/>')
+        bg.append(f'<rect x="{x+8}" y="94" width="56" height="6" rx="3" fill="{p["far"]}"/>')
+        bg.append(f'<rect x="{x+58}" y="170" width="5" height="22" rx="2.5" fill="{p["deep"]}"/>')
+    # floor
+    bg.append(f'<rect x="0" y="300" width="{CW}" height="{H-300}" fill="{p["ground"]}"/>')
+    bg.append(f'<path d="M0 300 L{CW} 300" stroke="{p["lite"]}" stroke-width="2" opacity="0.6"/>')
     # pendant lamp + light cone
     b.append(f'<path d="M195 0 L195 42" stroke="{p["deep"]}" stroke-width="2"/>')
     b.append(f'<path d="M130 210 L260 210 L212 66 L178 66 Z" fill="{p["glow"]}" opacity="0.22"/>')
     b.append(f'<path d="M160 70 Q160 40 195 40 Q230 40 230 70 Z" fill="{p["near"]}"/>')
     b.append(f'<rect x="158" y="68" width="74" height="5" rx="2.5" fill="{p["deep"]}"/>')
     b.append(f'<circle cx="195" cy="74" r="6" fill="{p["glow"]}"/>')
-    # floor
-    b.append(f'<rect x="0" y="300" width="{W}" height="{H-300}" fill="{p["ground"]}"/>')
-    b.append(f'<path d="M0 300 L390 300" stroke="{p["lite"]}" stroke-width="2" opacity="0.6"/>')
     # jersey on hanger (accent)
     jx, jy = 195, 118
     b.append(f'<path d="M{jx} {jy-26} q0 -8 6 -8" fill="none" stroke="{p["ink"]}" stroke-width="3" stroke-linecap="round"/>')
@@ -274,15 +302,18 @@ def profile(p):
     # boots under bench (accent)
     b.append(boot(150, 360, 0.72, p, p["accent"], p["ink"], p["deep"], p["lite"]))
     b.append(boot(186, 366, 0.72, p, p["accent_dk"], p["ink"], p["deep"], p["lite"]))
-    return svg("".join(b), p)
+    return compose(bg, b, p)
 
 
 def main(out):
+    global CW
     os.makedirs(out, exist_ok=True)
-    for name, fn in (("guestHome", home), ("guestReserved", reserved), ("guestProfile", profile)):
-        for suffix, pal in (("", LIGHT), ("-dark", DARK)):
-            with open(os.path.join(out, f"{name}{suffix}.svg"), "w") as f:
-                f.write(fn(pal))
+    for width, wide_suffix in ((W, ""), (WIDE_W, "Wide")):
+        CW = width
+        for name, fn in (("guestHome", home), ("guestReserved", reserved), ("guestProfile", profile)):
+            for suffix, pal in (("", LIGHT), ("-dark", DARK)):
+                with open(os.path.join(out, f"{name}{wide_suffix}{suffix}.svg"), "w") as f:
+                    f.write(fn(pal))
     print("written to", out)
 
 
