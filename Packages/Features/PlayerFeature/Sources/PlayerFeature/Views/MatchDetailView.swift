@@ -613,22 +613,30 @@ struct MatchDetailView: View {
     }
 
     private var content: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                heroSection
-                infoBar
-                if isAuthenticated {
-                    lineupSection
-                } else {
-                    guestLineupSection
+        GeometryReader { proxy in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    heroSection
+                    infoBar
+                    if isAuthenticated {
+                        lineupSection
+                    } else {
+                        guestLineupSection
+                    }
+                    goalsSummarySection
+                    if !isClosedMatch {
+                        fieldDetailsSection
+                        rulesSection
+                            .padding(.bottom, 16)
+                    }
                 }
-                goalsSummarySection
-                if !isClosedMatch {
-                    fieldDetailsSection
-                    rulesSection
-                        .padding(.bottom, 16)
-                }
+                // Pin the content to the scroll view's width: if any section ever
+                // reports a wider ideal size, the content still can't outgrow the
+                // screen and turn the vertical list into a sideways-panning one.
+                .frame(width: proxy.size.width)
             }
+            .horizontalBounceOnlyWhenNeeded()
+            .ignoresSafeArea(edges: .top)
         }
         .ignoresSafeArea(edges: .top)
         .safeAreaInset(edge: .bottom, spacing: 0) {
@@ -945,10 +953,11 @@ struct MatchDetailView: View {
                                 .font(FMTypography.bodySmall)
                                 .foregroundColor(FMColors.onSurfaceVariant)
                                 .multilineTextAlignment(.leading)
-                                .fixedSize(horizontal: false, vertical: true)
                         }
+                        // One flexible element only: a Spacer next to it plus a
+                        // fixedSize text made this row ask for a fraction of a point
+                        // more than the screen, which let the detail pan sideways.
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        Spacer(minLength: 8)
                         Image(systemName: "chevron.right")
                             .font(.system(size: 13, weight: .semibold))
                             .foregroundColor(FMColors.onSurfaceVariant)
@@ -1958,5 +1967,17 @@ private struct JoinConfirmationOverlay: View {
                 ]
             )
         )
+    }
+}
+
+private extension View {
+    /// No sideways rubber-banding when the content fits (iOS 16.4+).
+    @ViewBuilder
+    func horizontalBounceOnlyWhenNeeded() -> some View {
+        if #available(iOS 16.4, *) {
+            scrollBounceBehavior(.basedOnSize, axes: .horizontal)
+        } else {
+            self
+        }
     }
 }
