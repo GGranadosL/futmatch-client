@@ -28,7 +28,9 @@ final class HomeViewModel: ObservableObject {
     @Published private(set) var refreshErrorMessage: String?
 
     /// Whether we currently have content to show (from cache or a successful load).
-    private var hasData = false
+    /// An empty suggestion list counts: once a load has answered, a refresh keeps
+    /// showing that answer instead of falling back to the skeleton.
+    @Published private(set) var hasData = false
 
     private let homeService: HomeServiceProtocol
     private let fetchMatchDetailUseCase: FetchMatchDetailUseCaseProtocol

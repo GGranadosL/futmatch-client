@@ -277,7 +277,7 @@ struct HomeContentView: View {
                         )
                     }
                 }
-            } else if reservedViewModel.isLoading {
+            } else if reservedViewModel.isLoading && !reservedViewModel.hasLoaded {
                 FMNextGameCardSkeleton()
                     .disabled(true)
             } else {
@@ -307,10 +307,11 @@ struct HomeContentView: View {
 
             let enrolledIds = Set(reservedViewModel.myMatches.filter(\.isUpcoming).map(\.id))
             let suggestions = homeViewModel.visibleSuggestions(excluding: enrolledIds)
-            let isLoading = homeViewModel.isLoading && suggestions.isEmpty
+            // Skeleton only before the first answer (no cache, no finished load).
+            // Once we know the list is empty, a refresh keeps the empty state.
+            let isLoading = homeViewModel.isLoading && !homeViewModel.hasData && suggestions.isEmpty
 
             if isLoading {
-                // Skeleton while loading for the first time
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {
                         ForEach(0..<3, id: \.self) { _ in FMGameCardSkeleton() }

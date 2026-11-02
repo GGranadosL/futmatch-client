@@ -7,17 +7,22 @@ public struct FMEmptyStateCard: View {
     let message: String
     var actionLabel: String?
     var onActionTap: (() -> Void)?
+    /// When true the card grows to fill all the space its parent offers,
+    /// for screens where the empty state is the whole content.
+    var fillsAvailableSpace: Bool
 
     public init(
         icon: String,
         message: String,
         actionLabel: String? = nil,
-        onActionTap: (() -> Void)? = nil
+        onActionTap: (() -> Void)? = nil,
+        fillsAvailableSpace: Bool = false
     ) {
         self.icon = icon
         self.message = message
         self.actionLabel = actionLabel
         self.onActionTap = onActionTap
+        self.fillsAvailableSpace = fillsAvailableSpace
     }
 
     public var body: some View {
@@ -41,9 +46,9 @@ public struct FMEmptyStateCard: View {
                 }
             }
         }
-        .frame(maxWidth: .infinity)
         .padding(.vertical, 24)
         .padding(.horizontal, 16)
+        .frame(maxWidth: .infinity, maxHeight: fillsAvailableSpace ? .infinity : nil)
         .background(
             RoundedRectangle(cornerRadius: 16)
                 .fill(FMColors.surfaceContainerLowest)

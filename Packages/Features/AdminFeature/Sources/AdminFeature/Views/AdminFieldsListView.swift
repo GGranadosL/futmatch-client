@@ -58,13 +58,13 @@ struct AdminFieldsListView: View {
         case .loaded(let fields):
             fieldsList(fields)
         case .empty:
-            VStack {
-                Spacer()
-                FMEmptyStateCard(icon: "sportscourt.fill", message: "No hay canchas registradas")
-                    .padding(.horizontal, 24)
-                Spacer()
-            }
-            .frame(maxHeight: .infinity)
+            FMEmptyStateCard(
+                icon: "sportscourt.fill",
+                message: L10n.Fields.emptyList,
+                fillsAvailableSpace: true
+            )
+            .padding(.horizontal, 24)
+            .padding(.vertical, 16)
         case .failed(let message):
             FMFullScreenError(
                 title: "Error",

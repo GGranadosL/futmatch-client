@@ -1886,6 +1886,23 @@
         }
       }
     },
+    "fields.emptyList" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No fields registered"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No hay canchas registradas"
+          }
+        }
+      }
+    },
     "fields.title" : {
       "extractionState" : "manual",
       "localizations" : {
