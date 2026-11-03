@@ -77,15 +77,40 @@ public struct AuthLandingView: View {
             ZStack {
                 AuthLandingBackground()
 
-                ScrollView {
-                    VStack(spacing: 0) {
-                        AuthLandingHero()
-                        brandSection
-                        benefitsSection
-                        Spacer(minLength: 32)
-                        actionsSection
+                GeometryReader { proxy in
+                    ScrollView {
+                        VStack(spacing: 0) {
+                            // Shrinks on short screens (iPad landscape, phone
+                            // landscape) so the brand and benefits still fit.
+                            AuthLandingHero(height: min(240, proxy.size.height * 0.3))
+                            brandSection
+                            benefitsSection
+                        }
+                        .padding(.horizontal, 24)
+                        .padding(.bottom, 24)
                     }
-                    .padding(.horizontal, 24)
+                    .flashScrollIndicatorsIfAvailable()
+                    // Sign-in buttons stay on screen whatever the height; only the
+                    // hero, brand and benefits scroll behind them.
+                    .safeAreaInset(edge: .bottom, spacing: 0) {
+                        actionsSection
+                            .padding(.horizontal, 24)
+                            .background(alignment: .top) {
+                                // Fades the content into the button area so it
+                                // reads as "more above" when the view scrolls.
+                                VStack(spacing: 0) {
+                                    LinearGradient(
+                                        colors: [FMColors.background.opacity(0), FMColors.background],
+                                        startPoint: .top,
+                                        endPoint: .bottom
+                                    )
+                                    .frame(height: 24)
+                                    .offset(y: -24)
+                                    FMColors.background
+                                }
+                                .ignoresSafeArea(edges: .bottom)
+                            }
+                    }
                 }
 
                 // `/auth/{provider}/resolve` found a Futmatch account that already
@@ -261,8 +286,8 @@ public struct AuthLandingView: View {
                 }
             }
         }
-        .padding(.top, 40)
-        .padding(.bottom, 32)
+        .padding(.top, 16)
+        .padding(.bottom, 16)
     }
 }
 
@@ -272,11 +297,12 @@ public struct AuthLandingView: View {
 /// Motion by holding on the first frame.
 private struct AuthLandingHero: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    var height: CGFloat = 240
 
     var body: some View {
         lottie
             .frame(maxWidth: .infinity)
-            .frame(height: 240)
+            .frame(height: height)
             .accessibilityLabel(Text(L10n.Login.landingAnimationA11y))
             .padding(.top, 40)
     }
@@ -288,6 +314,19 @@ private struct AuthLandingHero: View {
             animation.paused().resizable().aspectRatio(contentMode: .fit)
         } else {
             animation.playing(loopMode: .loop).resizable().aspectRatio(contentMode: .fit)
+        }
+    }
+}
+
+private extension View {
+    /// Briefly shows the scroll bar when the screen appears (iOS 17+), hinting
+    /// that the content scrolls when it doesn't fit.
+    @ViewBuilder
+    func flashScrollIndicatorsIfAvailable() -> some View {
+        if #available(iOS 17.0, *) {
+            scrollIndicatorsFlash(onAppear: true)
+        } else {
+            self
         }
     }
 }

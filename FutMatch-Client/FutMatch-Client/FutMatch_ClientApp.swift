@@ -333,6 +333,7 @@ struct RootView: View {
             makeLoginView()
                 // Grabber at the top so it reads as a sheet that can be swiped down.
                 .presentationDragIndicator(.visible)
+                .pageSizedSheetOnPad()
         }
         // Keyed by the session: runs at launch with a stored session and
         // again the moment a guest signs in from the sheet.
@@ -452,5 +453,19 @@ struct RootView: View {
                 try await Auth.auth().signIn(withCustomToken: token)
             }
         )
+    }
+}
+
+private extension View {
+    /// On iPad a sheet defaults to a ~620pt form sheet, too short for the sign-in
+    /// screen (App Review uses an iPad). Page sizing makes it nearly full height
+    /// (iOS 18+); iPhone sheets are unaffected.
+    @ViewBuilder
+    func pageSizedSheetOnPad() -> some View {
+        if #available(iOS 18.0, *) {
+            presentationSizing(.page)
+        } else {
+            self
+        }
     }
 }
