@@ -2,6 +2,7 @@ import Foundation
 import SharedModels
 import PersistenceFramework
 import AdminFeature
+import NetworkFramework
 
 // MARK: - PlayerDependencyFactory
 
@@ -20,6 +21,7 @@ public struct PlayerDependencyFactory {
         makeLocationManager: { CoreLocationManager() }
     )
     private static let sharedPaymentSecurityPreferenceStore = UserDefaultsPaymentSecurityPreferenceStore()
+    private static let sharedRankingCacheStore = FileRankingCacheStore(directory: FileRankingCacheStore.defaultDirectory())
 
     private let isDemoMode: Bool
     private let countryRepository: CountryRepositoryProtocol
@@ -80,6 +82,51 @@ public struct PlayerDependencyFactory {
             matchService: makeMatchService(),
             versionStore: makeMatchVersionStore()
         )
+    }
+
+    // MARK: - Home
+
+    func makeHomeService() -> HomeServiceProtocol {
+        HomeService(apiClient: .shared)
+    }
+
+    func makeHomeRankingFlag() -> HomeRankingFlagProviding {
+        UserDefaultsHomeRankingFlag()
+    }
+
+    @MainActor
+    func makeHomeViewModel() -> HomeViewModel {
+        HomeViewModel(
+            homeService: makeHomeService(),
+            fetchMatchDetailUseCase: makeFetchMatchDetailUseCase(),
+            rankingFlag: makeHomeRankingFlag()
+        )
+    }
+
+    // MARK: - Ranking
+
+    func makeRankingRepository() -> RankingRepositoryProtocol {
+        RankingRepository(
+            service: RankingService(apiClient: .shared),
+            cache: Self.sharedRankingCacheStore
+        )
+    }
+
+    @MainActor
+    func makeRankingViewModel(season: RankingSeason, communityId: String) -> RankingViewModel {
+        let repository = makeRankingRepository()
+        return RankingViewModel(
+            season: season,
+            communityId: communityId,
+            loadCachedRanking: LoadCachedRankingUseCase(repository: repository),
+            fetchRanking: FetchRankingUseCase(repository: repository)
+        )
+    }
+
+    /// Drops every stored ranking page. Call on logout so the next account
+    /// never sees this one's standings.
+    public func clearRankingCache() {
+        Self.sharedRankingCacheStore.clearAll()
     }
 
     func makeFetchMatchDetailUseCase() -> FetchMatchDetailUseCaseProtocol {

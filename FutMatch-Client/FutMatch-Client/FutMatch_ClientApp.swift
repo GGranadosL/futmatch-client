@@ -176,6 +176,8 @@ struct FutMatchApp: App {
             // Drop persisted regional matches versions so the next account
             // re-fetches the full list instead of sending a stale sinceVersion.
             PlayerDependencyFactory().clearMatchVersions()
+            // Drop cached ranking pages so the next account never sees this one's standings.
+            PlayerDependencyFactory().clearRankingCache()
             // Stop receiving regional matches auto-refresh pushes for this device.
             Messaging.messaging().unsubscribe(fromTopic: MatchRegion.default.topic)
             // Drop the Google session too, so the next "Continue with Google"

@@ -14,6 +14,10 @@ final class HomeViewModel: ObservableObject {
     @Published private(set) var profileImageUrl: String?
     @Published private(set) var suggestedMatches: [MatchItem] = []
     @Published private(set) var lastMatch: LastMatch?
+    /// `home_ranking_enabled`: Ranking card instead of Last Match, in the same spot.
+    @Published private(set) var isRankingEnabled: Bool
+    /// Last summary received (or cached), whatever its month. Read `ranking` instead.
+    @Published private(set) var rankingSummary: HomeRanking?
     @Published private(set) var isLoading: Bool = false
     /// True only when there is no cached content AND the last load failed —
     /// drives the full-screen error state.
@@ -34,22 +38,41 @@ final class HomeViewModel: ObservableObject {
 
     private let homeService: HomeServiceProtocol
     private let fetchMatchDetailUseCase: FetchMatchDetailUseCaseProtocol
+    private let currentRankingSeason: () -> RankingSeason
     private var cancellables = Set<AnyCancellable>()
     static let cacheKey = "home.cache.homeDataDTO"
 
     init(
         homeService: HomeServiceProtocol = HomeService(),
-        fetchMatchDetailUseCase: FetchMatchDetailUseCaseProtocol = PlayerDependencyFactory().makeFetchMatchDetailUseCase()
+        fetchMatchDetailUseCase: FetchMatchDetailUseCaseProtocol = PlayerDependencyFactory().makeFetchMatchDetailUseCase(),
+        rankingFlag: HomeRankingFlagProviding = UserDefaultsHomeRankingFlag(),
+        currentRankingSeason: @escaping () -> RankingSeason = { RankingSeason.current() }
     ) {
         self.homeService = homeService
         self.fetchMatchDetailUseCase = fetchMatchDetailUseCase
+        self.currentRankingSeason = currentRankingSeason
+        self.isRankingEnabled = rankingFlag.isEnabled
         // Pre-load from cache so the first render already has data
         if let cached = HomeViewModel.loadCache() {
             apply(cached)
             hasData = true
         }
         observeMembershipChanges()
+        rankingFlag.changes
+            .removeDuplicates()
+            .sink { [weak self] enabled in self?.isRankingEnabled = enabled }
+            .store(in: &cancellables)
     }
+
+    /// The summary the card may show: only when it belongs to the device's current month.
+    /// A summary for another month is never relabelled — the card reads "unavailable".
+    var ranking: HomeRanking? {
+        guard let rankingSummary, rankingSummary.season == currentRankingSeason() else { return nil }
+        return rankingSummary
+    }
+
+    /// Month the Ranking screen opens on: the device's current one, on every entry.
+    var rankingEntrySeason: RankingSeason { currentRankingSeason() }
 
     /// Suggestions minus the matches the user is already enrolled in. `/home` and
     /// `/match/my-matches` are separate requests, so right after a booking the
@@ -68,13 +91,14 @@ final class HomeViewModel: ObservableObject {
     func load() async {
         isLoading = true
         do {
-            let data = try await homeService.fetchHome()
+            let data = try await homeService.fetchHome(rankingSeason: currentRankingSeason())
             greetingName = data.greetingName
             level = data.level
             averageScore = data.averageScore
             profileImageUrl = data.profileImageUrl
             suggestedMatches = data.suggestedMatches
             lastMatch = data.lastMatch
+            rankingSummary = data.ranking
             HomeViewModel.saveCache(data)
             hasData = true
             loadFailed = false
@@ -122,6 +146,7 @@ final class HomeViewModel: ObservableObject {
         profileImageUrl = data.profileImageUrl
         suggestedMatches = data.suggestedMatches
         lastMatch = data.lastMatch
+        rankingSummary = data.ranking
     }
 
     private static func saveCache(_ data: HomeData) {
@@ -157,7 +182,8 @@ final class HomeViewModel: ObservableObject {
                     teamBName: $0.teamB?.name,
                     teamBColor: $0.teamB?.colorHex
                 )
-            }
+            },
+            ranking: data.ranking
         )
         if let encoded = try? JSONEncoder().encode(dto) {
             UserDefaults.standard.set(encoded, forKey: cacheKey)
@@ -203,7 +229,8 @@ final class HomeViewModel: ObservableObject {
                     teamA: Self.teamVisual(name: $0.teamAName, color: $0.teamAColor),
                     teamB: Self.teamVisual(name: $0.teamBName, color: $0.teamBColor)
                 )
-            }
+            },
+            ranking: dto.ranking
         )
     }
 }
@@ -217,6 +244,8 @@ private struct HomeCachePayload: Codable {
     let profileImageUrl: String?
     let suggestedMatches: [HomeCacheMatchItem]
     let lastMatch: HomeCacheLastMatch?
+    // Optional so caches written before the Ranking card still decode.
+    let ranking: HomeRanking?
 }
 
 private struct HomeCacheMatchItem: Codable {

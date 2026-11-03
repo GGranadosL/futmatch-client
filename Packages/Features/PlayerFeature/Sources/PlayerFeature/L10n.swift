@@ -844,4 +844,98 @@ public enum L10n {
             NSLocalizedString("guest.lineup.message", bundle: .module, comment: "")
         }
     }
+
+    // MARK: - Home Ranking card
+    public enum HomeRanking {
+        private static func text(_ key: String) -> String {
+            NSLocalizedString(key, bundle: .module, comment: "")
+        }
+        public static var sectionTitle: String { text("home.ranking.sectionTitle") }
+        public static var cardTitle: String { text("home.ranking.cardTitle") }
+        public static func position(_ position: Int) -> String {
+            String(format: text("home.ranking.position"), position)
+        }
+        public static var yourPlace: String { text("home.ranking.yourPlace") }
+        public static var global: String { text("home.ranking.global") }
+        /// "7 wins · 12 matches played", each part pluralized.
+        public static func statistics(victories: Int, matchesPlayed: Int) -> String {
+            String(
+                format: text("home.ranking.statistics"),
+                victoriesCount(victories),
+                String.localizedStringWithFormat(text("home.ranking.matches"), matchesPlayed)
+            )
+        }
+        /// "1 win away from tying #4": the goal is to tie, never a promise to pass.
+        public static func nextTarget(victories: Int, position: Int) -> String {
+            String(format: text("home.ranking.nextTarget"), victoriesCount(victories), position)
+        }
+        public static func victoriesCount(_ count: Int) -> String {
+            String.localizedStringWithFormat(text("home.ranking.victories"), count)
+        }
+        public static var emptyTitle: String { text("home.ranking.emptyTitle") }
+        public static var emptyDescription: String { text("home.ranking.emptyDescription") }
+        public static var unavailable: String { text("home.ranking.unavailable") }
+        public static var retryHint: String { text("home.ranking.retryHint") }
+        public static var viewClassification: String { text("home.ranking.viewClassification") }
+    }
+
+    // MARK: - Ranking screen
+    public enum Ranking {
+        private static func text(_ key: String) -> String {
+            NSLocalizedString(key, bundle: .module, comment: "")
+        }
+        public static var title: String { text("ranking.title") }
+        public static var headline: String { text("ranking.headline") }
+        public static var globalSubtitle: String { text("ranking.globalSubtitle") }
+        public static func communitySubtitle(_ name: String) -> String {
+            String(format: text("ranking.communitySubtitle"), name)
+        }
+        public static var monthlySeason: String { text("ranking.monthlySeason") }
+        public static var currentSeason: String { text("ranking.currentSeason") }
+        public static var selectSeason: String { text("ranking.selectSeason") }
+        public static var victoriesTab: String { text("ranking.victoriesTab") }
+        public static var goalsTab: String { text("ranking.goalsTab") }
+        public static var goalsColumn: String { text("ranking.goalsColumn") }
+        /// Unit under a podium score: "win"/"wins", "goal"/"goals".
+        public static func victoryUnit(_ count: Int) -> String {
+            text(count == 1 ? "ranking.unit.victory.one" : "ranking.unit.victory.other")
+        }
+        public static func goalUnit(_ count: Int) -> String {
+            text(count == 1 ? "ranking.unit.goal.one" : "ranking.unit.goal.other")
+        }
+        public static func scoreAccessibility(_ count: Int, unit: String) -> String {
+            String(format: text("ranking.scoreAccessibility"), count, unit)
+        }
+        public static var classificationTitle: String { text("ranking.classificationTitle") }
+        public static var positionColumn: String { text("ranking.positionColumn") }
+        public static var playerColumn: String { text("ranking.playerColumn") }
+        public static var matchesColumn: String { text("ranking.matchesColumn") }
+        public static func place(_ position: Int) -> String {
+            String(format: text("ranking.place"), position)
+        }
+        public static var you: String { text("ranking.you") }
+        public static var playerFallback: String { text("ranking.playerFallback") }
+        public static var yourPosition: String { text("ranking.yourPosition") }
+        public static var loadMore: String { text("ranking.loadMore") }
+        public static var retry: String { text("ranking.retry") }
+        public static var loadFailed: String { text("ranking.loadFailed") }
+        public static var refreshFailed: String { text("ranking.refreshFailed") }
+        public static var emptyTitle: String { text("ranking.emptyTitle") }
+        public static var emptyDescription: String { text("ranking.emptyDescription") }
+        public static var joinTitle: String { text("ranking.joinTitle") }
+        public static var notParticipating: String { text("ranking.notParticipating") }
+        public static var aboutTitle: String { text("ranking.aboutTitle") }
+        public static var aboutSummary: String { text("ranking.aboutSummary") }
+        public static var aboutExpanded: String { text("ranking.aboutExpanded") }
+        public static var aboutCollapsed: String { text("ranking.aboutCollapsed") }
+        public static var matchesExplained: String { text("ranking.matchesExplained") }
+        public static var resultsNote: String { text("ranking.resultsNote") }
+        public static var tiesNote: String { text("ranking.tiesNote") }
+        public static func timeZoneNote(deviceZone: String, seasonZone: String) -> String {
+            String(format: text("ranking.timeZoneNote"), deviceZone, seasonZone)
+        }
+        public static func updatedAt(_ date: String) -> String {
+            String(format: text("ranking.updatedAt"), date)
+        }
+    }
 }

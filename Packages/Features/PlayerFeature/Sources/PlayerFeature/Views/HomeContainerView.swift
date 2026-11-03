@@ -29,6 +29,8 @@ public struct HomeContainerView: View {
     /// Callback fired after the account was successfully deleted, once the local session must be torn down.
     public var onAccountDeleted: (() -> Void)?
     private let isDemoMode: Bool
+    /// Builds a fresh ranking screen state for every push from Home's Ranking card.
+    private let makeRankingViewModel: @MainActor (RankingRoute) -> RankingViewModel
     /// `false` while browsing as a guest: only the Matches tab is open; Home,
     /// Reserved and Profile invite the user to sign in.
     private let isAuthenticated: Bool
@@ -65,10 +67,11 @@ public struct HomeContainerView: View {
             fetchCurrentLocationUseCase: factory.makeFetchCurrentLocationUseCase(),
             cacheRepo: reservedCacheRepo
         ))
-        _homeViewModel = StateObject(wrappedValue: HomeViewModel(
-            fetchMatchDetailUseCase: factory.makeFetchMatchDetailUseCase()
-        ))
+        _homeViewModel = StateObject(wrappedValue: factory.makeHomeViewModel())
         _notificationsViewModel = StateObject(wrappedValue: factory.makeNotificationsViewModel())
+        makeRankingViewModel = { route in
+            factory.makeRankingViewModel(season: route.season, communityId: route.communityId)
+        }
     }
     
     /// Whether a detail screen is being shown (hides custom tab bar)
@@ -171,6 +174,9 @@ public struct HomeContainerView: View {
                         .navigationDestination(for: MatchItem.self) { match in
                             MatchDetailView(match: match, isDemoMode: isDemoMode)
                         }
+                        .navigationDestination(for: RankingRoute.self) { route in
+                            RankingView(viewModel: makeRankingViewModel(route))
+                        }
                 }
             }
 
@@ -245,6 +251,9 @@ public struct HomeContainerView: View {
                 .navigationDestination(for: MatchItem.self) { match in
                     MatchDetailView(match: match, isDemoMode: isDemoMode, source: selectedTab == .reserved ? .booked : .nearby)
                         .toolbar(.hidden, for: .navigationBar)
+                }
+                .navigationDestination(for: RankingRoute.self) { route in
+                    RankingView(viewModel: makeRankingViewModel(route))
                 }
         }
     }

@@ -5,7 +5,7 @@ import NetworkFramework
 
 protocol FieldServiceProtocol {
     func createField(_ request: CreateFieldRequest) async throws -> Field
-    func fetchFieldsByAdmin() async throws -> [AdminFieldItem]
+    func fetchFields(scope: FieldListScope) async throws -> [AdminFieldItem]
     func updateField(_ request: UpdateFieldRequest) async throws
     func deleteField(fieldId: String) async throws
     func linkLocation(fieldId: String, locationId: String) async throws
@@ -37,10 +37,13 @@ struct FieldService: FieldServiceProtocol {
         return response.data.toDomain()
     }
 
-    func fetchFieldsByAdmin() async throws -> [AdminFieldItem] {
-        let response: AdminFieldsResponse = try await apiClient.request(
-            endpoint: FieldEndpoint.byAdmin
-        )
+    func fetchFields(scope: FieldListScope) async throws -> [AdminFieldItem] {
+        let endpoint: FieldEndpoint
+        switch scope {
+        case .assigned: endpoint = .byAdmin
+        case .all:      endpoint = .all
+        }
+        let response: AdminFieldsResponse = try await apiClient.request(endpoint: endpoint)
         return response.data.map { $0.toDomain() }
     }
 

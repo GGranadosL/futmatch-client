@@ -27,7 +27,8 @@ public struct AdminPanelView: View {
     private let remoteConfig: AdminRemoteConfigProtocol
 
     public init(remoteConfig: AdminRemoteConfigProtocol = AdminRemoteConfig()) {
-        let factory = AdminDependencyFactory()
+        // The panel is admin-only, so it lists every field, not just the ones this user created.
+        let factory = AdminDependencyFactory(fieldListScope: .all)
         self.factory = factory
         self.remoteConfig = remoteConfig
         _viewModel = StateObject(wrappedValue: factory.makeAdminHomeViewModel())

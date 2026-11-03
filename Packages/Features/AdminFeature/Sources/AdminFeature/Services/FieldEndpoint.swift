@@ -6,6 +6,8 @@ import NetworkFramework
 enum FieldEndpoint: APIEndpoint {
     case create
     case byAdmin
+    /// 1.7 Every field on the platform (ADMIN only).
+    case all
     case update
     /// 1.3 Link an existing location to a field.
     case linkLocation(fieldId: String, locationId: String)
@@ -30,6 +32,7 @@ enum FieldEndpoint: APIEndpoint {
         switch self {
         case .create:   return "/fields/create"
         case .byAdmin:  return "/fields/by-admin"
+        case .all:      return "/fields/all"
         case .update:   return "/fields/update"
         case let .linkLocation(fieldId, locationId):
             return "/fields/\(fieldId)/location/\(locationId)"
@@ -56,6 +59,7 @@ enum FieldEndpoint: APIEndpoint {
         switch self {
         case .create:           return .post
         case .byAdmin:          return .get
+        case .all:              return .get
         case .update:           return .post
         case .linkLocation:     return .put
         case .deleteField:      return .delete

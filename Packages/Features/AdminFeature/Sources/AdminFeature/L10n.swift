@@ -13,6 +13,9 @@ enum L10n {
         static var retry: String {
             NSLocalizedString("common.retry", bundle: .module, comment: "")
         }
+        static var ok: String {
+            NSLocalizedString("common.ok", bundle: .module, comment: "")
+        }
     }
     enum Admin {
         enum ActionCard {

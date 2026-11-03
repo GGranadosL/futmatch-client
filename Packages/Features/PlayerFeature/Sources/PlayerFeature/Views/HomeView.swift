@@ -58,7 +58,11 @@ struct HomeContentView: View {
                         greetingSection
                         nextGameSection
                         suggestedGamesSection
-                        lastMatchSection
+                        if homeViewModel.isRankingEnabled {
+                            rankingSection
+                        } else {
+                            lastMatchSection
+                        }
                     }
                     .padding(.bottom, FMTabBar.contentBreathingSpace)
                 }
@@ -344,6 +348,31 @@ struct HomeContentView: View {
                 }
             }
         }
+    }
+
+    // MARK: - Ranking Section
+
+    /// Replaces Last Match when `home_ranking_enabled` is on, with the same header style.
+    private var rankingSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(L10n.HomeRanking.sectionTitle)
+                .font(FMTypography.titleLarge)
+                .foregroundColor(FMColors.onBackground)
+                .accessibilityAddTraits(.isHeader)
+
+            if homeViewModel.isLoading && homeViewModel.ranking == nil {
+                HomeRankingCardSkeleton()
+            } else {
+                HomeRankingCard(ranking: homeViewModel.ranking) {
+                    guard let ranking = homeViewModel.ranking else { return }
+                    navigationPath.append(RankingRoute(
+                        season: homeViewModel.rankingEntrySeason,
+                        communityId: ranking.community.id
+                    ))
+                }
+            }
+        }
+        .padding(.horizontal, 24)
     }
 
     // MARK: - Last Match Section
