@@ -2625,6 +2625,23 @@
         }
       }
     },
+    "matchDetail.organizedBy" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Organized by %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Organiza: %@"
+          }
+        }
+      }
+    },
     "matchDetail.playerCount" : {
       "extractionState" : "manual",
       "localizations" : {

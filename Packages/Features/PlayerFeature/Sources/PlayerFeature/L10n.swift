@@ -274,6 +274,9 @@ public enum L10n {
 
     // MARK: - Match Detail
     public enum MatchDetail {
+        public static func organizedBy(_ name: String) -> String {
+            String(format: NSLocalizedString("matchDetail.organizedBy", bundle: .module, comment: ""), name)
+        }
         public static func winner(_ teamName: String) -> String {
             String(format: NSLocalizedString("matchDetail.winner", bundle: .module, comment: ""), teamName)
         }

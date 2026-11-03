@@ -11,13 +11,20 @@ final class MatchDetailItemDTOTests: XCTestCase {
         try JSONDecoder().decode(MatchDetailItemDTO.self, from: Data(json.utf8))
     }
 
-    private func payload(maxPlayers: Int?, availableSpots: Int, teamACount: Int, teamBCount: Int) -> String {
+    private func payload(
+        maxPlayers: Int?,
+        availableSpots: Int,
+        teamACount: Int,
+        teamBCount: Int,
+        organizerJSON: String? = nil
+    ) -> String {
         func players(_ prefix: String, _ count: Int) -> String {
             (0..<count)
                 .map { #"{"id":"\#(prefix)\#($0)","name":"P","status":"JOINED"}"# }
                 .joined(separator: ",")
         }
         let maxField = maxPlayers.map { #""maxPlayers":\#($0),"# } ?? ""
+        let organizerField = organizerJSON.map { #""organizer":\#($0),"# } ?? ""
         return """
         {
           "id": "m1",
@@ -30,6 +37,7 @@ final class MatchDetailItemDTOTests: XCTestCase {
           "genderType": "MIXED",
           "status": "SCHEDULED",
           \(maxField)
+          \(organizerField)
           "availableSpots": \(availableSpots),
           "teams": {
             "teamA": { "playerCount": \(teamACount), "players": [\(players("a", teamACount))] },
@@ -65,5 +73,33 @@ final class MatchDetailItemDTOTests: XCTestCase {
 
         XCTAssertEqual(item.teamAMax, 5, "(2 available + 8 players) / 2")
         XCTAssertEqual(item.teamBMax, 5)
+    }
+
+    // MARK: - Organizer
+
+    func test_toMatchItem_mapsOrganizer_withFullNameAndAvatar() throws {
+        let organizer = #"{"userId":"u-9","name":"Ana","lastName":"López","avatarUrl":"https://cdn.example.com/a.jpg"}"#
+        let dto = try decode(json: payload(maxPlayers: 10, availableSpots: 10, teamACount: 0, teamBCount: 0, organizerJSON: organizer))
+
+        let item = dto.toMatchItem()
+
+        XCTAssertEqual(item.organizer?.userId, "u-9")
+        XCTAssertEqual(item.organizer?.fullName, "Ana López")
+        XCTAssertEqual(item.organizer?.avatarUrl, "https://cdn.example.com/a.jpg")
+    }
+
+    func test_toMatchItem_organizerWithoutAvatar_hasNilAvatar() throws {
+        let organizer = #"{"userId":"u-9","name":"Ana","lastName":"López","avatarUrl":null}"#
+        let dto = try decode(json: payload(maxPlayers: 10, availableSpots: 10, teamACount: 0, teamBCount: 0, organizerJSON: organizer))
+
+        XCTAssertNil(dto.toMatchItem().organizer?.avatarUrl)
+        XCTAssertEqual(dto.toMatchItem().organizer?.fullName, "Ana López")
+    }
+
+    func test_toMatchItem_withoutOrganizer_decodesAndLeavesItNil() throws {
+        // Guest responses and backends older than the field don't send it.
+        let dto = try decode(json: payload(maxPlayers: 10, availableSpots: 10, teamACount: 0, teamBCount: 0))
+
+        XCTAssertNil(dto.toMatchItem().organizer)
     }
 }
