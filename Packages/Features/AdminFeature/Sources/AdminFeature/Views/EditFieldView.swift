@@ -29,11 +29,6 @@ struct EditFieldView: View {
                 rulesSection
                 fieldTypeSection
                 footwearSection
-                if let error = viewModel.errorMessage {
-                    Text(error)
-                        .font(FMTypography.bodySmall)
-                        .foregroundColor(FMColors.error)
-                }
             }
             .padding(.horizontal, 20)
             .padding(.top, 16)
@@ -63,6 +58,17 @@ struct EditFieldView: View {
             }
         }
         .fmToast("¡Cancha actualizada!", isPresented: $showSuccessToast, style: .success)
+        .alert(
+            L10n.Common.errorTitle,
+            isPresented: Binding(
+                get: { viewModel.errorMessage != nil },
+                set: { if !$0 { viewModel.errorMessage = nil } }
+            )
+        ) {
+            Button(L10n.Common.ok, role: .cancel) { viewModel.errorMessage = nil }
+        } message: {
+            Text(viewModel.errorMessage ?? "")
+        }
         .task { await viewModel.loadCatalogs() }
     }
 

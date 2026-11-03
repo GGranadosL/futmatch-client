@@ -11,7 +11,13 @@ import FMDesignSystem
 /// feature.
 public struct AdminDependencyFactory {
 
-    public init() {}
+    /// Which field list this factory's screens load. The admin panel passes
+    /// `.all`; everything else (organizer home, previews) keeps `.assigned`.
+    let fieldListScope: FieldListScope
+
+    public init(fieldListScope: FieldListScope = .assigned) {
+        self.fieldListScope = fieldListScope
+    }
 
     /// Registers `FMImageLoader`'s fallback for bare Cloudinary image keys
     /// (field photos), which need to go through the authenticated
@@ -33,7 +39,8 @@ public struct AdminDependencyFactory {
     func makeAdminDashboardRepository() -> AdminDashboardRepositoryProtocol {
         AdminDashboardRepository(
             fieldService: makeFieldService(),
-            matchRepository: makeAdminMatchRepository()
+            matchRepository: makeAdminMatchRepository(),
+            fieldScope: fieldListScope
         )
     }
 
@@ -138,7 +145,7 @@ public struct AdminDependencyFactory {
     // MARK: - Fields List
 
     func makeAdminFieldsRepository() -> AdminFieldsRepositoryProtocol {
-        AdminFieldsRepository(service: makeFieldService())
+        AdminFieldsRepository(service: makeFieldService(), scope: fieldListScope)
     }
 
     func makeFetchAdminFieldsUseCase() -> FetchAdminFieldsUseCaseProtocol {

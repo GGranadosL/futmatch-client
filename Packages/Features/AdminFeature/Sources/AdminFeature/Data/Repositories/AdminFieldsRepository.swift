@@ -1,15 +1,17 @@
 import Foundation
 
 /// API-backed implementation of `AdminFieldsRepositoryProtocol`.
-/// Calls `GET /fields/by-admin` and maps the response to `AdminFieldItem` list.
+/// Fetches the field list for `scope` (see `FieldListScope`).
 struct AdminFieldsRepository: AdminFieldsRepositoryProtocol {
     private let service: FieldServiceProtocol
+    private let scope: FieldListScope
 
-    init(service: FieldServiceProtocol) {
+    init(service: FieldServiceProtocol, scope: FieldListScope) {
         self.service = service
+        self.scope = scope
     }
 
     func fetchFields() async throws -> [AdminFieldItem] {
-        try await service.fetchFieldsByAdmin()
+        try await service.fetchFields(scope: scope)
     }
 }

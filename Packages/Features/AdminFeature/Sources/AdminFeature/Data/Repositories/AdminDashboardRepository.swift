@@ -4,14 +4,20 @@ import Foundation
 struct AdminDashboardRepository: AdminDashboardRepositoryProtocol {
     private let fieldService: FieldServiceProtocol
     private let matchRepository: AdminMatchRepositoryProtocol
+    private let fieldScope: FieldListScope
 
-    init(fieldService: FieldServiceProtocol, matchRepository: AdminMatchRepositoryProtocol) {
+    init(
+        fieldService: FieldServiceProtocol,
+        matchRepository: AdminMatchRepositoryProtocol,
+        fieldScope: FieldListScope
+    ) {
         self.fieldService = fieldService
         self.matchRepository = matchRepository
+        self.fieldScope = fieldScope
     }
 
     func fetchDashboard() async throws -> AdminDashboard {
-        async let fieldsFetch = fieldService.fetchFieldsByAdmin()
+        async let fieldsFetch = fieldService.fetchFields(scope: fieldScope)
         async let matchesFetch = matchRepository.fetchMatches()
         let (fields, matches) = try await (fieldsFetch, matchesFetch)
 
