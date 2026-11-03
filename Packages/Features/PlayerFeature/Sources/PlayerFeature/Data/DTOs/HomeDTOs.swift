@@ -11,6 +11,24 @@ struct HomeDataDTO: Codable {
     let profile: HomeProfileDTO
     let suggestedMatches: [HomeSuggestedMatchDTO]
     let lastMatch: HomeLastMatchDTO?
+    /// Monthly Victories summary for the Ranking card. Absent on older servers.
+    let ranking: HomeRankingDTO?
+
+    private enum CodingKeys: String, CodingKey {
+        case profile, suggestedMatches, lastMatch, ranking
+    }
+}
+
+extension HomeDataDTO {
+    /// A malformed `ranking` must not take the rest of Home down with it: it decodes
+    /// as `nil` and the card shows "unavailable".
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        profile = try c.decode(HomeProfileDTO.self, forKey: .profile)
+        suggestedMatches = try c.decode([HomeSuggestedMatchDTO].self, forKey: .suggestedMatches)
+        lastMatch = try c.decodeIfPresent(HomeLastMatchDTO.self, forKey: .lastMatch)
+        ranking = try? c.decodeIfPresent(HomeRankingDTO.self, forKey: .ranking)
+    }
 }
 
 // MARK: - Profile

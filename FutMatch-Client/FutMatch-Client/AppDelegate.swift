@@ -16,6 +16,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
 
     let adminRemoteConfig = AdminRemoteConfigRepository()
     let legalLinksRemoteConfig = LegalLinksRemoteConfigRepository()
+    let homeRankingRemoteConfig = HomeRankingRemoteConfigRepository()
 
     func application(
         _ application: UIApplication,
@@ -43,6 +44,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         }
         Task { await adminRemoteConfig.fetchAndActivate() }
         Task { await legalLinksRemoteConfig.fetchAndActivate() }
+        Task { await homeRankingRemoteConfig.fetchAndActivate() }
         #if DEBUG
         print("[🔔 FM-PUSH] FirebaseApp.configure() called")
         #endif
