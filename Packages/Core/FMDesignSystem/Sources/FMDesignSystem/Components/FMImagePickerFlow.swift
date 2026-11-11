@@ -19,6 +19,11 @@ public struct FMImagePickerFlowConfig {
     public var cancelTitle: String
     /// When true the confirmation thumbnail is rendered as a circle (avatars).
     public var circularPreview: Bool
+    /// When set, the picked photo goes to a full-screen crop step (drag + pinch)
+    /// instead of the confirmation sheet, and `onPicked` gets the cropped image.
+    public var cropShape: FMImageCropShape?
+    /// Short instruction shown under the title on the crop step.
+    public var cropHint: String?
 
     public init(
         title: String,
@@ -31,7 +36,9 @@ public struct FMImagePickerFlowConfig {
         confirmMessage: String,
         confirmButtonTitle: String,
         cancelTitle: String,
-        circularPreview: Bool = false
+        circularPreview: Bool = false,
+        cropShape: FMImageCropShape? = nil,
+        cropHint: String? = nil
     ) {
         self.title = title
         self.subtitle = subtitle
@@ -44,6 +51,8 @@ public struct FMImagePickerFlowConfig {
         self.confirmButtonTitle = confirmButtonTitle
         self.cancelTitle = cancelTitle
         self.circularPreview = circularPreview
+        self.cropShape = cropShape
+        self.cropHint = cropHint
     }
 }
 
@@ -53,7 +62,7 @@ public extension View {
     /// Attaches the FutMatch image picker flow to a view:
     ///   1. Source picker sheet → "Take photo" / "Gallery"
     ///   2. Camera (fullScreenCover) or PhotosPicker → image selected
-    ///   3. Confirmation sheet → confirm / cancel
+    ///   3. Crop screen (when `config.cropShape` is set) or confirmation sheet → confirm / cancel
     ///   4. Confirmed → `onPicked` is called with the chosen image
     ///
     /// `isPresented` is a trigger: set it to `true` to start the flow; the
@@ -74,8 +83,8 @@ public extension View {
 // MARK: - Flow Modifier
 
 /// Presentation strategy: all sheets are driven by a single `sheetItem` binding
-/// (so iOS only ever manages one sheet at a time). The camera uses a separate
-/// `fullScreenCover` which is orthogonal to sheets on iOS 16+.
+/// (so iOS only ever manages one sheet at a time). The camera and the crop
+/// step share a single `fullScreenCover`, which is orthogonal to sheets on iOS 16+.
 private struct FMImagePickerFlowModifier: ViewModifier {
     @Binding var isPresented: Bool
     let config: FMImagePickerFlowConfig
@@ -88,9 +97,11 @@ private struct FMImagePickerFlowModifier: ViewModifier {
     /// can launch it after the source-picker sheet is fully gone.
     @State private var pendingSource: PickerSource?
 
-    @State private var showCamera  = false
+    /// Drives the single full-screen cover (camera or crop step).
+    @State private var coverItem: FlowCover?
     @State private var showGallery = false
     @State private var pickerItem: PhotosPickerItem?
+    /// Photo taken with the camera, held until the camera cover is gone.
     @State private var pendingImage: UIImage?
 
     func body(content: Content) -> some View {
@@ -122,27 +133,44 @@ private struct FMImagePickerFlowModifier: ViewModifier {
                         config: config,
                         onConfirm: {
                             onPicked(image)
-                            pendingImage = nil
-                            sheetItem    = nil
+                            sheetItem = nil
                         },
                         onCancel: {
-                            pendingImage = nil
-                            sheetItem    = nil
+                            sheetItem = nil
                         }
                     )
                     .presentationDetents([.height(280)])
                     .presentationDragIndicator(.hidden)
                 }
             }
-            // ── Camera (fullScreenCover is orthogonal to .sheet on iOS 16+) ──
-            .fullScreenCover(isPresented: $showCamera, onDismiss: {
-                // onDismiss fires after the cover animation fully completes
-                if let img = pendingImage {
-                    sheetItem = .confirmation(img)
+            // ── Camera / crop (fullScreenCover is orthogonal to .sheet on iOS 16+) ──
+            // onDismiss fires after the cover animation fully completes, so a
+            // photo taken with the camera can open the crop cover from there.
+            .fullScreenCover(item: $coverItem, onDismiss: {
+                guard let img = pendingImage else { return }
+                pendingImage = nil
+                presentPreview(img)
+            }) { item in
+                switch item {
+                case .camera:
+                    FMCameraPicker(image: $pendingImage, onFinish: { coverItem = nil })
+                        .ignoresSafeArea()
+
+                case .crop(let image):
+                    FMImageCropView(
+                        image: image,
+                        shape: config.cropShape ?? .square,
+                        title: config.confirmTitle,
+                        hint: config.cropHint,
+                        confirmTitle: config.confirmButtonTitle,
+                        cancelTitle: config.cancelTitle,
+                        onConfirm: { cropped in
+                            onPicked(cropped)
+                            coverItem = nil
+                        },
+                        onCancel: { coverItem = nil }
+                    )
                 }
-            }) {
-                FMCameraPicker(image: $pendingImage, isPresented: $showCamera)
-                    .ignoresSafeArea()
             }
             // ── Gallery ───────────────────────────────────────────────────
             .photosPicker(isPresented: $showGallery, selection: $pickerItem, matching: .images)
@@ -151,11 +179,10 @@ private struct FMImagePickerFlowModifier: ViewModifier {
                     guard let item,
                           let data = try? await item.loadTransferable(type: Data.self),
                           let img  = UIImage(data: data) else { return }
-                    pendingImage = img
                     // The system photo picker needs a short window to finish its
                     // own dismiss animation before we can present another sheet.
                     try? await Task.sleep(nanoseconds: 300_000_000)
-                    sheetItem = .confirmation(img)
+                    presentPreview(img)
                 }
             }
     }
@@ -168,10 +195,21 @@ private struct FMImagePickerFlowModifier: ViewModifier {
         pendingSource = nil
         switch source {
         case .camera:
-            showCamera = true
+            pendingImage = nil
+            coverItem = .camera
         case .gallery:
             pickerItem = nil   // reset so onChange always fires on the next pick
             showGallery = true
+        }
+    }
+
+    /// Shows the picked photo: the crop step when configured, otherwise the
+    /// confirmation sheet.
+    private func presentPreview(_ image: UIImage) {
+        if config.cropShape != nil {
+            coverItem = .crop(image)
+        } else {
+            sheetItem = .confirmation(image)
         }
     }
 }
@@ -191,6 +229,18 @@ private enum FlowSheet: Identifiable {
 }
 
 private enum PickerSource { case camera, gallery }
+
+private enum FlowCover: Identifiable {
+    case camera
+    case crop(UIImage)
+
+    var id: String {
+        switch self {
+        case .camera: return "camera"
+        case .crop:   return "crop"
+        }
+    }
+}
 
 // MARK: - Source Picker Sheet
 
@@ -367,7 +417,7 @@ private struct FMImageConfirmationSheet: View {
 
 private struct FMCameraPicker: UIViewControllerRepresentable {
     @Binding var image: UIImage?
-    @Binding var isPresented: Bool
+    let onFinish: () -> Void
 
     func makeUIViewController(context: Context) -> UIImagePickerController {
         let picker = UIImagePickerController()
@@ -389,12 +439,12 @@ private struct FMCameraPicker: UIViewControllerRepresentable {
             _ picker: UIImagePickerController,
             didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]
         ) {
-            parent.image       = info[.originalImage] as? UIImage
-            parent.isPresented = false
+            parent.image = info[.originalImage] as? UIImage
+            parent.onFinish()
         }
 
         func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
-            parent.isPresented = false
+            parent.onFinish()
         }
     }
 }
