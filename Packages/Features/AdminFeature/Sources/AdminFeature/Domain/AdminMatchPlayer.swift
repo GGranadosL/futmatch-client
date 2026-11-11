@@ -1,4 +1,5 @@
 import CoreTransferable
+import FMDesignSystem
 import Foundation
 import UniformTypeIdentifiers
 
@@ -41,11 +42,7 @@ struct AdminMatchPlayer: Identifiable, Hashable, Codable {
 
     /// Flag emoji derived from an ISO-2 country code (e.g. "MX" → "🇲🇽"). Nil when unknown.
     var countryFlag: String? {
-        guard let iso = country?.uppercased(),
-              iso.count == 2,
-              iso.unicodeScalars.allSatisfy({ $0.value >= 65 && $0.value <= 90 })
-        else { return nil }
-        return iso.unicodeScalars.map { String(Unicode.Scalar($0.value + 127_397)!) }.joined()
+        CountryFlag.emoji(for: country)
     }
 
     static func == (lhs: AdminMatchPlayer, rhs: AdminMatchPlayer) -> Bool { lhs.id == rhs.id }

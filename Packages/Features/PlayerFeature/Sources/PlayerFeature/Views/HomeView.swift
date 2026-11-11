@@ -13,6 +13,9 @@ struct HomeContentView: View {
     @Binding var navigationPath: NavigationPath
     var onLogout: (() -> Void)?
     var isDemoMode: Bool = false
+    /// Changes when a push is about to open a hub: close what Home pushed.
+    var resetToken: Int = 0
+    @Environment(\.operationalNotificationsStore) private var operationalStore
 
     @State private var showNotifications = false
     @State private var showAdmin = false
@@ -94,6 +97,11 @@ struct HomeContentView: View {
         .navigationDestination(isPresented: $showOrganizer) {
             OrganizerHomeView()
         }
+        .onChange(of: resetToken) { _ in
+            showNotifications = false
+            showAdmin = false
+            showOrganizer = false
+        }
         .onChange(of: showAdmin) { isShowing in
             guard !isShowing else { return }
             Task {
@@ -161,6 +169,12 @@ struct HomeContentView: View {
                 .scaledToFit()
                 .frame(width: 22, height: 22)
                 .foregroundColor(FMColors.primary)
+                .overlay(alignment: .topTrailing) {
+                    if let operationalStore {
+                        OperationalPendingDot(store: operationalStore, inbox: isOrganizer ? .organizer : .admin)
+                            .offset(x: 5, y: -3)
+                    }
+                }
                 .frame(width: 44, height: 44)
                 .contentShape(Rectangle())
         }
@@ -424,4 +438,21 @@ struct HomeContentView: View {
     HomeContentView(selectedTab: .constant(.home), navigationPath: .constant(NavigationPath()))
         .environmentObject(HomeViewModel())
         .environmentObject(ReservedMatchesViewModel(fetchMyMatchesUseCase: factory.makeFetchMyMatchesUseCase()))
+}
+
+/// Dot on the admin button while the role's operational inbox has unread notices.
+/// The button itself stays visible by role, whatever the count.
+private struct OperationalPendingDot: View {
+    @ObservedObject var store: OperationalNotificationsStore
+    let inbox: OperationalInbox
+
+    var body: some View {
+        if store.hasUnread(inbox) {
+            Circle()
+                .fill(FMColors.error)
+                .frame(width: 9, height: 9)
+                .overlay(Circle().stroke(FMColors.background, lineWidth: 1.5))
+                .accessibilityLabel(L10n.Notifications.pendingOperationalNotices)
+        }
+    }
 }

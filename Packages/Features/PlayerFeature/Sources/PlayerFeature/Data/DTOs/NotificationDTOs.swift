@@ -73,6 +73,9 @@ enum NotificationType: String, Codable {
     case paymentSucceeded       = "PAYMENT_SUCCEEDED"
     case paymentFailed          = "PAYMENT_FAILED"
     case reservationExpired     = "RESERVATION_EXPIRED"
+    /// "Revisa el partido programado". Admin/organizer copies go to their own inboxes;
+    /// a supervisor without either role gets it here.
+    case matchPaymentWindowWarning = "MATCH_PAYMENT_WINDOW_WARNING"
     case matchCanceled          = "MATCH_CANCELED"
     case matchCompletedWinner   = "MATCH_COMPLETED_WINNER"
     case matchCompletedWinnerMvp = "MATCH_COMPLETED_WINNER_MVP"
@@ -90,6 +93,7 @@ enum NotificationType: String, Codable {
         case .matchCompletedWinnerMvp: return "star.circle"
         case .matchCompletedLoser:    return "flag.checkered"
         case .matchCompletedDraw:     return "equal.circle"
+        case .matchPaymentWindowWarning: return "calendar.badge.checkmark"
         case .unknown:                return "bell.fill"
         }
     }

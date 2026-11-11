@@ -156,9 +156,7 @@ struct PaymentHistoryView: View {
                             .font(FMTypography.bodySmall)
                             .foregroundColor(FMColors.onSurface)
                     } icon: {
-                        Image(systemName: payment.brandIcon)
-                            .font(.system(size: 13))
-                            .foregroundColor(FMColors.onSurfaceVariant)
+                        FMCardBrandMark(brand: payment.paymentMethod?.brand, width: 26)
                     }
                 }
             }

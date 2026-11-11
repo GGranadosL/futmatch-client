@@ -15,6 +15,8 @@ public struct OrganizerHomeView: View {
     @StateObject private var viewModel: AdminMatchesViewModel
     @State private var selectedTab: AdminMatchListTab = .upcoming
     @State private var selectedMatch: AdminMatch? = nil
+    @State private var showNotifications = false
+    @Environment(\.operationalNotificationsStore) private var notificationsStore
 
     private let factory: AdminDependencyFactory
 
@@ -37,6 +39,11 @@ public struct OrganizerHomeView: View {
         .navigationBarHidden(true)
         .modifier(OrganizerHideTabBarModifier())
         .task { await viewModel.load() }
+        .navigationDestination(isPresented: $showNotifications) {
+            if let notificationsStore {
+                OperationalNotificationsHubView(inbox: .organizer, store: notificationsStore)
+            }
+        }
         .navigationDestination(isPresented: Binding(
             get: { selectedMatch != nil },
             set: { if !$0 { selectedMatch = nil } }
@@ -59,10 +66,27 @@ public struct OrganizerHomeView: View {
                 FMBrandLogo()
                 Spacer()
                 if #available(iOS 26.0, *) {
-                    playerButton
-                        .glassEffect(.regular.interactive(), in: .circle)
+                    GlassEffectContainer(spacing: 8) {
+                        HStack(spacing: 8) {
+                            if let notificationsStore {
+                                OperationalBellButton(inbox: .organizer, store: notificationsStore) {
+                                    showNotifications = true
+                                }
+                                .glassEffect(.regular.interactive(), in: .circle)
+                            }
+                            playerButton
+                                .glassEffect(.regular.interactive(), in: .circle)
+                        }
+                    }
                 } else {
-                    playerButton
+                    HStack(spacing: 8) {
+                        if let notificationsStore {
+                            OperationalBellButton(inbox: .organizer, store: notificationsStore) {
+                                showNotifications = true
+                            }
+                        }
+                        playerButton
+                    }
                 }
             }
 

@@ -13,4 +13,17 @@ public enum FML10n {
             NSLocalizedString("fm.dateField.done", bundle: .module, comment: "")
         }
     }
+
+    // MARK: - Pagination
+    public enum Pagination {
+        public static var previous: String {
+            NSLocalizedString("fm.pagination.previous", bundle: .module, comment: "")
+        }
+        public static var next: String {
+            NSLocalizedString("fm.pagination.next", bundle: .module, comment: "")
+        }
+        public static func pageOf(_ page: Int, _ total: Int) -> String {
+            String(format: NSLocalizedString("fm.pagination.pageOf", bundle: .module, comment: ""), page, total)
+        }
+    }
 }
