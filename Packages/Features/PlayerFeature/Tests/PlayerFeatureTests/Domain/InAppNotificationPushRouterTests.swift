@@ -70,6 +70,38 @@ final class InAppNotificationPushRouterTests: XCTestCase {
         XCTAssertNil(InAppNotificationPushRouter.consumePendingOperationalRoute())
     }
 
+    // MARK: - Shared match links
+
+    func test_matchLink_keepsMatchPendingOnce_andPostsOpenSignal() throws {
+        let id = "123e4567-e89b-12d3-a456-426614174000"
+        let url = try XCTUnwrap(URL(string: "https://interfut.app/matches/\(id)"))
+        let opened = expectation(forNotification: .systemNotificationOpenedMatch, object: nil) { note in
+            note.userInfo?["matchId"] as? String == id
+        }
+
+        XCTAssertTrue(InAppNotificationPushRouter.handleIncomingMatchLink(url))
+
+        wait(for: [opened], timeout: 1)
+        XCTAssertEqual(InAppNotificationPushRouter.consumePendingMatchId(), id)
+        XCTAssertNil(InAppNotificationPushRouter.consumePendingMatchId())
+    }
+
+    func test_newerMatchLink_replacesPendingOne() throws {
+        let first = "123e4567-e89b-12d3-a456-426614174000"
+        let second = "223e4567-e89b-12d3-a456-426614174000"
+        InAppNotificationPushRouter.handleIncomingMatchLink(try XCTUnwrap(URL(string: "https://interfut.app/matches/\(first)")))
+        InAppNotificationPushRouter.handleIncomingMatchLink(try XCTUnwrap(URL(string: "https://interfut.app/matches/\(second)")))
+
+        XCTAssertEqual(InAppNotificationPushRouter.consumePendingMatchId(), second)
+    }
+
+    func test_invalidLink_isIgnored() throws {
+        let url = try XCTUnwrap(URL(string: "https://evil.com/matches/123e4567-e89b-12d3-a456-426614174000"))
+
+        XCTAssertFalse(InAppNotificationPushRouter.handleIncomingMatchLink(url))
+        XCTAssertNil(InAppNotificationPushRouter.consumePendingMatchId())
+    }
+
     func test_operationalPushReceived_postsOperationalSignal_notPlayerBadge() {
         let operational = expectation(forNotification: .operationalNotificationPushReceived, object: nil) { note in
             note.userInfo?["inbox"] as? String == "ADMIN"

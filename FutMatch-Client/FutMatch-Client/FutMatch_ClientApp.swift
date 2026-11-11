@@ -278,6 +278,17 @@ struct FutMatchApp: App {
                     .environmentObject(appState)
                     .environmentObject(userSession)
             }
+            // Shared match links (https://interfut.app/matches/{uuid}), on cold launch and
+            // while running. The router validates the URL and hands the id to the same
+            // path a notification tap uses; anything else (e.g. Google Sign-In's
+            // callback) is ignored there.
+            // `onOpenURL`, not `onContinueUserActivity(NSUserActivityTypeBrowsingWeb)`:
+            // this app's scene hands Universal Links to `onOpenURL`, and the activity
+            // handler never fired (checked warm and cold on the simulator). Only one
+            // of the two, so a link is never handled twice.
+            .onOpenURL { url in
+                InAppNotificationPushRouter.handleIncomingMatchLink(url)
+            }
         }
     }
 }

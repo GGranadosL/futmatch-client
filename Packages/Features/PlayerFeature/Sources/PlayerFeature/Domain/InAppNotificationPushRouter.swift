@@ -94,6 +94,29 @@ public enum InAppNotificationPushRouter {
         return true
     }
 
+    /// Call when the app is opened from a shared match link (Universal Link). Takes the
+    /// same route as a notification tap: kept as pending for a cold launch and posted as
+    /// `.systemNotificationOpenedMatch` for a UI that's already up. A newer link replaces
+    /// an older pending one. Opening never joins the match.
+    @discardableResult
+    public static func handleIncomingMatchLink(_ url: URL) -> Bool {
+        let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "FutMatch", category: "MatchLink")
+        guard let matchId = MatchShareLink.matchId(from: url) else {
+            logger.notice("Match link rejected: \(url.absoluteString, privacy: .public)")
+            return false
+        }
+        logger.notice("Match link received: \(matchId, privacy: .public)")
+        lock.lock()
+        pendingMatchId = matchId
+        lock.unlock()
+        NotificationCenter.default.post(
+            name: .systemNotificationOpenedMatch,
+            object: nil,
+            userInfo: ["matchId": matchId]
+        )
+        return true
+    }
+
     /// Returns and clears the match a tap asked for, if nobody handled it live.
     static func consumePendingMatchId() -> String? {
         lock.lock()

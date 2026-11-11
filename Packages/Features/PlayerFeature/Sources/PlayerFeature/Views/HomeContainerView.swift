@@ -32,6 +32,9 @@ public struct HomeContainerView: View {
     /// Bumped to close the screens Home pushed with flags (admin panel, notifications…)
     /// before a push opens a hub.
     @State private var homeResetToken = 0
+    /// Shown when a notification or shared link points to a match we can't load
+    /// (deleted, not visible to this user, or offline).
+    @State private var showOpenMatchError = false
 
     /// Callback for logout action
     public var onLogout: (() -> Void)?
@@ -145,6 +148,7 @@ public struct HomeContainerView: View {
         .task(id: effectiveProfileImageUrl) {
             await loadProfileTabImage()
         }
+        .fmToast(L10n.MatchDetail.openLinkError, isPresented: $showOpenMatchError, style: .error)
         .onReceive(NotificationCenter.default.publisher(for: .systemNotificationOpenedMatch)) { note in
             guard let matchId = note.userInfo?["matchId"] as? String else { return }
             _ = InAppNotificationPushRouter.consumePendingMatchId()
@@ -227,10 +231,13 @@ public struct HomeContainerView: View {
         }
     }
     
-    /// Opens the match a tapped system notification points to, on the Home tab.
+    /// Opens the match a tapped system notification or a shared link points to, on the Home tab.
     private func openMatchFromSystemNotification(_ matchId: String) {
         Task {
-            guard let match = await notificationsViewModel.match(forId: matchId) else { return }
+            guard let match = await notificationsViewModel.match(forId: matchId) else {
+                showOpenMatchError = true
+                return
+            }
             selectedTab = .home
             if #available(iOS 26.0, *) {
                 homeNavPath.append(match)

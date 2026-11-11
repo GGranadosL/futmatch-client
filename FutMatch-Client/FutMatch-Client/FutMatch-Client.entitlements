@@ -8,6 +8,10 @@
 	<array>
 		<string>Default</string>
 	</array>
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:interfut.app</string>
+	</array>
 	<key>com.apple.developer.devicecheck.appattest-environment</key>
 	<string>production</string>
 	<key>com.apple.developer.in-app-payments</key>

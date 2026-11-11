@@ -298,6 +298,27 @@ public enum L10n {
         public static var reserved: String {
             NSLocalizedString("matchDetail.reserved", bundle: .module, comment: "")
         }
+        public static var shareInvite: String {
+            NSLocalizedString("matchDetail.share.invite", bundle: .module, comment: "")
+        }
+        public static func shareField(_ value: String) -> String {
+            String(format: NSLocalizedString("matchDetail.share.field", bundle: .module, comment: ""), value)
+        }
+        public static func shareWhen(_ value: String) -> String {
+            String(format: NSLocalizedString("matchDetail.share.when", bundle: .module, comment: ""), value)
+        }
+        public static func sharePrice(_ value: String) -> String {
+            String(format: NSLocalizedString("matchDetail.share.price", bundle: .module, comment: ""), value)
+        }
+        public static func shareLocation(_ value: String) -> String {
+            String(format: NSLocalizedString("matchDetail.share.location", bundle: .module, comment: ""), value)
+        }
+        public static var shareAccessibility: String {
+            NSLocalizedString("matchDetail.share.accessibility", bundle: .module, comment: "")
+        }
+        public static var openLinkError: String {
+            NSLocalizedString("matchDetail.share.openError", bundle: .module, comment: "")
+        }
         public static var empty: String {
             NSLocalizedString("matchDetail.empty", bundle: .module, comment: "")
         }

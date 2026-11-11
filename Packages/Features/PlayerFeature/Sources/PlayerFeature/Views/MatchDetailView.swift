@@ -99,6 +99,13 @@ struct MatchDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel: MatchDetailViewModel
     private var match: MatchItem { viewModel.match }
+
+    /// Text for the share sheet. Nil in demo mode (sample ids aren't real matches)
+    /// or when the id can't form a valid link.
+    private var shareMessage: String? {
+        guard !isDemoMode, let url = MatchShareLink.url(forMatchId: match.id) else { return nil }
+        return MatchShareMessageBuilder().message(for: match, url: url)
+    }
     /// Read on demand: a guest who signs in from this screen becomes the current user.
     private var currentUserId: String? { isAuthenticated ? KeychainManager.shared.userId : nil }
     /// `false` while browsing as a guest: the roster is hidden and joining asks to sign in.
@@ -462,6 +469,13 @@ struct MatchDetailView: View {
             FMBackButton(action: { dismiss() }, isStandalone: true)
                 .padding(.leading, 16)
                 .padding(.top, 8)
+        }
+        .overlay(alignment: .topTrailing) {
+            if let shareMessage {
+                MatchShareButton(message: shareMessage)
+                    .padding(.trailing, 16)
+                    .padding(.top, 8)
+            }
         }
         .modifier(HideTabBarModifier())
         .navigationDestination(isPresented: Binding(
