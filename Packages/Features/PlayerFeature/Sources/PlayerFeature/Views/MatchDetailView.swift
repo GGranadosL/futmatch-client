@@ -117,6 +117,10 @@ struct MatchDetailView: View {
     /// Player whose public profile is being shown (drives navigation).
     @State private var selectedPlayerId: String? = nil
 
+    /// Scroll progress for the hero fade. Kept in `@State` but not observed here, so
+    /// scrolling only redraws the hero and the top bar, never this whole screen.
+    @State private var heroScroll = MatchDetailHeroScrollState()
+
     init(match: MatchItem, isDemoMode: Bool = false, source: AnalyticsJoinSource = .nearby) {
         self.isDemoMode = isDemoMode
         let factory = PlayerDependencyFactory(isDemoMode: isDemoMode)
@@ -465,6 +469,9 @@ struct MatchDetailView: View {
         // Applied before the button overlay below so the button stays on top and
         // fully tappable — the edge strip only wins hit-testing where the button isn't.
         .edgeSwipeToGoBack { dismiss() }
+        .overlay(alignment: .top) {
+            MatchDetailTopBar(state: heroScroll, title: match.venueName)
+        }
         .overlay(alignment: .topLeading) {
             FMBackButton(action: { dismiss() }, isStandalone: true)
                 .padding(.leading, 16)
@@ -648,6 +655,19 @@ struct MatchDetailView: View {
                 // reports a wider ideal size, the content still can't outgrow the
                 // screen and turn the vertical list into a sideways-panning one.
                 .frame(width: proxy.size.width)
+                .background(
+                    GeometryReader { content in
+                        Color.clear.preference(
+                            key: MatchDetailScrollTopKey.self,
+                            value: content.frame(in: .named(matchDetailScrollSpace)).minY
+                        )
+                    }
+                )
+            }
+            .coordinateSpace(name: matchDetailScrollSpace)
+            .onPreferenceChange(MatchDetailScrollTopKey.self) { top in
+                guard let top else { return }
+                heroScroll.update(contentTop: top)
             }
             .horizontalBounceOnlyWhenNeeded()
             .ignoresSafeArea(edges: .top)
@@ -689,6 +709,8 @@ struct MatchDetailView: View {
                         endPoint: .bottom
                     )
                 )
+                // Same scroll-driven fade as the profile header's pitch photo.
+                .modifier(MatchDetailHeroFadeModifier(state: heroScroll))
             
             // Venue name + badge
             VStack(alignment: .leading, spacing: 8) {
@@ -713,6 +735,8 @@ struct MatchDetailView: View {
                 organizerRow
             }
             .padding(20)
+            // White text would be lost on the background once the photo is gone.
+            .modifier(MatchDetailHeroFadeModifier(state: heroScroll))
         }
     }
 

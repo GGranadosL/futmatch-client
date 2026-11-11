@@ -61,7 +61,7 @@ UDID instead: `xcrun simctl list devices available | grep 'iPhone 17'`.
 **Expect pre-existing breakage.** Because nothing runs these suites routinely, the
 test targets drift from the sources — stale mocks, assertions against refactored
 use cases, stub signatures missing parameters the tests already pass. As of
-2026-11-10: `PlayerFeature` passes (256 tests); `AdminFeature` passes (188 tests); `OnboardingFeature` passed 102 tests on 2026-10-12.
+2026-11-10: `PlayerFeature` passes (259 tests); `AdminFeature` passes (188 tests); `OnboardingFeature` passed 102 tests on 2026-10-12.
 When a suite drifts again and breaks, fix it — but say so, and keep it separate from
 the change you came to make.
 
