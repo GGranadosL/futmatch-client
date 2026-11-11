@@ -408,3 +408,74 @@ public struct AdminDependencyFactory {
         )
     }
 }
+
+// MARK: - Admin users
+
+extension AdminDependencyFactory {
+    func makeAdminUsersService() -> AdminUsersServiceProtocol {
+        AdminUsersService()
+    }
+
+    func makeAdminUsersRepository() -> AdminUsersRepositoryProtocol {
+        AdminUsersRepository(service: makeAdminUsersService())
+    }
+
+    @MainActor
+    public func makeAdminUsersViewModel() -> AdminUsersViewModel {
+        AdminUsersViewModel(fetchUsersUseCase: FetchAdminUsersUseCase(repository: makeAdminUsersRepository()))
+    }
+
+    @MainActor
+    public func makeAdminUserProfileViewModel(userId: String, currentUserId: String?) -> AdminUserProfileViewModel {
+        let repository = makeAdminUsersRepository()
+        return AdminUserProfileViewModel(
+            userId: userId,
+            currentUserId: currentUserId,
+            fetchDetailUseCase: FetchAdminUserDetailUseCase(repository: repository),
+            updateAccessUseCase: UpdateAdminUserAccessUseCase(repository: repository)
+        )
+    }
+
+    @MainActor
+    public func makeAdminUserPaymentsViewModel(userId: String) -> AdminUserPaymentsViewModel {
+        AdminUserPaymentsViewModel(
+            userId: userId,
+            fetchPaymentsUseCase: FetchAdminUserPaymentsUseCase(repository: makeAdminUsersRepository())
+        )
+    }
+}
+
+// MARK: - Operational notifications
+
+extension AdminDependencyFactory {
+    func makeOperationalNotificationRepository() -> OperationalNotificationRepositoryProtocol {
+        OperationalNotificationRepository(service: OperationalNotificationService())
+    }
+
+    /// One per signed-in session; inject it with `.environment(\.operationalNotificationsStore, …)`.
+    @MainActor
+    public func makeOperationalNotificationsStore() -> OperationalNotificationsStore {
+        OperationalNotificationsStore(
+            fetchCountUseCase: FetchOperationalUnreadCountUseCase(repository: makeOperationalNotificationRepository())
+        )
+    }
+
+    @MainActor
+    func makeOperationalNotificationsViewModel(
+        inbox: OperationalInbox,
+        store: OperationalNotificationsStore
+    ) -> OperationalNotificationsViewModel {
+        let repository = makeOperationalNotificationRepository()
+        return OperationalNotificationsViewModel(
+            inbox: inbox,
+            store: store,
+            openInboxUseCase: OpenOperationalInboxUseCase(repository: repository),
+            deleteUseCase: DeleteOperationalNotificationUseCase(repository: repository),
+            findMatchUseCase: FindOperationalMatchUseCase(
+                adminMatches: makeFetchAdminMatchesUseCase(),
+                organizerMatches: makeFetchOrganizerMatchesUseCase()
+            ),
+            matchUnavailableMessage: L10n.OperationalNotifications.matchUnavailable
+        )
+    }
+}

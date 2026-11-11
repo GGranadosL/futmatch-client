@@ -31,15 +31,20 @@ enum NotificationEndpoint: APIEndpoint {
         }
     }
 
+    /// The player inbox, sent explicitly (the backend also defaults to it). ADMIN and
+    /// ORGANIZER inboxes live in AdminFeature.
+    static let playerInbox = URLQueryItem(name: "inbox", value: "PLAYER")
+
     var queryItems: [URLQueryItem]? {
         switch self {
         case .notifications(let limit, let offset):
             return [
+                Self.playerInbox,
                 URLQueryItem(name: "limit",  value: "\(limit)"),
                 URLQueryItem(name: "offset", value: "\(offset)")
             ]
         case .deleteNotification, .unreadCount, .markAllRead:
-            return nil
+            return [Self.playerInbox]
         }
     }
 }

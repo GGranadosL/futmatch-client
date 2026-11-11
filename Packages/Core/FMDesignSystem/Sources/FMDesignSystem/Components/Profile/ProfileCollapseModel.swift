@@ -5,7 +5,7 @@ import Foundation
 
 /// The four places the profile identity (avatar + name) is measured at.
 /// `*Start` sit in the scrolling content, `*End` in the top bar.
-enum ProfileAnchor: Hashable, CaseIterable {
+public enum ProfileAnchor: Hashable, CaseIterable {
     case avatarStart, avatarEnd, nameStart, nameEnd
 }
 
@@ -18,39 +18,44 @@ enum ProfileAnchor: Hashable, CaseIterable {
 /// There is no timed animation here on purpose — the scroll view already delivers a
 /// continuous position (with reverse and fling), and a fixed-duration animation
 /// would lag behind the content.
-struct ProfileCollapseModel: Equatable {
+public struct ProfileCollapseModel: Equatable {
     /// Start frames at scroll offset 0; end frames in the top bar. Same coordinate space.
-    var frames: [ProfileAnchor: CGRect] = [:]
-    var scrollOffset: CGFloat = 0
+    public var frames: [ProfileAnchor: CGRect] = [:]
+    public var scrollOffset: CGFloat = 0
+
+    public init(frames: [ProfileAnchor: CGRect] = [:], scrollOffset: CGFloat = 0) {
+        self.frames = frames
+        self.scrollOffset = scrollOffset
+    }
 
     /// The overlay only takes over once every anchor has been measured; until then the
     /// regular content stays visible so there is never a frame with no avatar.
-    var isReady: Bool {
+    public var isReady: Bool {
         ProfileAnchor.allCases.allSatisfy { frames[$0] != nil }
     }
 
     /// Scroll distance over which the identity travels from the content to the bar.
-    var travel: CGFloat {
+    public var travel: CGFloat {
         guard let start = frames[.nameStart], let end = frames[.nameEnd] else { return 0 }
         return max(0, start.minY - end.minY)
     }
 
-    var progress: CGFloat {
+    public var progress: CGFloat {
         guard travel > 0 else { return 0 }
         return min(max(scrollOffset / travel, 0), 1)
     }
 
     /// Ease-out, so the avatar gets to the bar slightly ahead of the name.
-    var avatarProgress: CGFloat {
+    public var avatarProgress: CGFloat {
         1 - pow(1 - progress, 2)
     }
 
     /// Frame the avatar is drawn at, including the rubber-band shift while overscrolling.
-    var avatarFrame: CGRect? {
+    public var avatarFrame: CGRect? {
         interpolatedFrame(from: .avatarStart, to: .avatarEnd, progress: avatarProgress)
     }
 
-    var nameFrame: CGRect? {
+    public var nameFrame: CGRect? {
         interpolatedFrame(from: .nameStart, to: .nameEnd, progress: progress)
     }
 
@@ -66,7 +71,7 @@ struct ProfileCollapseModel: Equatable {
         return frame
     }
 
-    static func interpolate(_ start: CGRect, _ end: CGRect, progress: CGFloat) -> CGRect {
+    public static func interpolate(_ start: CGRect, _ end: CGRect, progress: CGFloat) -> CGRect {
         CGRect(
             x: start.minX + (end.minX - start.minX) * progress,
             y: start.minY + (end.minY - start.minY) * progress,

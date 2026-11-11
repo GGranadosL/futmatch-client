@@ -74,13 +74,38 @@ final class OpenNotificationInboxUseCaseTests: XCTestCase {
         XCTAssertEqual(repo.refreshNotificationsCallCount, 1)
     }
 
-    func test_execute_neverAsksForTheUnreadCountEndpoint() async throws {
+    func test_execute_skipsReadAll_whenCounterIsKnownZeroAndHistoryHasNoUnread() async throws {
         let repo = MockNotificationRepository()
-        repo.cachedUnreadCount = 2
+        repo.refreshNotificationsResult = .success([.stub(id: "a", isRead: true)])
 
         _ = try await makeSUT(repo).execute()
 
+        XCTAssertEqual(repo.markAllReadCallCount, 0)
         XCTAssertEqual(repo.refreshUnreadCountCallCount, 0)
+    }
+
+    func test_execute_marksRead_whenCounterWasStaleAndHistoryHasUnread() async throws {
+        let repo = MockNotificationRepository()
+        repo.refreshNotificationsResult = .success([.stub(id: "a", isRead: false)])
+
+        let inbox = try await makeSUT(repo).execute()
+
+        XCTAssertEqual(repo.markAllReadCallCount, 1)
+        XCTAssertEqual(repo.refreshUnreadCountCallCount, 1, "The count is re-read after read-all")
+        XCTAssertEqual(inbox.items.first?.isRead, true)
+    }
+
+    func test_execute_rereadsCount_afterSuccessfulReadAll() async throws {
+        let repo = MockNotificationRepository()
+        repo.cachedUnreadCount = 2
+        repo.refreshNotificationsResult = .success([.stub(id: "a")])
+        repo.refreshUnreadCountResult = .success(1) // a push landed while marking
+
+        let inbox = try await makeSUT(repo).execute()
+
+        XCTAssertEqual(repo.markAllReadCallCount, 1)
+        XCTAssertEqual(repo.refreshUnreadCountCallCount, 1)
+        XCTAssertEqual(inbox.unreadCount, 1)
     }
 
     func test_execute_keepsBadgeAndStillRefreshes_whenMarkAllReadFails() async throws {
@@ -94,6 +119,8 @@ final class OpenNotificationInboxUseCaseTests: XCTestCase {
 
         XCTAssertEqual(inbox.unreadCount, 4, "A failed mark-as-read must not clear the badge")
         XCTAssertEqual(repo.refreshNotificationsCallCount, 1)
+        XCTAssertEqual(repo.markAllReadCallCount, 1, "No second attempt in the same open")
+        XCTAssertEqual(repo.refreshUnreadCountCallCount, 0)
     }
 
     func test_execute_propagatesHistoryError() async {

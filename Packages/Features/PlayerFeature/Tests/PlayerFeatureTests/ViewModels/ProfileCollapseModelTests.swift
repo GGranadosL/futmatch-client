@@ -1,5 +1,5 @@
 import XCTest
-@testable import PlayerFeature
+import FMDesignSystem
 
 final class ProfileCollapseModelTests: XCTestCase {
 

@@ -1,19 +1,24 @@
 import SwiftUI
-import FMDesignSystem
 
 // MARK: - Identity
 
-struct ProfileIdentity {
-    let name: String
-    let avatarURL: URL?
-    let defaultAvatarAssetName: String
+public struct ProfileIdentity {
+    public let name: String
+    public let avatarURL: URL?
+    public let defaultAvatarAssetName: String
+
+    public init(name: String, avatarURL: URL?, defaultAvatarAssetName: String) {
+        self.name = name
+        self.avatarURL = avatarURL
+        self.defaultAvatarAssetName = defaultAvatarAssetName
+    }
 }
 
 /// What the top bar's `leading` / `trailing` content needs to follow the collapse.
-struct ProfileBarContext {
-    let progress: CGFloat
+public struct ProfileBarContext {
+    public let progress: CGFloat
     /// White over the pitch image, the theme's content colour once the bar is plain.
-    let foreground: Color
+    public let foreground: Color
 }
 
 // MARK: - Preference keys
@@ -53,12 +58,16 @@ private extension View {
 
 /// Pitch photo behind the header. The fades and the dark layer live here rather than
 /// in the image so they follow light/dark mode and the collapse progress.
-struct ProfileHeaderBackdrop: View {
+public struct ProfileHeaderBackdrop: View {
     let collapseProgress: CGFloat
 
-    static let height: CGFloat = 400
+    public static let height: CGFloat = 400
 
-    var body: some View {
+    public init(collapseProgress: CGFloat) {
+        self.collapseProgress = collapseProgress
+    }
+
+    public var body: some View {
         let background = FMColors.background
 
         ZStack {
@@ -137,22 +146,22 @@ private struct ProfileIdentityOverlay: View {
     }
 }
 
-enum ProfileHeaderMetrics {
-    static let avatarSize: CGFloat = 132
-    static let avatarHeaderHeight: CGFloat = 180
-    static let collapsedAvatarSize: CGFloat = 32
-    static let barHeight: CGFloat = 56
-    static let expandedNameFont = FMTypography.headlineSmall
-    static let collapsedNameFont = FMTypography.titleMedium
+public enum ProfileHeaderMetrics {
+    public static let avatarSize: CGFloat = 132
+    public static let avatarHeaderHeight: CGFloat = 180
+    public static let collapsedAvatarSize: CGFloat = 32
+    public static let barHeight: CGFloat = 56
+    public static let expandedNameFont = FMTypography.headlineSmall
+    public static let collapsedNameFont = FMTypography.titleMedium
     /// Progress after which the bar switches from white to the theme's content colour.
-    static let barColorSwitch: CGFloat = 0.65
+    public static let barColorSwitch: CGFloat = 0.65
 }
 
 // MARK: - Scaffold
 
-/// Shared layout of "Mi perfil" and "Perfil de jugador": pitch backdrop, large avatar
+/// Shared layout of "Mi perfil", "Perfil de jugador" and the admin user profile: pitch backdrop, large avatar
 /// and name, scrolling content, and a bar that the avatar and name collapse into.
-struct ProfileScaffold<Leading: View, Trailing: View, Meta: View, Content: View>: View {
+public struct ProfileScaffold<Leading: View, Trailing: View, Meta: View, Content: View>: View {
     let identity: ProfileIdentity
     /// Title shown centered in the bar and faded out as the identity arrives (player profile).
     var barTitle: String?
@@ -162,6 +171,8 @@ struct ProfileScaffold<Leading: View, Trailing: View, Meta: View, Content: View>
     /// Dark gradient behind the bar so brand and icons stay readable over the photo.
     var showsBarScrim = false
     var bottomPadding: CGFloat = 40
+    /// Pitch photo behind the header. Off for plain profiles (admin user profile).
+    var showsBackdrop = true
     var onAvatarTap: (() -> Void)?
     let onRefresh: () async -> Void
     let leading: (ProfileBarContext) -> Leading
@@ -173,13 +184,14 @@ struct ProfileScaffold<Leading: View, Trailing: View, Meta: View, Content: View>
     @State private var scrollTopBaseline: CGFloat?
     @State private var scrollTop: CGFloat = 0
 
-    init(
+    public init(
         identity: ProfileIdentity,
         barTitle: String? = nil,
         leadingInset: CGFloat = 0,
         trailingReserve: CGFloat = 16,
         showsBarScrim: Bool = false,
         bottomPadding: CGFloat = 40,
+        showsBackdrop: Bool = true,
         onAvatarTap: (() -> Void)? = nil,
         onRefresh: @escaping () async -> Void,
         @ViewBuilder leading: @escaping (ProfileBarContext) -> Leading,
@@ -193,6 +205,7 @@ struct ProfileScaffold<Leading: View, Trailing: View, Meta: View, Content: View>
         self.trailingReserve = trailingReserve
         self.showsBarScrim = showsBarScrim
         self.bottomPadding = bottomPadding
+        self.showsBackdrop = showsBackdrop
         self.onAvatarTap = onAvatarTap
         self.onRefresh = onRefresh
         self.leading = leading
@@ -223,7 +236,7 @@ struct ProfileScaffold<Leading: View, Trailing: View, Meta: View, Content: View>
 
     // MARK: Body
 
-    var body: some View {
+    public var body: some View {
         GeometryReader { outer in
             let safeTop = outer.safeAreaInsets.top
             let viewport = outer.size.height + safeTop
@@ -232,7 +245,9 @@ struct ProfileScaffold<Leading: View, Trailing: View, Meta: View, Content: View>
             ZStack(alignment: .top) {
                 FMColors.background
 
-                ProfileHeaderBackdrop(collapseProgress: model.progress)
+                if showsBackdrop {
+                    ProfileHeaderBackdrop(collapseProgress: model.progress)
+                }
 
                 scrollView(model: model, safeTop: safeTop, viewport: viewport)
 
@@ -342,7 +357,7 @@ struct ProfileScaffold<Leading: View, Trailing: View, Meta: View, Content: View>
         let progress = model.progress
         let context = ProfileBarContext(
             progress: progress,
-            foreground: progress >= ProfileHeaderMetrics.barColorSwitch ? FMColors.onSurface : .white
+            foreground: (!showsBackdrop || progress >= ProfileHeaderMetrics.barColorSwitch) ? FMColors.onSurface : .white
         )
         let titleFade = min(max(progress / 0.4, 0), 1)
 

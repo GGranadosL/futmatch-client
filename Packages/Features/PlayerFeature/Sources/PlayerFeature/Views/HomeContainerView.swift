@@ -1,5 +1,6 @@
 import SwiftUI
 import CoreData
+import AdminFeature
 import FMDesignSystem
 import SharedModels
 import UIKit
@@ -23,6 +24,14 @@ public struct HomeContainerView: View {
     @StateObject private var reservedViewModel: ReservedMatchesViewModel
     @StateObject private var homeViewModel: HomeViewModel
     @StateObject private var notificationsViewModel: NotificationsViewModel
+    /// ADMIN/ORGANIZER unread counters. Rebuilt with this view on logout, so counters
+    /// never carry over to another account.
+    @StateObject private var operationalStore: OperationalNotificationsStore
+    /// A tapped admin/organizer push waiting for the user's role to be known.
+    @State private var pendingOperationalRoute: OperationalPushRoute?
+    /// Bumped to close the screens Home pushed with flags (admin panel, notifications…)
+    /// before a push opens a hub.
+    @State private var homeResetToken = 0
 
     /// Callback for logout action
     public var onLogout: (() -> Void)?
@@ -69,6 +78,7 @@ public struct HomeContainerView: View {
         ))
         _homeViewModel = StateObject(wrappedValue: factory.makeHomeViewModel())
         _notificationsViewModel = StateObject(wrappedValue: factory.makeNotificationsViewModel())
+        _operationalStore = StateObject(wrappedValue: AdminDependencyFactory().makeOperationalNotificationsStore())
         makeRankingViewModel = { route in
             factory.makeRankingViewModel(season: route.season, communityId: route.communityId)
         }
@@ -91,6 +101,7 @@ public struct HomeContainerView: View {
         .environmentObject(reservedViewModel)
         .environmentObject(homeViewModel)
         .environmentObject(notificationsViewModel)
+        .environment(\.operationalNotificationsStore, operationalStore)
         .environment(\.isAuthenticated, isAuthenticated)
         // Keyed by the session: signing in from the guest sheet keeps this view (and
         // whatever screen the user was on) and runs the account loads right away.
@@ -106,6 +117,12 @@ public struct HomeContainerView: View {
             // into Settings or the payment flow.
             Task.detached(priority: .utility) { PaymentSDKWarmup.prewarm() }
             _ = await (home, reserved, badge)
+        }
+        // The role arrives with the cached/fetched profile, possibly after the first task.
+        .task(id: operationalInbox) {
+            guard isAuthenticated, let inbox = operationalInbox else { return }
+            await operationalStore.refresh(inbox)
+            processPendingOperationalRoute()
         }
         .onChange(of: isAuthenticated) { signedIn in
             // The guest feed has no players; swap it for the full one.
@@ -133,10 +150,19 @@ public struct HomeContainerView: View {
             _ = InAppNotificationPushRouter.consumePendingMatchId()
             openMatchFromSystemNotification(matchId)
         }
+        .onReceive(NotificationCenter.default.publisher(for: .systemNotificationOpenedOperationalInbox)) { _ in
+            guard let route = InAppNotificationPushRouter.consumePendingOperationalRoute() else { return }
+            pendingOperationalRoute = route
+            processPendingOperationalRoute()
+        }
         .task {
             // Launched by tapping a notification: the tap fired before this view existed.
             if let matchId = InAppNotificationPushRouter.consumePendingMatchId() {
                 openMatchFromSystemNotification(matchId)
+            }
+            if let route = InAppNotificationPushRouter.consumePendingOperationalRoute() {
+                pendingOperationalRoute = route
+                processPendingOperationalRoute()
             }
         }
         .onChange(of: scenePhase) { phase in
@@ -144,7 +170,59 @@ public struct HomeContainerView: View {
             Task {
                 async let home: Void = homeViewModel.load()
                 async let reserved: Void = reservedViewModel.load()
-                _ = await (home, reserved)
+                async let operational: Void = refreshOperationalCount()
+                _ = await (home, reserved, operational)
+            }
+        }
+    }
+
+    // MARK: - Operational inboxes
+
+    /// The operational inbox this user's role reads, if any. An admin doesn't get the
+    /// ORGANIZER inbox implicitly.
+    private var operationalInbox: OperationalInbox? {
+        guard AdminRemoteConfig().isAdminFeatureEnabled else { return nil }
+        switch userSession.currentUser?.userRole {
+        case .administrator: return .admin
+        case .organizer: return .organizer
+        default: return nil
+        }
+    }
+
+    private func refreshOperationalCount() async {
+        guard let inbox = operationalInbox else { return }
+        await operationalStore.refresh(inbox)
+    }
+
+    /// Opens the hub a tapped admin/organizer push asked for, once the session and the
+    /// role are known. A route for an inbox the current role can't read is dropped;
+    /// the server checks it again anyway.
+    private func processPendingOperationalRoute() {
+        guard let route = pendingOperationalRoute, isAuthenticated else { return }
+        guard let role = userSession.currentUser?.userRole else { return } // wait for the profile
+        pendingOperationalRoute = nil
+        let allowed = (route.inbox == .admin && role == .administrator)
+            || (route.inbox == .organizer && role == .organizer)
+        guard allowed, AdminRemoteConfig().isAdminFeatureEnabled else { return }
+
+        Task { await operationalStore.refresh(route.inbox) }
+        selectedTab = .home
+        homeResetToken += 1
+        let destination = OperationalInboxRoute(inbox: route.inbox)
+        // Replacing the path (instead of appending) means a second tap never stacks
+        // a second hub.
+        if #available(iOS 26.0, *) {
+            homeNavPath = NavigationPath()
+        } else {
+            navigationPath = NavigationPath()
+        }
+        Task { @MainActor in
+            // Let the pops finish before pushing, or the push can be swallowed.
+            try? await Task.sleep(nanoseconds: 350_000_000)
+            if #available(iOS 26.0, *) {
+                homeNavPath.append(destination)
+            } else {
+                navigationPath.append(destination)
             }
         }
     }
@@ -176,6 +254,9 @@ public struct HomeContainerView: View {
                         }
                         .navigationDestination(for: RankingRoute.self) { route in
                             RankingView(viewModel: makeRankingViewModel(route))
+                        }
+                        .navigationDestination(for: OperationalInboxRoute.self) { route in
+                            OperationalNotificationsHubView(inbox: route.inbox, store: operationalStore)
                         }
                 }
             }
@@ -255,6 +336,9 @@ public struct HomeContainerView: View {
                 .navigationDestination(for: RankingRoute.self) { route in
                     RankingView(viewModel: makeRankingViewModel(route))
                 }
+                .navigationDestination(for: OperationalInboxRoute.self) { route in
+                    OperationalNotificationsHubView(inbox: route.inbox, store: operationalStore)
+                }
         }
     }
     
@@ -319,7 +403,12 @@ public struct HomeContainerView: View {
     @ViewBuilder
     private func homeTabRoot(navigationPath: Binding<NavigationPath>) -> some View {
         if isAuthenticated {
-            HomeContentView(selectedTab: $selectedTab, navigationPath: navigationPath, isDemoMode: isDemoMode)
+            HomeContentView(
+                selectedTab: $selectedTab,
+                navigationPath: navigationPath,
+                isDemoMode: isDemoMode,
+                resetToken: homeResetToken
+            )
         } else {
             GuestSignInPromptView(
                 context: .home,
@@ -393,3 +482,7 @@ public struct HomeContainerView: View {
     HomeContainerView()
 }
 
+/// Navigation value for an operational inbox hub opened from a push.
+struct OperationalInboxRoute: Hashable {
+    let inbox: OperationalInbox
+}

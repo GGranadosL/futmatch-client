@@ -173,6 +173,8 @@ struct FutMatchApp: App {
             // Drop the notification history, unread counter and cache timestamp so the
             // next user never sees this account's badge.
             PlayerDependencyFactory().clearNotificationState()
+            // A tapped push from this session must not open anything for the next account.
+            InAppNotificationPushRouter.clearPendingRoutes()
             // Drop persisted regional matches versions so the next account
             // re-fetches the full list instead of sending a stale sinceVersion.
             PlayerDependencyFactory().clearMatchVersions()

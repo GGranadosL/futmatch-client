@@ -57,15 +57,6 @@ extension PaymentHistoryItem {
         return formatter.string(from: date)
     }
 
-    var brandIcon: String {
-        switch paymentMethod?.brand.lowercased() {
-        case "visa": return "creditcard"
-        case "mastercard": return "creditcard"
-        case "amex": return "creditcard"
-        default: return "creditcard"
-        }
-    }
-
     var isRefunded: Bool {
         refund != nil
     }

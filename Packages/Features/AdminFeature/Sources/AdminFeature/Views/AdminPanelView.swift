@@ -22,6 +22,9 @@ public struct AdminPanelView: View {
     @State private var locations: [AdminLocation] = []
     @State private var selectedMatch: AdminMatch? = nil
     @State private var showDesktopScanner = false
+    @State private var showUsers = false
+    @State private var showNotifications = false
+    @Environment(\.operationalNotificationsStore) private var notificationsStore
 
     private let factory: AdminDependencyFactory
     private let remoteConfig: AdminRemoteConfigProtocol
@@ -118,6 +121,15 @@ public struct AdminPanelView: View {
                 .modifier(HideTabBarModifier())
             }
         }
+        .navigationDestination(isPresented: $showNotifications) {
+            if let notificationsStore {
+                OperationalNotificationsHubView(inbox: .admin, store: notificationsStore)
+            }
+        }
+        .navigationDestination(isPresented: $showUsers) {
+            AdminUsersListView(viewModel: factory.makeAdminUsersViewModel(), factory: factory)
+                .modifier(HideTabBarModifier())
+        }
         .fullScreenCover(isPresented: $showDesktopScanner) {
             DesktopEnrollmentScannerView(viewModel: factory.makeDesktopEnrollmentViewModel())
         }
@@ -161,6 +173,12 @@ public struct AdminPanelView: View {
         if #available(iOS 26.0, *) {
             GlassEffectContainer(spacing: 8) {
                 HStack(spacing: 8) {
+                    if let notificationsStore {
+                        OperationalBellButton(inbox: .admin, store: notificationsStore) {
+                            showNotifications = true
+                        }
+                        .glassEffect(.regular.interactive(), in: .circle)
+                    }
                     if remoteConfig.isDesktopEnrollmentEnabled {
                         desktopEnrollmentButton
                             .glassEffect(.regular.interactive(), in: .circle)
@@ -171,6 +189,11 @@ public struct AdminPanelView: View {
             }
         } else {
             HStack(spacing: 8) {
+                if let notificationsStore {
+                    OperationalBellButton(inbox: .admin, store: notificationsStore) {
+                        showNotifications = true
+                    }
+                }
                 if remoteConfig.isDesktopEnrollmentEnabled { desktopEnrollmentButton }
                 playerButton
             }
@@ -234,6 +257,9 @@ public struct AdminPanelView: View {
             }
             AdminActionCard(icon: "mappin.and.ellipse", title: L10n.Admin.ActionCard.Title.newLocation) {
                 showNewLocation = true
+            }
+            AdminActionCard(icon: "person.2", title: L10n.AdminUsers.dashboardAction) {
+                showUsers = true
             }
         }
         .padding(.horizontal, 24)
