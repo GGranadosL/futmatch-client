@@ -657,6 +657,9 @@ public enum L10n {
         public static var confirmImageMessage: String {
             NSLocalizedString("editProfile.confirmImageMessage", bundle: .module, comment: "")
         }
+        public static var cropHint: String {
+            NSLocalizedString("editProfile.cropHint", bundle: .module, comment: "")
+        }
         public static var useImage: String {
             NSLocalizedString("editProfile.useImage", bundle: .module, comment: "")
         }

@@ -133,7 +133,9 @@ struct EditProfileView: View {
                 confirmMessage: L10n.EditProfile.confirmImageMessage,
                 confirmButtonTitle: L10n.EditProfile.useImage,
                 cancelTitle: L10n.EditProfile.cancel,
-                circularPreview: true
+                circularPreview: true,
+                cropShape: .circle,
+                cropHint: L10n.EditProfile.cropHint
             )
         ) { uiImage in
             selectedImage = uiImage
