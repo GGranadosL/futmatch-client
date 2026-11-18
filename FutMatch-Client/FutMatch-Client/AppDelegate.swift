@@ -165,7 +165,7 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
         if !MatchPushRouter.handleRemoteNotification(userInfo) {
             InAppNotificationPushRouter.handleRemoteNotification(userInfo)
         }
-        return [.banner, .sound, .badge]
+        return [.banner, .list, .sound, .badge]
     }
 
     /// Tapping a notification from the system opens the match it refers to.

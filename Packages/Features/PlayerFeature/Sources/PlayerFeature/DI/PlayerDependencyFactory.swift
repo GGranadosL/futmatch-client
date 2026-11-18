@@ -274,6 +274,28 @@ public struct PlayerDependencyFactory {
         )
     }
 
+    // MARK: - Notification Preferences
+
+    func makeNotificationPreferencesRepository() -> NotificationPreferencesRepositoryProtocol {
+        NotificationPreferencesRepository(service: NotificationPreferencesService(apiClient: .shared))
+    }
+
+    func makeGetMatchInvitesEnabledUseCase() -> GetMatchInvitesEnabledUseCaseProtocol {
+        GetMatchInvitesEnabledUseCase(repository: makeNotificationPreferencesRepository())
+    }
+
+    func makeSetMatchInvitesEnabledUseCase() -> SetMatchInvitesEnabledUseCaseProtocol {
+        SetMatchInvitesEnabledUseCase(repository: makeNotificationPreferencesRepository())
+    }
+
+    @MainActor
+    func makeMatchInvitesPreferenceViewModel() -> MatchInvitesPreferenceViewModel {
+        MatchInvitesPreferenceViewModel(
+            getEnabledUseCase: makeGetMatchInvitesEnabledUseCase(),
+            setEnabledUseCase: makeSetMatchInvitesEnabledUseCase()
+        )
+    }
+
     // MARK: - Notifications
 
     func makeNotificationRepository() -> NotificationRepositoryProtocol {

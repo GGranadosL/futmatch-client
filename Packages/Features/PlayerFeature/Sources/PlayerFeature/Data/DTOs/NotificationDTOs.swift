@@ -81,6 +81,8 @@ enum NotificationType: String, Codable {
     case matchCompletedWinnerMvp = "MATCH_COMPLETED_WINNER_MVP"
     case matchCompletedLoser    = "MATCH_COMPLETED_LOSER"
     case matchCompletedDraw     = "MATCH_COMPLETED_DRAW"
+    /// Automatic invite to a match with open spots the user isn't in.
+    case matchInvite            = "MATCH_INVITE"
     case unknown
 
     var iconName: String {
@@ -94,6 +96,7 @@ enum NotificationType: String, Codable {
         case .matchCompletedLoser:    return "flag.checkered"
         case .matchCompletedDraw:     return "equal.circle"
         case .matchPaymentWindowWarning: return "calendar.badge.checkmark"
+        case .matchInvite:            return "person.badge.plus"
         case .unknown:                return "bell.fill"
         }
     }
