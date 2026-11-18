@@ -5391,6 +5391,57 @@
           }
         }
       }
+    },
+    "settings.matchInvites" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Match invites"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invitaciones a partidos"
+          }
+        }
+      }
+    },
+    "settings.matchInvitesDesc" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Get notified when a match has open spots"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Te avisamos cuando un partido tiene lugares libres"
+          }
+        }
+      }
+    },
+    "settings.matchInvitesUpdateError" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "We couldn't update match invites. Try again."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No pudimos actualizar las invitaciones a partidos. Intenta de nuevo."
+          }
+        }
+      }
     }
   },
   "version" : "1.1"

@@ -27,6 +27,7 @@ struct SettingsView: View {
     @StateObject private var paymentMethodsVM: PaymentMethodsViewModel
     @StateObject private var deleteAccountVM: DeleteAccountViewModel
     @StateObject private var paymentSecurityVM: PaymentSecurityViewModel
+    @StateObject private var matchInvitesVM: MatchInvitesPreferenceViewModel
     @State private var showPaymentHistory = false
     @State private var safariURL: URL? = nil
     @State private var showLogoutAlert = false
@@ -35,6 +36,7 @@ struct SettingsView: View {
     @State private var showDeleteAccountSuccessToast = false
     @State private var showBiometricErrorToast = false
     @State private var showPaymentSecurityErrorToast = false
+    @State private var showMatchInvitesErrorToast = false
     private let linksConfig: LegalLinksProtocol
 
     init(
@@ -43,6 +45,7 @@ struct SettingsView: View {
         paymentMethodsViewModel: PaymentMethodsViewModel? = nil,
         deleteAccountViewModel: DeleteAccountViewModel? = nil,
         paymentSecurityViewModel: PaymentSecurityViewModel? = nil,
+        matchInvitesViewModel: MatchInvitesPreferenceViewModel? = nil,
         paymentHistoryViewModelFactory: (() -> PaymentHistoryViewModel)? = nil,
         linksConfig: LegalLinksProtocol = LegalLinksConfig()
     ) {
@@ -56,6 +59,7 @@ struct SettingsView: View {
             authorizeUseCase: PlayerDependencyFactory().makeAuthorizeSensitiveActionUseCase()
         ))
         _paymentSecurityVM = StateObject(wrappedValue: paymentSecurityViewModel ?? PlayerDependencyFactory().makePaymentSecurityViewModel())
+        _matchInvitesVM = StateObject(wrappedValue: matchInvitesViewModel ?? PlayerDependencyFactory().makeMatchInvitesPreferenceViewModel())
     }
 
     // MARK: - Row Data
@@ -121,6 +125,7 @@ struct SettingsView: View {
                             settingsRowView(row)
                         }
                         paymentSecurityRow
+                        matchInvitesRow
                         ForEach(bottomGeneralRows) { row in
                             settingsRowView(row)
                         }
@@ -226,6 +231,7 @@ struct SettingsView: View {
         }
         .task {
             paymentSecurityVM.load()
+            await matchInvitesVM.load()
         }
         .background(
             CustomerSheetPresenter(
@@ -300,6 +306,13 @@ struct SettingsView: View {
         .onChange(of: showPaymentSecurityErrorToast) { showing in
             if !showing { paymentSecurityVM.clearError() }
         }
+        .onChange(of: matchInvitesVM.errorMessage != nil) { hasError in
+            if hasError { showMatchInvitesErrorToast = true }
+        }
+        .fmToast(matchInvitesVM.errorMessage ?? "", isPresented: $showMatchInvitesErrorToast, style: .error)
+        .onChange(of: showMatchInvitesErrorToast) { showing in
+            if !showing { matchInvitesVM.clearError() }
+        }
     }
 
     // MARK: - Payment Security Row
@@ -351,6 +364,44 @@ struct SettingsView: View {
                 }
             }
         )
+    }
+
+    // MARK: - Match Invites Row
+
+    /// Server-side preference: saved with `PATCH /user/notification-preferences`.
+    /// The switch moves at once; a failed save puts it back and shows an error toast.
+    private var matchInvitesRow: some View {
+        HStack(spacing: 14) {
+            Image(systemName: "person.badge.plus")
+                .font(.system(size: 18, weight: .medium))
+                .foregroundColor(FMColors.primary)
+                .frame(width: 28, height: 28)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(L10n.Settings.matchInvites)
+                    .font(FMTypography.bodyMedium)
+                    .foregroundColor(FMColors.onSurface)
+
+                Text(L10n.Settings.matchInvitesDesc)
+                    .font(FMTypography.bodySmall)
+                    .foregroundColor(FMColors.onSurfaceVariant)
+            }
+
+            Spacer()
+
+            if matchInvitesVM.isSaving {
+                ProgressView()
+            } else {
+                Toggle("", isOn: Binding(
+                    get: { matchInvitesVM.isEnabled },
+                    set: { newValue in Task { await matchInvitesVM.setEnabled(newValue) } }
+                ))
+                .labelsHidden()
+                .tint(FMColors.primary)
+                .disabled(!matchInvitesVM.isLoaded)
+            }
+        }
+        .padding(.vertical, 4)
     }
 
     // MARK: - Row View

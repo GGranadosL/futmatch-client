@@ -518,6 +518,15 @@ public enum L10n {
         public static var paymentSecurityBiometricFailedError: String {
             NSLocalizedString("settings.paymentSecurityBiometricFailedError", bundle: .module, comment: "")
         }
+        public static var matchInvites: String {
+            NSLocalizedString("settings.matchInvites", bundle: .module, comment: "")
+        }
+        public static var matchInvitesDesc: String {
+            NSLocalizedString("settings.matchInvitesDesc", bundle: .module, comment: "")
+        }
+        public static var matchInvitesUpdateError: String {
+            NSLocalizedString("settings.matchInvitesUpdateError", bundle: .module, comment: "")
+        }
         public static var help: String {
             NSLocalizedString("settings.help", bundle: .module, comment: "")
         }
