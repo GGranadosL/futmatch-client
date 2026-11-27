@@ -280,7 +280,11 @@ public struct PlayerDependencyFactory {
         let service: NotificationServiceProtocol = isDemoMode
             ? DemoNotificationService()
             : NotificationService()
-        return NotificationRepository(service: service, cache: Self.sharedNotificationCacheStore)
+        return NotificationRepository(
+            service: service,
+            cache: Self.sharedNotificationCacheStore,
+            badge: SystemAppIconBadge()
+        )
     }
 
     @MainActor

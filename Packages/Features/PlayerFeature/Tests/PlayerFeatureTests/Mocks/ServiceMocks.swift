@@ -408,6 +408,15 @@ final class MockNotificationCacheStore: NotificationCacheStoreProtocol {
     }
 }
 
+// MARK: - MockAppIconBadge
+
+final class MockAppIconBadge: AppIconBadgeProtocol {
+    private(set) var counts: [Int] = []
+    var lastCount: Int? { counts.last }
+
+    func setCount(_ count: Int) { counts.append(count) }
+}
+
 // MARK: - MockNotificationRepository
 
 final class MockNotificationRepository: NotificationRepositoryProtocol {
@@ -462,6 +471,9 @@ final class MockNotificationRepository: NotificationRepositoryProtocol {
         cachedUnreadCount += 1
         return cachedUnreadCount
     }
+
+    private(set) var syncAppIconBadgeCallCount = 0
+    func syncAppIconBadge() { syncAppIconBadgeCallCount += 1 }
 
     func clearAll() {
         clearCallCount += 1

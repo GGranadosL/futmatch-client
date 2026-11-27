@@ -11,7 +11,10 @@ struct LoadCachedNotificationsUseCase: LoadCachedNotificationsUseCaseProtocol {
         self.repository = repository
     }
 
+    /// Also puts the cached counter on the app icon, so it is right from launch,
+    /// before the session's unread count comes back from the server.
     func execute() -> NotificationInbox {
-        NotificationInbox(items: repository.cachedNotifications, unreadCount: repository.cachedUnreadCount)
+        repository.syncAppIconBadge()
+        return NotificationInbox(items: repository.cachedNotifications, unreadCount: repository.cachedUnreadCount)
     }
 }

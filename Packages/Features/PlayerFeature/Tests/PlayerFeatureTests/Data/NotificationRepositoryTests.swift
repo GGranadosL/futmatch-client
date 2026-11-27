@@ -7,9 +7,10 @@ final class NotificationRepositoryTests: XCTestCase {
 
     private func makeSUT(
         service: MockNotificationService = MockNotificationService(),
-        cache: MockNotificationCacheStore = MockNotificationCacheStore()
+        cache: MockNotificationCacheStore = MockNotificationCacheStore(),
+        badge: MockAppIconBadge = MockAppIconBadge()
     ) -> NotificationRepository {
-        NotificationRepository(service: service, cache: cache, now: { self.now })
+        NotificationRepository(service: service, cache: cache, badge: badge, now: { self.now })
     }
 
     func test_refreshNotifications_replacesCacheAndStampsTime_butLeavesCounter() async throws {
@@ -96,5 +97,79 @@ final class NotificationRepositoryTests: XCTestCase {
 
         XCTAssertEqual(count, 5)
         XCTAssertEqual(cache.unreadCount, 5)
+    }
+
+    // MARK: - App icon badge
+
+    func test_refreshUnreadCount_putsServerCountOnAppIcon() async throws {
+        let service = MockNotificationService()
+        service.unreadCountResult = .success(3)
+        let badge = MockAppIconBadge()
+
+        _ = try await makeSUT(service: service, badge: badge).refreshUnreadCount()
+
+        XCTAssertEqual(badge.lastCount, 3)
+    }
+
+    func test_refreshUnreadCount_leavesAppIcon_whenRequestFails() async {
+        let service = MockNotificationService()
+        service.unreadCountResult = .failure(TestError.boom)
+        let badge = MockAppIconBadge()
+
+        _ = try? await makeSUT(service: service, badge: badge).refreshUnreadCount()
+
+        XCTAssertTrue(badge.counts.isEmpty)
+    }
+
+    func test_markAllAsRead_clearsAppIcon() async throws {
+        let cache = MockNotificationCacheStore()
+        cache.unreadCount = 2
+        let badge = MockAppIconBadge()
+
+        try await makeSUT(cache: cache, badge: badge).markAllAsRead()
+
+        XCTAssertEqual(badge.lastCount, 0)
+    }
+
+    func test_markAllAsRead_leavesAppIcon_whenRequestFails() async {
+        let service = MockNotificationService()
+        service.markAllReadResult = .failure(TestError.boom)
+        let cache = MockNotificationCacheStore()
+        cache.unreadCount = 2
+        let badge = MockAppIconBadge()
+
+        try? await makeSUT(service: service, cache: cache, badge: badge).markAllAsRead()
+
+        XCTAssertTrue(badge.counts.isEmpty)
+    }
+
+    func test_registerIncomingNotification_putsNewCountOnAppIcon() {
+        let cache = MockNotificationCacheStore()
+        cache.unreadCount = 2
+        let badge = MockAppIconBadge()
+
+        makeSUT(cache: cache, badge: badge).registerIncomingNotification()
+
+        XCTAssertEqual(badge.lastCount, 3)
+    }
+
+    func test_clearAll_clearsAppIcon() {
+        let cache = MockNotificationCacheStore()
+        cache.unreadCount = 5
+        let badge = MockAppIconBadge()
+
+        makeSUT(cache: cache, badge: badge).clearAll()
+
+        XCTAssertEqual(badge.lastCount, 0)
+    }
+
+    func test_syncAppIconBadge_mirrorsCachedCounter() {
+        let cache = MockNotificationCacheStore()
+        cache.unreadCount = 3
+        let badge = MockAppIconBadge()
+
+        makeSUT(cache: cache, badge: badge).syncAppIconBadge()
+
+        XCTAssertEqual(badge.lastCount, 3)
     }
 }

@@ -22,4 +22,6 @@ protocol NotificationRepositoryProtocol {
     @discardableResult
     func registerIncomingNotification() -> Int
     func clearAll()
+    /// Sets the app icon badge to the cached unread counter.
+    func syncAppIconBadge()
 }

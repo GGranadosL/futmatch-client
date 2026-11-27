@@ -71,3 +71,16 @@ final class NotificationCounterUseCasesTests: XCTestCase {
         XCTAssertTrue(repo.cachedNotifications.isEmpty)
     }
 }
+
+final class LoadCachedNotificationsUseCaseBadgeTests: XCTestCase {
+
+    func test_execute_syncsAppIconWithCachedCounter() {
+        let repository = MockNotificationRepository()
+        repository.cachedUnreadCount = 3
+
+        let inbox = LoadCachedNotificationsUseCase(repository: repository).execute()
+
+        XCTAssertEqual(inbox.unreadCount, 3)
+        XCTAssertEqual(repository.syncAppIconBadgeCallCount, 1)
+    }
+}
