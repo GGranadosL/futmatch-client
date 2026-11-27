@@ -5,15 +5,18 @@ import Foundation
 struct NotificationRepository: NotificationRepositoryProtocol {
     private let service: NotificationServiceProtocol
     private let cache: NotificationCacheStoreProtocol
+    private let badge: AppIconBadgeProtocol
     private let now: () -> Date
 
     init(
         service: NotificationServiceProtocol,
         cache: NotificationCacheStoreProtocol,
+        badge: AppIconBadgeProtocol,
         now: @escaping () -> Date = Date.init
     ) {
         self.service = service
         self.cache = cache
+        self.badge = badge
         self.now = now
     }
 
@@ -30,6 +33,7 @@ struct NotificationRepository: NotificationRepositoryProtocol {
     func refreshUnreadCount() async throws -> Int {
         let count = try await service.fetchUnreadCount()
         cache.setUnreadCount(count)
+        syncAppIconBadge()
         return count
     }
 
@@ -37,6 +41,7 @@ struct NotificationRepository: NotificationRepositoryProtocol {
         // A 2xx is success even when there was nothing left to mark.
         try await service.markAllAsRead()
         cache.markAllRead()
+        syncAppIconBadge()
     }
 
     func deleteNotification(id: String) async throws {
@@ -47,10 +52,18 @@ struct NotificationRepository: NotificationRepositoryProtocol {
     func registerIncomingNotification() -> Int {
         let count = cache.unreadCount + 1
         cache.setUnreadCount(count)
+        syncAppIconBadge()
         return count
     }
 
     func clearAll() {
         cache.clear()
+        badge.setCount(0)
+    }
+
+    /// The app icon shows the same number as the bell. Every change to the counter
+    /// above ends here, so the two can't drift apart.
+    func syncAppIconBadge() {
+        badge.setCount(cache.unreadCount)
     }
 }
